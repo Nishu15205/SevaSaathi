@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// SevaSaathi - Verified Home Care & Elder Support Platform
+// Database Schema (MySQL-designed, SQLite runtime for sandbox)
+// For production MySQL: change provider to "mysql" and update DATABASE_URL
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +11,420 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ============================================================
+// ENUMS (stored as String in SQLite, native ENUM in MySQL)
+// ============================================================
+
+// User roles
+enum UserRole {
+  FAMILY
+  CAREGIVER
+  ADMIN
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Verification document types
+enum VerificationType {
+  AADHAAR
+  PAN
+  DRIVING_LICENSE
+  NURSING_CERTIFICATE
+  MEDICAL_DEGREE
+  POLICE_VERIFICATION
+  ADDRESS_PROOF
+  OTHER
+}
+
+// Verification status
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// Booking status
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// Shift types
+enum ShiftType {
+  DAY_SHIFT
+  NIGHT_SHIFT
+  TWELVE_HOUR
+  TWENTY_FOUR_HOUR
+  HOURLY
+}
+
+// Complaint status
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+// Notification types
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  CAREGIVER_ARRIVED
+  CARE_REPORT_SUBMITTED
+  REVIEW_REQUEST
+  PAYMENT_RECEIVED
+  VERIFICATION_UPDATE
+  URGENT_REQUEST
+  SYSTEM
+}
+
+// Care activity types for daily reports
+enum CareActivityType {
+  FEEDING
+  BATHING
+  HYGIENE
+  MOBILITY
+  MEDICINE
+  EXERCISE
+  COMPANIONSHIP
+  VITAL_CHECK
+  WOUND_CARE
+  OTHER
+}
+
+// Subscription plans
+enum SubscriptionPlan {
+  NONE
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+// Payment status
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ============================================================
+// USER & AUTH
+// ============================================================
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  passwordHash   String           @map("password_hash")
+  phone          String
+  name           String
+  role           UserRole
+  avatarUrl      String?          @map("avatar_url")
+  subscription   SubscriptionPlan @default(NONE)
+  isActive       Boolean          @default(true) @map("is_active")
+  lastLoginAt    DateTime?        @map("last_login_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  patientProfiles  Patient[]
+  caregiverProfile Caregiver?
+  bookings         Booking[]
+  payments         Payment[]
+  reviews          Review[]
+  complaints       Complaint[]
+  notifications    Notification[]
+  reviewedVerifications Verification[] @relation("VerificationReviewer")
+  assignedComplaints    Complaint[] @relation("ComplaintAssignee")
+
+  @@map("users")
+}
+
+// ============================================================
+// PATIENT PROFILES (created by family members)
+// ============================================================
+
+model Patient {
+  id              String   @id @default(cuid())
+  familyId        String   @map("family_id")
+  name            String
+  age             Int
+  gender          String
+  relationship    String   // e.g., "mother", "father", "spouse"
+  address         String
+  city            String
+  pincode         String?
+  medicalHistory  String   @map("medical_history") // JSON string for SQLite
+  dietaryNeeds    String?  @map("dietary_needs")
+  mobilityStatus  String   @default("mobile") @map("mobility_status") // mobile, bedridden, limited, wheelchair
+  careRequirements String  @map("care_requirements") // JSON string
+  preferredLanguage String? @map("preferred_language")
+  emergencyContact String   @map("emergency_contact") // JSON: {name, phone, relation}
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  family    User      @relation(fields: [familyId], references: [id])
+  bookings  Booking[]
+
+  @@index([familyId])
+  @@index([city])
+  @@map("patients")
+}
+
+// ============================================================
+// CAREGIVER PROFILES
+// ============================================================
+
+model Caregiver {
+  id              String          @id @default(cuid())
+  userId          String          @unique @map("user_id")
+  gender          String?
+  dateOfBirth     DateTime?       @map("date_of_birth")
+  address         String
+  city            String
+  pincode         String?
+  latitude        Float?          // For geo-matching
+  longitude       Float?
+  yearsExperience Int             @default(0) @map("years_experience")
+  qualifications  String          // JSON array: ["BSc Nursing", "GNM", etc.]
+  skills          String          // JSON array: ["bedridden-care", "feeding", "wound-care", etc.]
+  languages       String?         // JSON array: ["Hindi", "English", "Punjabi"]
+  bio             String?
+  hourlyRate      Int             @map("hourly_rate") // in INR
+  availabilityJson String          @map("availability_json") // JSON: {mon: {day: true, night: false}, ...}
+  overallRating   Float           @default(0) @map("overall_rating")
+  totalReviews    Int             @default(0) @map("total_reviews")
+  completedJobs   Int             @default(0) @map("completed_jobs")
+  isVerified      Boolean         @default(false) @map("is_verified")
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id])
+  verifications Verification[]
+  bookings      Booking[]
+  careReports   CareReport[]
+  reviews       Review[]
+  payments      Payment[]
+  complaints    Complaint[]
+
+  @@index([city])
+  @@index([isVerified])
+  @@index([isActive])
+  @@map("caregivers")
+}
+
+// ============================================================
+// VERIFICATION DOCUMENTS
+// ============================================================
+
+model Verification {
+  id           String            @id @default(cuid())
+  caregiverId  String            @map("caregiver_id")
+  docType      VerificationType  @map("doc_type")
+  docNumber    String            @map("doc_number")
+  docUrl       String            @map("doc_url") // stored file path or URL
+  status       VerificationStatus @default(PENDING)
+  reviewedBy   String?           @map("reviewed_by") // admin user ID
+  reviewedAt   DateTime?         @map("reviewed_at")
+  rejectionReason String?        @map("rejection_reason")
+  expiresAt    DateTime?         @map("expires_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  caregiver Caregiver @relation(fields: [caregiverId], references: [id])
+  reviewer  User?    @relation("VerificationReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([caregiverId])
+  @@index([status])
+  @@map("verifications")
+}
+
+// ============================================================
+// BOOKINGS
+// ============================================================
+
+model Booking {
+  id             String        @id @default(cuid())
+  patientId      String        @map("patient_id")
+  caregiverId    String        @map("caregiver_id")
+  familyId       String        @map("family_id")
+  shiftType      ShiftType     @map("shift_type")
+  startDate      DateTime      @map("start_date")
+  endDate        DateTime?     @map("end_date")
+  startTime      String        @map("start_time") // "20:00"
+  endTime        String        @map("end_time")   // "08:00"
+  careRequirements String       @map("care_requirements") // JSON: specific needs for this booking
+  status         BookingStatus @default(PENDING)
+  familyNotes    String?       @map("family_notes")
+  caregiverNotes String?       @map("caregiver_notes")
+  cancellationReason String?    @map("cancellation_reason")
+  totalAmount    Int           @default(0) @map("total_amount") // in INR
+  platformFee    Int           @default(0) @map("platform_fee") // 10% commission
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  patient    Patient    @relation(fields: [patientId], references: [id])
+  caregiver  Caregiver  @relation(fields: [caregiverId], references: [id])
+  family     User       @relation(fields: [familyId], references: [id])
+  payment    Payment?
+  careReports CareReport[]
+  reviews    Review[]
+  complaints Complaint[]
+
+  @@index([patientId])
+  @@index([caregiverId])
+  @@index([familyId])
+  @@index([status])
+  @@index([startDate])
+  @@map("bookings")
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+model Payment {
+  id              String        @id @default(cuid())
+  bookingId       String        @unique @map("booking_id")
+  familyId        String        @map("family_id")
+  caregiverId     String        @map("caregiver_id")
+  amount          Int           // total amount in paise
+  platformFee     Int           @default(0) @map("platform_fee")
+  caregiverPayout Int           @default(0) @map("caregiver_payout") // amount - platformFee
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String?       @map("payment_method") // "razorpay", "upi", etc.
+  transactionId   String?       @map("transaction_id")
+  paidAt          DateTime?     @map("paid_at")
+  refundedAt      DateTime?     @map("refunded_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+  family    User      @relation(fields: [familyId], references: [id])
+  caregiver Caregiver @relation(fields: [caregiverId], references: [id])
+
+  @@index([familyId])
+  @@index([caregiverId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ============================================================
+// CARE REPORTS (daily reports submitted by caregivers)
+// ============================================================
+
+model CareReport {
+  id         String   @id @default(cuid())
+  bookingId  String   @map("booking_id")
+  caregiverId String  @map("caregiver_id")
+  reportDate String   @map("report_date") // "2025-01-15"
+  activities  String   // JSON array of care activities
+  summary    String?
+  mood       String?  @default("normal") // good, normal, upset, unwell
+  foodIntake String?  @default("normal") @map("food_intake") // good, normal, poor, refused
+  medicinesGiven String? @map("medicines_given") // JSON: [{"name": "Metformin", "time": "08:00", "given": true}]
+  concerns   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+  caregiver Caregiver @relation(fields: [caregiverId], references: [id])
+
+  @@index([bookingId])
+  @@index([caregiverId])
+  @@index([reportDate])
+  @@map("care_reports")
+}
+
+// ============================================================
+// REVIEWS
+// ============================================================
+
+model Review {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique @map("booking_id")
+  familyId    String   @map("family_id")
+  caregiverId String   @map("caregiver_id")
+  rating      Int      // 1-5
+  communicationRating Int @default(0) @map("communication_rating")
+  punctualityRating   Int @default(0) @map("punctuality_rating")
+  careQualityRating   Int @default(0) @map("care_quality_rating")
+  comment     String?
+  isPublished Boolean @default(true) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+  family    User      @relation(fields: [familyId], references: [id])
+  caregiver Caregiver @relation(fields: [caregiverId], references: [id])
+
+  @@index([caregiverId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+// ============================================================
+// COMPLAINTS
+// ============================================================
+
+model Complaint {
+  id          String          @id @default(cuid())
+  bookingId   String?         @map("booking_id")
+  familyId    String          @map("family_id")
+  caregiverId String          @map("caregiver_id")
+  subject     String
+  description String
+  status      ComplaintStatus @default(OPEN)
+  priority    String          @default("medium") // low, medium, high, urgent
+  assignedTo  String?         @map("assigned_to") // admin user ID
+  resolution  String?
+  resolvedAt  DateTime?       @map("resolved_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  booking   Booking?  @relation(fields: [bookingId], references: [id])
+  family    User      @relation(fields: [familyId], references: [id])
+  caregiver Caregiver  @relation(fields: [caregiverId], references: [id])
+  assignee  User?     @relation("ComplaintAssignee", fields: [assignedTo], references: [id])
+
+  @@index([familyId])
+  @@index([caregiverId])
+  @@index([status])
+  @@map("complaints")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id         String          @id @default(cuid())
+  userId     String          @map("user_id")
+  type       NotificationType
+  title      String
+  message    String
+  data       String?         // JSON: additional metadata
+  isRead     Boolean         @default(false) @map("is_read")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
 }
