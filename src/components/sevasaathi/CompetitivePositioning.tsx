@@ -5,56 +5,51 @@ import { Check, X } from "lucide-react";
 
 const comparisons = [
   {
-    feature: "End-to-End Care Workflow",
-    typical: false,
+    feature: "Verified Caregivers",
     sevasaathi: true,
-  },
-  {
-    feature: "Verified Profiles + Admin Review",
     typical: false,
-    sevasaathi: true,
   },
   {
-    feature: "Daily Care Reports & Updates",
+    feature: "Smart Matching",
+    sevasaathi: true,
     typical: false,
-    sevasaathi: true,
   },
   {
-    feature: "Requirement-Based Smart Matching",
+    feature: "Real-time Updates",
+    sevasaathi: true,
     typical: false,
-    sevasaathi: true,
   },
   {
-    feature: "Family Monitoring & Notifications",
+    feature: "Care Reports",
+    sevasaathi: true,
     typical: false,
-    sevasaathi: true,
   },
   {
-    feature: "Booking + Schedule + Replacement",
+    feature: "Reviews & Ratings",
+    sevasaathi: true,
     typical: false,
+  },
+  {
+    feature: "Background Checks",
     sevasaathi: true,
-  },
-  {
-    feature: "Contact Discovery Only",
-    typical: true,
-    sevasaathi: false,
-  },
-  {
-    feature: "Manual Caregiver Selection",
-    typical: true,
-    sevasaathi: false,
-  },
-  {
-    feature: "Limited Family Visibility",
-    typical: true,
-    sevasaathi: false,
+    typical: false,
   },
 ];
 
+const rowVariants = {
+  hidden: { opacity: 0, x: -12 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { delay: i * 0.07, duration: 0.35, ease: "easeOut" },
+  }),
+};
+
 export default function CompetitivePositioning() {
   return (
-    <section className="py-20 lg:py-28 bg-warm-50">
+    <section className="py-20 lg:py-28 bg-white">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        {/* Heading */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -62,72 +57,76 @@ export default function CompetitivePositioning() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <p className="text-sm font-semibold text-teal-600 tracking-wider uppercase mb-3">
+          <p className="text-sm font-semibold text-forest-700 tracking-wider uppercase mb-3">
             Why SevaSaathi
           </p>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-4">
             Not Just Another Directory
           </h2>
           <p className="text-muted-foreground text-lg">
-            Unlike informal caregiver searches, SevaSaathi provides a complete care
-            management platform built around trust.
+            SevaSaathi provides a complete care management platform built
+            around trust and transparency.
           </p>
         </motion.div>
 
+        {/* Comparison Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-white rounded-2xl border border-border/40 overflow-hidden shadow-sm"
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="rounded-2xl border border-gray-200 overflow-hidden"
         >
-          {/* Table Header */}
-          <div className="grid grid-cols-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white">
-            <div className="p-4 font-semibold text-sm">Feature</div>
-            <div className="p-4 font-semibold text-sm text-center">
-              Typical Directory
+          {/* Header Row */}
+          <div className="grid grid-cols-3">
+            <div className="p-4 text-sm font-semibold text-foreground bg-gray-50">
+              Feature
             </div>
-            <div className="p-4 font-semibold text-sm text-center">
+            <div className="p-4 text-sm font-semibold text-center text-muted-foreground bg-gray-50">
+              Typical Agencies
+            </div>
+            <div className="p-4 text-sm font-semibold text-center text-white green-gradient-bg">
               SevaSaathi
             </div>
           </div>
 
-          {/* Table Rows */}
+          {/* Data Rows */}
           {comparisons.map((row, index) => (
-            <div
-              key={index}
-              className={`grid grid-cols-3 border-b border-border/30 last:border-0 ${
-                index % 2 === 0 ? "bg-white" : "bg-warm-50/50"
+            <motion.div
+              key={row.feature}
+              custom={index}
+              variants={rowVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className={`grid grid-cols-3 border-t border-gray-100 ${
+                index % 2 === 0 ? "bg-white" : "bg-forest-50/40"
               }`}
             >
-              <div className="p-4 text-sm font-medium">{row.feature}</div>
+              <div className="p-4 text-sm font-medium text-foreground">
+                {row.feature}
+              </div>
+
+              {/* Typical Agencies Column */}
               <div className="p-4 flex justify-center">
                 {row.typical ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
-                    <Check className="h-3 w-3" />
-                    Yes
-                  </span>
+                  <Check className="h-4 w-4 text-forest-600" />
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                    <X className="h-3 w-3" />
-                    No
-                  </span>
+                  <X className="h-4 w-4 text-red-400" />
                 )}
               </div>
-              <div className="p-4 flex justify-center">
+
+              {/* SevaSaathi Column */}
+              <div className="p-4 flex justify-center bg-forest-50/30">
                 {row.sevasaathi ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full">
-                    <Check className="h-3 w-3" />
-                    Yes
+                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-lime-400">
+                    <Check className="h-3.5 w-3.5 text-forest-900" />
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                    <X className="h-3 w-3" />
-                    No
-                  </span>
+                  <X className="h-4 w-4 text-red-400" />
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
         </motion.div>
       </div>

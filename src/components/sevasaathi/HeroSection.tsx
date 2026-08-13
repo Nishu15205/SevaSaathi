@@ -1,182 +1,153 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  CalendarCheck,
-  Monitor,
-  ArrowRight,
-  ShieldCheck,
-  Star,
-  Users,
-} from "lucide-react";
 import { motion } from "framer-motion";
+import { Star, Users, MapPin, ArrowRight } from "lucide-react";
 import Image from "next/image";
 
-const stats = [
-  { icon: ShieldCheck, value: "500+", label: "Verified Caregivers" },
-  { icon: Users, value: "2,000+", label: "Families Served" },
-  { icon: Star, value: "4.8", label: "Average Rating" },
+const trustItems = [
+  { icon: Star, value: "4.8", label: "Rating" },
+  { icon: Users, value: "500+", label: "Verified Caregivers" },
+  { icon: MapPin, value: "Delhi NCR", label: "Service Area" },
 ];
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen hero-gradient overflow-hidden pt-20 lg:pt-24">
-      {/* Decorative elements */}
-      <div className="absolute top-20 right-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 left-0 w-80 h-80 bg-amber-200/20 rounded-full blur-3xl" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-100/10 rounded-full blur-3xl" />
+    <section
+      id="hero"
+      className="relative min-h-screen flex items-center overflow-hidden"
+    >
+      {/* Full-width background image */}
+      <div className="absolute inset-0">
+        <Image
+          src="/hero-bg.png"
+          alt="Home care background"
+          fill
+          className="object-cover"
+          priority
+        />
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+      </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center min-h-[calc(100vh-5rem)]">
-          {/* Left Content */}
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
-            className="flex flex-col gap-6"
-          >
-            <Badge
-              variant="secondary"
-              className="w-fit bg-teal-100 text-teal-800 border-teal-200 px-4 py-1.5 text-sm font-medium"
+      {/* Content */}
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 lg:py-32 w-full">
+        <div className="grid lg:grid-cols-5 gap-12 lg:gap-16 items-center">
+          {/* Left: Text content (3 cols) */}
+          <div className="lg:col-span-3 flex flex-col gap-6">
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="inline-flex items-center gap-2 text-sm font-medium text-lime-400 tracking-wide uppercase"
             >
-              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-              Trusted by 2,000+ families across Delhi NCR
-            </Badge>
+              <span className="inline-block w-2 h-2 rounded-full bg-lime-400" />
+              Trusted Home Care in Delhi NCR
+            </motion.p>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
-              Find the{" "}
-              <span className="gradient-text">Right Caregiver</span>{" "}
-              for Your Loved Ones
-            </h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white leading-[1.08] tracking-tight max-w-2xl"
+            >
+              Personalized home care solutions for{" "}
+              <span className="text-lime-400">your loved ones</span>
+            </motion.h1>
 
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-xl leading-relaxed">
-              SevaSaathi connects families with verified nurses and caregivers
-              for elderly care, bedridden patient support, and everyday
-              home assistance. Book confidently. Monitor from anywhere.
-            </p>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.35 }}
+              className="text-lg sm:text-xl text-white/80 max-w-xl leading-relaxed"
+            >
+              SevaSaathi connects you with verified nurses and caregivers for
+              elderly care, patient support, and everyday home assistance.
+            </motion.p>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-2">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white shadow-lg shadow-teal-200/50 text-base px-8 h-12"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Find a Caregiver
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="border-teal-200 text-teal-700 hover:bg-teal-50 text-base px-8 h-12"
-              >
-                <CalendarCheck className="h-4 w-4 mr-2" />
-                Book Care Now
-              </Button>
-            </div>
-
-            {/* Quick value props */}
-            <div className="flex flex-wrap gap-4 mt-4">
-              {[Search, CalendarCheck, Monitor].map((Icon, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100">
-                    <Icon className="h-4 w-4 text-teal-700" />
-                  </div>
-                  <span className="font-medium text-foreground">
-                    {["Find", "Book", "Monitor"][i]}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Right Image */}
-          <motion.div
-            initial={{ opacity: 0, x: 40, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-            className="relative"
-          >
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-teal-900/10">
-              <Image
-                src="/hero-illustration.png"
-                alt="SevaSaathi - Caring nurse helping elderly patient at home"
-                width={1344}
-                height={768}
-                className="w-full h-auto object-cover"
-                priority
-              />
-              {/* Overlay gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-teal-900/10 to-transparent" />
-            </div>
-
-            {/* Floating stat cards */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-              className="absolute -bottom-4 -left-4 sm:left-4 bg-white rounded-2xl shadow-xl p-4 border border-teal-100"
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="flex flex-col sm:flex-row gap-4 mt-4"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                  <ShieldCheck className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Verified</p>
-                  <p className="font-semibold text-sm">100% Background Check</p>
-                </div>
-              </div>
+              <button className="btn-black inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base">
+                Get Started
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button className="btn-outline-black border-white/60 text-white hover:bg-white hover:text-black inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base">
+                Learn More
+              </button>
             </motion.div>
+          </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 1 }}
-              className="absolute -top-4 -right-4 sm:right-4 bg-white rounded-2xl shadow-xl p-4 border border-amber-100"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-                  <Star className="h-5 w-5 text-amber-600 fill-amber-500" />
+          {/* Right: Floating trust badge (2 cols) */}
+          <motion.div
+            initial={{ opacity: 0, x: 40, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.6, ease: "easeOut" }}
+            className="lg:col-span-2 flex justify-center lg:justify-end"
+          >
+            <div className="bg-white rounded-2xl shadow-2xl shadow-black/20 p-6 sm:p-8 w-full max-w-xs">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-forest-900">
+                  <Star className="h-5 w-5 text-lime-400 fill-lime-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Average</p>
-                  <p className="font-semibold text-sm">4.8 Star Rating</p>
+                  <p className="font-bold text-forest-900 text-lg">SevaSaathi</p>
+                  <p className="text-xs text-gray-500">Verified & Trusted</p>
                 </div>
               </div>
-            </motion.div>
+
+              {/* Trust items */}
+              <div className="flex flex-col gap-4">
+                {trustItems.map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      duration: 0.4,
+                      delay: 0.9 + i * 0.15,
+                    }}
+                    className="flex items-center gap-3"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-lime-50 shrink-0">
+                      <item.icon className="h-4 w-4 text-forest-900" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-forest-900 text-sm">
+                        {item.value}
+                      </p>
+                      <p className="text-xs text-gray-500">{item.label}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Mini progress bar */}
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                  <span>Caregiver Match Rate</span>
+                  <span className="font-semibold text-forest-900">96%</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: "96%" }}
+                    transition={{ duration: 1.2, delay: 1.4, ease: "easeOut" }}
+                    className="h-full rounded-full bg-gradient-to-r from-forest-900 to-forest-700"
+                  />
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
-
-        {/* Stats Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.2 }}
-          className="mt-16 lg:mt-24 pb-16"
-        >
-          <div className="rounded-2xl bg-white/80 backdrop-blur-sm border border-teal-100/60 shadow-lg shadow-teal-900/5 p-6 sm:p-8">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-              {stats.map((stat, i) => (
-                <div key={i} className="flex items-center gap-4 justify-center sm:justify-start">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-50">
-                    <stat.icon className="h-6 w-6 text-teal-700" />
-                  </div>
-                  <div>
-                    <p className="text-2xl sm:text-3xl font-bold gradient-text">
-                      {stat.value}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
       </div>
+
+      {/* Bottom fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent" />
     </section>
   );
 }

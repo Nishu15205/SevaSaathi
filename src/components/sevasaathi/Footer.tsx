@@ -1,7 +1,15 @@
 "use client";
 
-import { Heart, Mail, Phone, MapPin, ArrowUpRight } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import {
+  Heart,
+  Mail,
+  Phone,
+  MapPin,
+  Facebook,
+  Twitter,
+  Instagram,
+  Linkedin,
+} from "lucide-react";
 
 const footerLinks = {
   Platform: [
@@ -27,61 +35,69 @@ const footerLinks = {
   ],
 };
 
+const socialLinks = [
+  { icon: Facebook, href: "#", label: "Facebook" },
+  { icon: Twitter, href: "#", label: "Twitter" },
+  { icon: Instagram, href: "#", label: "Instagram" },
+  { icon: Linkedin, href: "#", label: "LinkedIn" },
+];
+
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-b from-warm-100 to-warm-50 border-t border-border/40">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
-          {/* Brand Column */}
+    <footer className="bg-[#111111] text-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-8">
+        {/* Main 4-column grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 lg:gap-12 mb-14">
+          {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700">
-                <Heart className="h-4 w-4 text-white fill-white" />
+            <div className="flex items-center gap-2 mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest-700">
+                <Heart className="h-4 w-4 text-lime-400 fill-lime-400" />
               </div>
-              <span className="text-lg font-bold">
-                <span className="gradient-text">Seva</span>
-                <span className="text-foreground">Saathi</span>
+              <span className="text-lg font-bold text-white">
+                Seva<span className="text-lime-400">Saathi</span>
               </span>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-xs">
+            <p className="text-sm text-gray-400 leading-relaxed mb-6 max-w-xs">
               Verified home care & elder support platform. Connecting families
               with trusted caregivers across Delhi NCR.
             </p>
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <a
                 href="tel:+911234567890"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-teal-700 transition-colors"
+                className="flex items-center gap-2.5 text-sm text-gray-400 hover:text-lime-400 transition-colors"
               >
-                <Phone className="h-3.5 w-3.5" />
+                <Phone className="h-4 w-4 shrink-0" />
                 +91 123 456 7890
               </a>
               <a
                 href="mailto:hello@sevasaathi.in"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-teal-700 transition-colors"
+                className="flex items-center gap-2.5 text-sm text-gray-400 hover:text-lime-400 transition-colors"
               >
-                <Mail className="h-3.5 w-3.5" />
+                <Mail className="h-4 w-4 shrink-0" />
                 hello@sevasaathi.in
               </a>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2.5 text-sm text-gray-400">
+                <MapPin className="h-4 w-4 shrink-0" />
                 Delhi NCR, India
               </div>
             </div>
           </div>
 
-          {/* Link Columns */}
+          {/* Link columns */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="font-semibold text-sm mb-4">{category}</h4>
-              <ul className="space-y-2.5">
+              <h4 className="font-semibold text-sm text-white mb-5">
+                {category}
+              </h4>
+              <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-sm text-muted-foreground hover:text-teal-700 transition-colors inline-flex items-center gap-1 group"
+                      className="text-sm text-gray-400 hover:text-lime-400 transition-colors"
                     >
                       {link.label}
-                      <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </a>
                   </li>
                 ))}
@@ -90,15 +106,25 @@ export default function Footer() {
           ))}
         </div>
 
-        <Separator className="my-8 bg-border/40" />
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">
+        {/* Bottom bar */}
+        <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-gray-500">
             &copy; {new Date().getFullYear()} SevaSaathi. All rights reserved.
           </p>
-          <p className="text-xs text-muted-foreground">
-            Currently serving Delhi NCR. Expanding to other cities soon.
-          </p>
+
+          {/* Social icons */}
+          <div className="flex items-center gap-4">
+            {socialLinks.map((social) => (
+              <a
+                key={social.label}
+                href={social.href}
+                aria-label={social.label}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-gray-400 hover:bg-white/10 hover:text-lime-400 transition-all"
+              >
+                <social.icon className="h-4 w-4" />
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </footer>

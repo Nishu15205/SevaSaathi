@@ -1,55 +1,57 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Search, Phone, ArrowRight } from "lucide-react";
+import { ArrowRight, Phone } from "lucide-react";
 
 export default function CTASection() {
   return (
-    <section className="py-20 lg:py-28 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800" />
-      <div className="absolute inset-0 section-pattern opacity-10" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-80 h-80 bg-teal-300/10 rounded-full blur-3xl" />
+    <section className="py-20 lg:py-28 green-gradient-bg relative overflow-hidden">
+      {/* Decorative blobs */}
+      <div className="absolute top-0 right-0 w-72 h-72 bg-lime-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-forest-400/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
         >
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight mb-6">
-            Make Home Care Easier to Find,
-            <br />
-            Easier to Trust
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight mb-6">
+            Ready to find the
+            <br className="hidden sm:block" /> perfect caregiver?
           </h2>
-          <p className="text-teal-100 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+
+          <p className="text-white/80 text-lg sm:text-xl max-w-xl mx-auto mb-10 leading-relaxed">
             Join thousands of families who trust SevaSaathi for verified,
-            reliable home care. Your loved ones deserve the best — and so do you.
+            reliable home care across Delhi NCR.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-white text-teal-700 hover:bg-teal-50 shadow-xl shadow-teal-900/20 text-base px-8 h-12"
+            {/* White filled button */}
+            <motion.a
+              href="#"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-forest-900 font-semibold px-8 py-3.5 text-base transition-colors hover:bg-lime-100"
             >
-              <Search className="h-4 w-4 mr-2" />
-              Find a Caregiver
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="border-white/30 text-white hover:bg-white/10 text-base px-8 h-12"
+              Get Started
+              <ArrowRight className="h-4 w-4" />
+            </motion.a>
+
+            {/* White outlined button */}
+            <motion.a
+              href="#"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-white/40 text-white font-semibold px-8 py-3.5 text-base transition-all hover:bg-white/10 hover:border-white/70"
             >
-              <Phone className="h-4 w-4 mr-2" />
-              Call Helpline
-            </Button>
+              <Phone className="h-4 w-4" />
+              Contact Us
+            </motion.a>
           </div>
 
-          <p className="text-teal-200/70 text-sm mt-6">
+          <p className="text-white/50 text-sm mt-8">
             Currently serving Delhi NCR. Expanding to other Indian cities soon.
           </p>
         </motion.div>
