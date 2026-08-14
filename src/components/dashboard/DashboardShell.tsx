@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import {
   Heart,
@@ -27,6 +27,8 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { api } from '@/lib/api';
 import { useAuthStore, type User } from '@/stores/authStore';
 import { FamilyDashboard } from './FamilyDashboard';
 import { CaregiverDashboard } from './CaregiverDashboard';
@@ -64,6 +66,19 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
+    setNotifLoading(true);
+    try {
+      const res = await api.notifications.list(user.id);
+      setNotifications(res.notifications || []);
+    } catch {}
+    finally { setNotifLoading(false); }
+  }, [user?.id]);
 
   const navItems = user?.role === 'CAREGIVER' ? caregiverNavItems : familyNavItems;
 
@@ -210,14 +225,51 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl relative"
-              >
-                <Bell className="h-4.5 w-4.5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-lime-400 rounded-full" />
-              </Button>
+              <Popover open={notifOpen} onOpenChange={(open) => { setNotifOpen(open); if (open) fetchNotifications(); }}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl relative"
+                  >
+                    <Bell className="h-4.5 w-4.5" />
+                    {notifications.length > 0 && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-lime-400 rounded-full" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 p-0 rounded-2xl">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-800">Notifications</h4>
+                    {notifications.length > 0 && (
+                      <span className="text-xs text-forest-600 font-medium">{notifications.length} new</span>
+                    )}
+                  </div>
+                  <ScrollArea className="h-72">
+                    {notifLoading ? (
+                      <div className="p-4 text-center text-sm text-gray-400">Loading...</div>
+                    ) : notifications.length === 0 ? (
+                      <div className="p-6 text-center">
+                        <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">No new notifications</p>
+                        <p className="text-xs text-gray-400 mt-1">We will notify you about bookings and updates</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-50">
+                        {notifications.map((n: any) => (
+                          <div key={n.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                            <p className="text-sm font-medium text-gray-800">{n.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">
+                              {new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
 
               <div className="hidden sm:flex items-center gap-2 ml-2">
                 <Avatar className="h-8 w-8">

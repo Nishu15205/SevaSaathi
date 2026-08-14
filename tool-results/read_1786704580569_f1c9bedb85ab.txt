@@ -1,0 +1,1373 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion } from 'framer-motion';
+     5→import {
+     6→  CalendarCheck,
+     7→  CheckCircle2,
+     8→  Star,
+     9→  IndianRupee,
+    10→  MapPin,
+    11→  Clock,
+    12→  ShieldCheck,
+    13→  Award,
+    14→  FileText,
+    15→  Send,
+    16→  Loader2,
+    17→  AlertCircle,
+    18→  HeartPulse,
+    19→  Utensils,
+    20→  Pill,
+    21→  MessageCircle,
+    22→  UserRound,
+    23→  ClipboardList,
+    24→  Briefcase,
+    25→  Languages,
+    26→  Stethoscope,
+    27→  ChevronRight,
+    28→  RefreshCw,
+    29→  Sparkles,
+    30→  Activity,
+    31→} from 'lucide-react';
+    32→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    33→import { Button } from '@/components/ui/button';
+    34→import { Badge } from '@/components/ui/badge';
+    35→import { Skeleton } from '@/components/ui/skeleton';
+    36→import { Separator } from '@/components/ui/separator';
+    37→import { Textarea } from '@/components/ui/textarea';
+    38→import { Label } from '@/components/ui/label';
+    39→import {
+    40→  Select,
+    41→  SelectContent,
+    42→  SelectItem,
+    43→  SelectTrigger,
+    44→  SelectValue,
+    45→} from '@/components/ui/select';
+    46→import { api } from '@/lib/api';
+    47→import type { User } from '@/stores/authStore';
+    48→import { toast } from 'sonner';
+    49→
+    50→/* ============================================================ */
+    51→/* TYPES                                                         */
+    52→/* ============================================================ */
+    53→
+    54→interface CaregiverDashboardProps {
+    55→  activeTab: string;
+    56→  user: User;
+    57→}
+    58→
+    59→interface Booking {
+    60→  id: string;
+    61→  status: string;
+    62→  date: string;
+    63→  startTime: string;
+    64→  endTime: string;
+    65→  shiftType: string;
+    66→  familyName?: string;
+    67→  patientName?: string;
+    68→  patientAge?: number;
+    69→  careType?: string;
+    70→  specialNotes?: string;
+    71→  totalAmount?: number;
+    72→  createdAt: string;
+    73→}
+    74→
+    75→interface Review {
+    76→  id: string;
+    77→  overallRating: number;
+    78→  communicationRating: number;
+    79→  punctualityRating: number;
+    80→  careQualityRating: number;
+    81→  comment: string;
+    82→  familyName?: string;
+    83→  createdAt: string;
+    84→}
+    85→
+    86→/* ============================================================ */
+    87→/* SHARED HELPERS                                                 */
+    88→/* ============================================================ */
+    89→
+    90→const statusColors: Record<string, string> = {
+    91→  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    92→  CONFIRMED: 'bg-blue-100 text-blue-800 border-blue-200',
+    93→  IN_PROGRESS: 'bg-green-100 text-green-800 border-green-200',
+    94→  COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200',
+    95→  CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+    96→  NO_SHOW: 'bg-orange-100 text-orange-700 border-orange-200',
+    97→};
+    98→
+    99→const statusLabels: Record<string, string> = {
+   100→  PENDING: 'Pending',
+   101→  CONFIRMED: 'Confirmed',
+   102→  IN_PROGRESS: 'In Progress',
+   103→  COMPLETED: 'Completed',
+   104→  CANCELLED: 'Cancelled',
+   105→  NO_SHOW: 'No Show',
+   106→};
+   107→
+   108→const moodIcons: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+   109→  good: { icon: <Sparkles className="h-4 w-4" />, label: 'Good', color: 'text-green-600 bg-green-50' },
+   110→  normal: { icon: <Activity className="h-4 w-4" />, label: 'Normal', color: 'text-blue-600 bg-blue-50' },
+   111→  upset: { icon: <MessageCircle className="h-4 w-4" />, label: 'Upset', color: 'text-orange-600 bg-orange-50' },
+   112→  unwell: { icon: <HeartPulse className="h-4 w-4" />, label: 'Unwell', color: 'text-red-600 bg-red-50' },
+   113→};
+   114→
+   115→const foodIntakeLabels: Record<string, string> = {
+   116→  good: 'Good',
+   117→  normal: 'Normal',
+   118→  poor: 'Poor',
+   119→  refused: 'Refused',
+   120→};
+   121→
+   122→const foodIntakeColors: Record<string, string> = {
+   123→  good: 'text-green-700 bg-green-50',
+   124→  normal: 'text-blue-700 bg-blue-50',
+   125→  poor: 'text-orange-700 bg-orange-50',
+   126→  refused: 'text-red-700 bg-red-50',
+   127→};
+   128→
+   129→function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+   130→  return (
+   131→    <div className="flex flex-col items-center justify-center py-16 text-center">
+   132→      <div className="w-16 h-16 rounded-2xl bg-forest-50 flex items-center justify-center mb-4 text-forest-400">
+   133→        {icon}
+   134→      </div>
+   135→      <h3 className="text-base font-semibold text-gray-800 mb-1">{title}</h3>
+   136→      <p className="text-sm text-gray-400 max-w-sm">{description}</p>
+   137→    </div>
+   138→  );
+   139→}
+   140→
+   141→function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+   142→  return (
+   143→    <div className="flex flex-col items-center justify-center py-16 text-center">
+   144→      <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4 text-red-400">
+   145→        <AlertCircle className="h-7 w-7" />
+   146→      </div>
+   147→      <h3 className="text-base font-semibold text-gray-800 mb-1">Something went wrong</h3>
+   148→      <p className="text-sm text-gray-400 max-w-sm mb-4">{message}</p>
+   149→      {onRetry && (
+   150→        <Button variant="outline" size="sm" onClick={onRetry} className="rounded-xl">
+   151→          Try Again
+   152→        </Button>
+   153→      )}
+   154→    </div>
+   155→  );
+   156→}
+   157→
+   158→function LoadingGrid({ count = 4 }: { count?: number }) {
+   159→  return (
+   160→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   161→      {Array.from({ length: count }).map((_, i) => (
+   162→        <Skeleton key={i} className="h-28 rounded-2xl" />
+   163→      ))}
+   164→    </div>
+   165→  );
+   166→}
+   167→
+   168→function LoadingCards({ count = 3 }: { count?: number }) {
+   169→  return (
+   170→    <div className="space-y-3">
+   171→      {Array.from({ length: count }).map((_, i) => (
+   172→        <Skeleton key={i} className="h-24 rounded-2xl" />
+   173→      ))}
+   174→    </div>
+   175→  );
+   176→}
+   177→
+   178→function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
+   179→  const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4.5 w-4.5';
+   180→  return (
+   181→    <div className="flex items-center gap-0.5">
+   182→      {[1, 2, 3, 4, 5].map((star) => (
+   183→        <Star
+   184→          key={star}
+   185→          className={`${iconSize} ${
+   186→            star <= Math.round(rating)
+   187→              ? 'fill-lime-400 text-lime-400'
+   188→              : 'fill-gray-200 text-gray-200'
+   189→          }`}
+   190→        />
+   191→      ))}
+   192→    </div>
+   193→  );
+   194→}
+   195→
+   196→function parseJsonSafe(jsonStr: string | null | undefined): string[] {
+   197→  if (!jsonStr) return [];
+   198→  try {
+   199→    const parsed = JSON.parse(jsonStr);
+   200→    return Array.isArray(parsed) ? parsed : [];
+   201→  } catch {
+   202→    return jsonStr.split(',').map((s) => s.trim()).filter(Boolean);
+   203→  }
+   204→}
+   205→
+   206→function formatDate(dateStr: string): string {
+   207→  try {
+   208→    return new Date(dateStr).toLocaleDateString('en-IN', {
+   209→      day: 'numeric',
+   210→      month: 'short',
+   211→      year: 'numeric',
+   212→    });
+   213→  } catch {
+   214→    return dateStr;
+   215→  }
+   216→}
+   217→
+   218→function getTodayDate(): string {
+   219→  const now = new Date();
+   220→  const year = now.getFullYear();
+   221→  const month = String(now.getMonth() + 1).padStart(2, '0');
+   222→  const day = String(now.getDate()).padStart(2, '0');
+   223→  return `${year}-${month}-${day}`;
+   224→}
+   225→
+   226→/* ============================================================ */
+   227→/* OVERVIEW TAB                                                  */
+   228→/* ============================================================ */
+   229→
+   230→function OverviewTab({ user }: { user: User }) {
+   231→  const profile = user.caregiverProfile;
+   232→  const [bookings, setBookings] = useState<Booking[]>([]);
+   233→  const [loading, setLoading] = useState(true);
+   234→  const [error, setError] = useState('');
+   235→
+   236→  const fetchData = useCallback(async () => {
+   237→    if (!profile?.id) return;
+   238→    setLoading(true);
+   239→    setError('');
+   240→    try {
+   241→      const res = await api.bookings.list({ caregiverId: profile.id });
+   242→      const all = (res.bookings || []).map((b: any) => ({
+   243→        ...b,
+   244→        date: b.startDate,
+   245→        patientName: b.patient?.name,
+   246→        familyName: b.family?.name,
+   247→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+   248→      }));
+   249→      setBookings(all);
+   250→    } catch (err: any) {
+   251→      setError(err.message || 'Failed to load dashboard data');
+   252→    } finally {
+   253→      setLoading(false);
+   254→    }
+   255→  }, [profile?.id]);
+   256→
+   257→  useEffect(() => {
+   258→    fetchData();
+   259→  }, [fetchData]);
+   260→
+   261→  if (loading) {
+   262→    return (
+   263→      <div className="space-y-6">
+   264→        <LoadingGrid count={4} />
+   265→        <div>
+   266→          <Skeleton className="h-6 w-48 mb-3" />
+   267→          <LoadingCards count={3} />
+   268→        </div>
+   269→        <Skeleton className="h-40 rounded-2xl" />
+   270→      </div>
+   271→    );
+   272→  }
+   273→
+   274→  if (error) {
+   275→    return <ErrorState message={error} onRetry={fetchData} />;
+   276→  }
+   277→
+   278→  const upcomingBookings = bookings
+   279→    .filter((b) => ['CONFIRMED', 'IN_PROGRESS'].includes(b.status))
+   280→    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   281→
+   282→  const totalBookings = bookings.length;
+   283→  const completedJobs = profile?.completedJobs ?? bookings.filter((b) => b.status === 'COMPLETED').length;
+   284→  const overallRating = profile?.overallRating ?? 0;
+   285→  const hourlyRate = profile?.hourlyRate ?? 0;
+   286→
+   287→  const statCards = [
+   288→    { label: 'Total Bookings', value: totalBookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
+   289→    { label: 'Completed Jobs', value: completedJobs, icon: <CheckCircle2 className="h-5 w-5" />, color: 'bg-lime-50 text-lime-700' },
+   290→    { label: 'Overall Rating', value: overallRating.toFixed(1), icon: <Star className="h-5 w-5" />, color: 'bg-amber-50 text-amber-700', suffix: '/5' },
+   291→    { label: 'Hourly Rate', value: `₹${hourlyRate}`, icon: <IndianRupee className="h-5 w-5" />, color: 'bg-purple-50 text-purple-700', isString: true },
+   292→  ];
+   293→
+   294→  const skills = parseJsonSafe(profile?.skills);
+   295→  const languages = parseJsonSafe(profile?.languages);
+   296→
+   297→  return (
+   298→    <div className="space-y-6">
+   299→      {/* Welcome */}
+   300→      <div>
+   301→        <h2 className="text-2xl font-bold text-gray-900">
+   302→          Welcome back, {user.name.split(' ')[0]}!
+   303→        </h2>
+   304→        <p className="text-sm text-gray-400 mt-1">Here&apos;s your caregiving dashboard at a glance.</p>
+   305→      </div>
+   306→
+   307→      {/* Stat Cards */}
+   308→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   309→        {statCards.map((stat, i) => (
+   310→          <motion.div
+   311→            key={stat.label}
+   312→            initial={{ opacity: 0, y: 12 }}
+   313→            animate={{ opacity: 1, y: 0 }}
+   314→            transition={{ delay: i * 0.05 }}
+   315→          >
+   316→            <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow">
+   317→              <CardContent className="p-5">
+   318→                <div className="flex items-center justify-between">
+   319→                  <div>
+   320→                    <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
+   321→                    <div className="flex items-baseline gap-1 mt-1">
+   322→                      <p className="text-3xl font-bold text-gray-900">
+   323→                        {stat.isString ? stat.value : stat.value}
+   324→                      </p>
+   325→                      {stat.suffix && <span className="text-sm text-gray-400">{stat.suffix}</span>}
+   326→                    </div>
+   327→                  </div>
+   328→                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${stat.color}`}>
+   329→                    {stat.icon}
+   330→                  </div>
+   331→                </div>
+   332→              </CardContent>
+   333→            </Card>
+   334→          </motion.div>
+   335→        ))}
+   336→      </div>
+   337→
+   338→      {/* Upcoming Bookings */}
+   339→      <div>
+   340→        <h3 className="text-base font-semibold text-gray-800 mb-3">Upcoming & Active Bookings</h3>
+   341→        {upcomingBookings.length === 0 ? (
+   342→          <EmptyState
+   343→            icon={<CalendarCheck className="h-7 w-7" />}
+   344→            title="No upcoming bookings"
+   345→            description="New bookings from families will appear here once confirmed."
+   346→          />
+   347→        ) : (
+   348→          <div className="space-y-3">
+   349→            {upcomingBookings.map((booking) => (
+   350→              <motion.div
+   351→                key={booking.id}
+   352→                initial={{ opacity: 0, x: -8 }}
+   353→                animate={{ opacity: 1, x: 0 }}
+   354→                transition={{ duration: 0.2 }}
+   355→              >
+   356→                <Card className="rounded-2xl border-gray-100">
+   357→                  <CardContent className="p-4">
+   358→                    <div className="flex items-center justify-between gap-4">
+   359→                      <div className="flex items-center gap-3 min-w-0">
+   360→                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+   361→                          <UserRound className="h-5 w-5 text-forest-700" />
+   362→                        </div>
+   363→                        <div className="min-w-0">
+   364→                          <p className="text-sm font-semibold text-gray-800 truncate">
+   365→                            {booking.patientName || 'Patient'}
+   366→                            {booking.familyName && (
+   367→                              <span className="text-gray-400 font-normal"> · {booking.familyName}</span>
+   368→                            )}
+   369→                          </p>
+   370→                          <p className="text-xs text-gray-400 mt-0.5">
+   371→                            {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || ''} - ${booking.endTime || ''}`}
+   372→                          </p>
+   373→                        </div>
+   374→                      </div>
+   375→                      <Badge
+   376→                        variant="outline"
+   377→                        className={`shrink-0 text-xs rounded-full ${statusColors[booking.status] || ''}`}
+   378→                      >
+   379→                        {statusLabels[booking.status] || booking.status}
+   380→                      </Badge>
+   381→                    </div>
+   382→                  </CardContent>
+   383→                </Card>
+   384→              </motion.div>
+   385→            ))}
+   386→          </div>
+   387→        )}
+   388→      </div>
+   389→
+   390→      {/* Profile Summary Card */}
+   391→      <div>
+   392→        <h3 className="text-base font-semibold text-gray-800 mb-3">Profile Summary</h3>
+   393→        <Card className="rounded-2xl border-gray-100">
+   394→          <CardContent className="p-5">
+   395→            <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+   396→              <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center shrink-0">
+   397→                <span className="text-xl font-bold text-white">
+   398→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+   399→                </span>
+   400→              </div>
+   401→              <div className="flex-1 min-w-0 space-y-3">
+   402→                <div>
+   403→                  <div className="flex items-center gap-2">
+   404→                    <h4 className="text-lg font-bold text-gray-900">{user.name}</h4>
+   405→                    {profile?.isVerified && (
+   406→                      <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+   407→                        <ShieldCheck className="h-3 w-3" /> Verified
+   408→                      </Badge>
+   409→                    )}
+   410→                  </div>
+   411→                  <p className="text-sm text-gray-400 mt-0.5 flex items-center gap-1.5">
+   412→                    <MapPin className="h-3.5 w-3.5" /> {profile?.city || 'Not set'}
+   413→                    <span className="text-gray-300">·</span>
+   414→                    <Briefcase className="h-3.5 w-3.5" /> {profile?.yearsExperience || 0} yrs experience
+   415→                    <span className="text-gray-300">·</span>
+   416→                    <IndianRupee className="h-3.5 w-3.5" /> {profile?.hourlyRate || 0}/hr
+   417→                  </p>
+   418→                </div>
+   419→
+   420→                {skills.length > 0 && (
+   421→                  <div className="flex flex-wrap gap-1.5">
+   422→                    {skills.map((skill) => (
+   423→                      <Badge key={skill} variant="secondary" className="bg-forest-50 text-forest-700 border-forest-100 rounded-full text-xs">
+   424→                        {skill}
+   425→                      </Badge>
+   426→                    ))}
+   427→                  </div>
+   428→                )}
+   429→
+   430→                {languages.length > 0 && (
+   431→                  <p className="text-xs text-gray-500 flex items-center gap-1.5">
+   432→                    <Languages className="h-3.5 w-3.5" />
+   433→                    {languages.join(', ')}
+   434→                  </p>
+   435→                )}
+   436→
+   437→                {profile?.bio && (
+   438→                  <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">{profile.bio}</p>
+   439→                )}
+   440→              </div>
+   441→            </div>
+   442→          </CardContent>
+   443→        </Card>
+   444→      </div>
+   445→    </div>
+   446→  );
+   447→}
+   448→
+   449→/* ============================================================ */
+   450→/* PROFILE TAB                                                   */
+   451→/* ============================================================ */
+   452→
+   453→function ProfileTab({ user }: { user: User }) {
+   454→  const profile = user.caregiverProfile;
+   455→  const skills = parseJsonSafe(profile?.skills);
+   456→  const languages = parseJsonSafe(profile?.languages);
+   457→
+   458→  if (!profile) {
+   459→    return (
+   460→      <EmptyState
+   461→        icon={<UserRound className="h-7 w-7" />}
+   462→        title="Profile not found"
+   463→        description="Your caregiver profile has not been set up yet. Please contact support."
+   464→      />
+   465→    );
+   466→  }
+   467→
+   468→  return (
+   469→    <div className="space-y-6">
+   470→      <div>
+   471→        <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
+   472→        <p className="text-sm text-gray-400 mt-1">Your caregiver profile details as seen by families.</p>
+   473→      </div>
+   474→
+   475→      <motion.div
+   476→        initial={{ opacity: 0, y: 12 }}
+   477→        animate={{ opacity: 1, y: 0 }}
+   478→        transition={{ duration: 0.3 }}
+   479→      >
+   480→        <Card className="rounded-2xl border-gray-100 overflow-hidden">
+   481→          {/* Header Banner */}
+   482→          <div className="green-gradient-bg h-28 sm:h-36 relative">
+   483→            <div className="absolute -bottom-10 left-6">
+   484→              <div className="w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center border-4 border-white">
+   485→                <span className="text-2xl font-bold text-forest-900">
+   486→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+   487→                </span>
+   488→              </div>
+   489→            </div>
+   490→          </div>
+   491→
+   492→          <CardContent className="pt-14 pb-6 px-6">
+   493→            {/* Name & Verification */}
+   494→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+   495→              <div>
+   496→                <div className="flex items-center gap-2">
+   497→                  <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
+   498→                  {profile.isVerified && (
+   499→                    <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+   500→                      <ShieldCheck className="h-3 w-3" /> Verified
+   501→                    </Badge>
+   502→                  )}
+   503→                </div>
+   504→                <p className="text-sm text-gray-400 mt-0.5">{user.email} · {user.phone}</p>
+   505→              </div>
+   506→              <div className="flex items-center gap-2 bg-forest-50 rounded-xl px-4 py-2">
+   507→                <Star className="h-5 w-5 fill-lime-400 text-lime-400" />
+   508→                <span className="text-lg font-bold text-gray-900">{profile.overallRating.toFixed(1)}</span>
+   509→                <span className="text-xs text-gray-400">({profile.totalReviews} reviews)</span>
+   510→              </div>
+   511→            </div>
+   512→
+   513→            <Separator className="bg-gray-100 mb-6" />
+   514→
+   515→            {/* Info Grid */}
+   516→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+   517→              <div className="flex items-start gap-3">
+   518→                <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+   519→                  <MapPin className="h-5 w-5 text-forest-700" />
+   520→                </div>
+   521→                <div>
+   522→                  <p className="text-xs text-gray-400 font-medium">City</p>
+   523→                  <p className="text-sm font-semibold text-gray-800">{profile.city}</p>
+   524→                </div>
+   525→              </div>
+   526→
+   527→              <div className="flex items-start gap-3">
+   528→                <div className="w-10 h-10 rounded-xl bg-lime-50 flex items-center justify-center shrink-0">
+   529→                  <Briefcase className="h-5 w-5 text-lime-700" />
+   530→                </div>
+   531→                <div>
+   532→                  <p className="text-xs text-gray-400 font-medium">Experience</p>
+   533→                  <p className="text-sm font-semibold text-gray-800">{profile.yearsExperience} years</p>
+   534→                </div>
+   535→              </div>
+   536→
+   537→              <div className="flex items-start gap-3">
+   538→                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+   539→                  <IndianRupee className="h-5 w-5 text-amber-700" />
+   540→                </div>
+   541→                <div>
+   542→                  <p className="text-xs text-gray-400 font-medium">Hourly Rate</p>
+   543→                  <p className="text-sm font-semibold text-gray-800">₹{profile.hourlyRate}/hour</p>
+   544→                </div>
+   545→              </div>
+   546→
+   547→              <div className="flex items-start gap-3">
+   548→                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+   549→                  <CheckCircle2 className="h-5 w-5 text-purple-700" />
+   550→                </div>
+   551→                <div>
+   552→                  <p className="text-xs text-gray-400 font-medium">Completed Jobs</p>
+   553→                  <p className="text-sm font-semibold text-gray-800">{profile.completedJobs} jobs</p>
+   554→                </div>
+   555→              </div>
+   556→
+   557→              <div className="flex items-start gap-3">
+   558→                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+   559→                  <Star className="h-5 w-5 text-blue-700" />
+   560→                </div>
+   561→                <div>
+   562→                  <p className="text-xs text-gray-400 font-medium">Rating</p>
+   563→                  <p className="text-sm font-semibold text-gray-800">{profile.overallRating.toFixed(1)} / 5.0</p>
+   564→                </div>
+   565→              </div>
+   566→
+   567→              <div className="flex items-start gap-3">
+   568→                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+   569→                  <ShieldCheck className="h-5 w-5 text-green-700" />
+   570→                </div>
+   571→                <div>
+   572→                  <p className="text-xs text-gray-400 font-medium">Verification</p>
+   573→                  <p className={`text-sm font-semibold ${profile.isVerified ? 'text-green-700' : 'text-gray-500'}`}>
+   574→                    {profile.isVerified ? 'Verified' : 'Pending Verification'}
+   575→                  </p>
+   576→                </div>
+   577→              </div>
+   578→            </div>
+   579→
+   580→            {/* Skills */}
+   581→            {skills.length > 0 && (
+   582→              <div className="mb-6">
+   583→                <div className="flex items-center gap-2 mb-3">
+   584→                  <Stethoscope className="h-4 w-4 text-gray-400" />
+   585→                  <p className="text-sm font-semibold text-gray-700">Skills</p>
+   586→                </div>
+   587→                <div className="flex flex-wrap gap-2">
+   588→                  {skills.map((skill) => (
+   589→                    <Badge
+   590→                      key={skill}
+   591→                      variant="outline"
+   592→                      className="bg-forest-50 text-forest-700 border-forest-200 rounded-full px-3 py-1 text-xs font-medium"
+   593→                    >
+   594→                      {skill}
+   595→                    </Badge>
+   596→                  ))}
+   597→                </div>
+   598→              </div>
+   599→            )}
+   600→
+   601→            {/* Languages */}
+   602→            {languages.length > 0 && (
+   603→              <div className="mb-6">
+   604→                <div className="flex items-center gap-2 mb-3">
+   605→                  <Languages className="h-4 w-4 text-gray-400" />
+   606→                  <p className="text-sm font-semibold text-gray-700">Languages</p>
+   607→                </div>
+   608→                <div className="flex flex-wrap gap-2">
+   609→                  {languages.map((lang) => (
+   610→                    <Badge
+   611→                      key={lang}
+   612→                      variant="outline"
+   613→                      className="bg-lime-50 text-lime-700 border-lime-200 rounded-full px-3 py-1 text-xs font-medium"
+   614→                    >
+   615→                      {lang}
+   616→                    </Badge>
+   617→                  ))}
+   618→                </div>
+   619→              </div>
+   620→            )}
+   621→
+   622→            {/* Bio */}
+   623→            {profile.bio && (
+   624→              <div>
+   625→                <div className="flex items-center gap-2 mb-3">
+   626→                  <FileText className="h-4 w-4 text-gray-400" />
+   627→                  <p className="text-sm font-semibold text-gray-700">About</p>
+   628→                </div>
+   629→                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4">
+   630→                  {profile.bio}
+   631→                </p>
+   632→              </div>
+   633→            )}
+   634→          </CardContent>
+   635→        </Card>
+   636→      </motion.div>
+   637→    </div>
+   638→  );
+   639→}
+   640→
+   641→/* ============================================================ */
+   642→/* BOOKINGS TAB                                                  */
+   643→/* ============================================================ */
+   644→
+   645→function BookingsTab({ user }: { user: User }) {
+   646→  const profile = user.caregiverProfile;
+   647→  const [bookings, setBookings] = useState<Booking[]>([]);
+   648→  const [loading, setLoading] = useState(true);
+   649→  const [error, setError] = useState('');
+   650→  const [completingId, setCompletingId] = useState<string | null>(null);
+   651→
+   652→  const fetchBookings = useCallback(async () => {
+   653→    if (!profile?.id) return;
+   654→    setLoading(true);
+   655→    setError('');
+   656→    try {
+   657→      const res = await api.bookings.list({ caregiverId: profile.id });
+   658→      const mapped = (res.bookings || []).map((b: any) => ({
+   659→        ...b,
+   660→        date: b.startDate,
+   661→        patientName: b.patient?.name,
+   662→        familyName: b.family?.name,
+   663→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+   664→      }));
+   665→      setBookings(mapped);
+   666→    } catch (err: any) {
+   667→      setError(err.message || 'Failed to load bookings');
+   668→    } finally {
+   669→      setLoading(false);
+   670→    }
+   671→  }, [profile?.id]);
+   672→
+   673→  useEffect(() => {
+   674→    fetchBookings();
+   675→  }, [fetchBookings]);
+   676→
+   677→  const handleComplete = async (bookingId: string) => {
+   678→    setCompletingId(bookingId);
+   679→    try {
+   680→      await api.bookings.updateStatus(bookingId, { status: 'COMPLETED' });
+   681→      toast.success('Booking marked as completed!');
+   682→      fetchBookings();
+   683→    } catch (err: any) {
+   684→      toast.error(err.message || 'Failed to complete booking');
+   685→    } finally {
+   686→      setCompletingId(null);
+   687→    }
+   688→  };
+   689→
+   690→  if (loading) {
+   691→    return (
+   692→      <div className="space-y-6">
+   693→        <Skeleton className="h-8 w-48" />
+   694→        <LoadingCards count={4} />
+   695→      </div>
+   696→    );
+   697→  }
+   698→
+   699→  if (error) {
+   700→    return <ErrorState message={error} onRetry={fetchBookings} />;
+   701→  }
+   702→
+   703→  if (bookings.length === 0) {
+   704→    return (
+   705→      <div className="space-y-6">
+   706→        <div>
+   707→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+   708→          <p className="text-sm text-gray-400 mt-1">Manage all your care bookings.</p>
+   709→        </div>
+   710→        <EmptyState
+   711→          icon={<CalendarCheck className="h-7 w-7" />}
+   712→          title="No bookings yet"
+   713→          description="When families book your services, their requests will appear here."
+   714→        />
+   715→      </div>
+   716→    );
+   717→  }
+   718→
+   719→  const sorted = [...bookings].sort(
+   720→    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+   721→  );
+   722→
+   723→  return (
+   724→    <div className="space-y-6">
+   725→      <div className="flex items-center justify-between">
+   726→        <div>
+   727→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+   728→          <p className="text-sm text-gray-400 mt-1">Manage all your care bookings.</p>
+   729→        </div>
+   730→        <Button
+   731→          variant="outline"
+   732→          size="sm"
+   733→          onClick={fetchBookings}
+   734→          className="rounded-xl gap-1.5"
+   735→        >
+   736→          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+   737→        </Button>
+   738→      </div>
+   739→
+   740→      <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+   741→        {sorted.map((booking, i) => (
+   742→          <motion.div
+   743→            key={booking.id}
+   744→            initial={{ opacity: 0, y: 8 }}
+   745→            animate={{ opacity: 1, y: 0 }}
+   746→            transition={{ delay: i * 0.03 }}
+   747→          >
+   748→            <Card className="rounded-2xl border-gray-100 hover:shadow-sm transition-shadow">
+   749→              <CardContent className="p-4">
+   750→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   751→                  <div className="flex items-start gap-3 min-w-0 flex-1">
+   752→                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+   753→                      booking.status === 'IN_PROGRESS'
+   754→                        ? 'bg-green-100 text-green-700'
+   755→                        : booking.status === 'COMPLETED'
+   756→                        ? 'bg-gray-100 text-gray-500'
+   757→                        : 'bg-forest-50 text-forest-700'
+   758→                    }`}>
+   759→                      <UserRound className="h-5 w-5" />
+   760→                    </div>
+   761→                    <div className="min-w-0">
+   762→                      <div className="flex items-center gap-2 flex-wrap">
+   763→                        <p className="text-sm font-semibold text-gray-800">
+   764→                          {booking.patientName || 'Patient'}
+   765→                        </p>
+   766→                        <Badge
+   767→                          variant="outline"
+   768→                          className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}
+   769→                        >
+   770→                          {statusLabels[booking.status] || booking.status}
+   771→                        </Badge>
+   772→                      </div>
+   773→                      <p className="text-xs text-gray-400 mt-0.5">
+   774→                        {booking.familyName && `${booking.familyName} · `}
+   775→                        {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || '—'} - ${booking.endTime || '—'}`}
+   776→                      </p>
+   777→                      {booking.careType && (
+   778→                        <p className="text-xs text-gray-500 mt-0.5">{booking.careType}</p>
+   779→                      )}
+   780→                    </div>
+   781→                  </div>
+   782→
+   783→                  <div className="flex items-center gap-2 sm:shrink-0">
+   784→                    {booking.totalAmount && (
+   785→                      <span className="text-sm font-semibold text-gray-700">₹{booking.totalAmount}</span>
+   786→                    )}
+   787→                    {booking.status === 'IN_PROGRESS' && (
+   788→                      <Button
+   789→                        size="sm"
+   790→                        onClick={() => handleComplete(booking.id)}
+   791→                        disabled={completingId === booking.id}
+   792→                        className="btn-green text-xs px-4 h-8"
+   793→                      >
+   794→                        {completingId === booking.id ? (
+   795→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   796→                        ) : (
+   797→                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+   798→                        )}
+   799→                        Complete
+   800→                      </Button>
+   801→                    )}
+   802→                  </div>
+   803→                </div>
+   804→              </CardContent>
+   805→            </Card>
+   806→          </motion.div>
+   807→        ))}
+   808→      </div>
+   809→    </div>
+   810→  );
+   811→}
+   812→
+   813→/* ============================================================ */
+   814→/* SUBMIT REPORT TAB                                             */
+   815→/* ============================================================ */
+   816→
+   817→const ACTIVITY_OPTIONS = [
+   818→  { value: 'feeding', label: 'Feeding' },
+   819→  { value: 'bathing', label: 'Bathing' },
+   820→  { value: 'hygiene', label: 'Hygiene' },
+   821→  { value: 'mobility', label: 'Mobility' },
+   822→  { value: 'medicine', label: 'Medicine' },
+   823→  { value: 'exercise', label: 'Exercise' },
+   824→  { value: 'companionship', label: 'Companionship' },
+   825→  { value: 'vital_check', label: 'Vital Check' },
+   826→  { value: 'wound_care', label: 'Wound Care' },
+   827→];
+   828→
+   829→function SubmitReportTab({ user }: { user: User }) {
+   830→  const profile = user.caregiverProfile;
+   831→  const [bookings, setBookings] = useState<Booking[]>([]);
+   832→  const [loading, setLoading] = useState(true);
+   833→  const [error, setError] = useState('');
+   834→  const [submitting, setSubmitting] = useState(false);
+   835→
+   836→  const [selectedBookingId, setSelectedBookingId] = useState('');
+   837→  const [reportDate, setReportDate] = useState(getTodayDate());
+   838→  const [activities, setActivities] = useState('');
+   839→  const [summary, setSummary] = useState('');
+   840→  const [mood, setMood] = useState('');
+   841→  const [foodIntake, setFoodIntake] = useState('');
+   842→  const [medicines, setMedicines] = useState('');
+   843→  const [concerns, setConcerns] = useState('');
+   844→
+   845→  const fetchBookings = useCallback(async () => {
+   846→    if (!profile?.id) return;
+   847→    setLoading(true);
+   848→    setError('');
+   849→    try {
+   850→      const res = await api.bookings.list({ caregiverId: profile.id });
+   851→      const mapped = (res.bookings || []).map((b: any) => ({
+   852→        ...b,
+   853→        date: b.startDate,
+   854→        patientName: b.patient?.name,
+   855→        familyName: b.family?.name,
+   856→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+   857→      }));
+   858→      const eligible = mapped.filter((b: any) =>
+   859→        ['IN_PROGRESS', 'CONFIRMED'].includes(b.status)
+   860→      );
+   861→      setBookings(eligible);
+   862→      if (eligible.length > 0 && !selectedBookingId) {
+   863→        setSelectedBookingId(eligible[0].id);
+   864→      }
+   865→    } catch (err: any) {
+   866→      setError(err.message || 'Failed to load bookings');
+   867→    } finally {
+   868→      setLoading(false);
+   869→    }
+   870→  }, [profile?.id]);
+   871→
+   872→  useEffect(() => {
+   873→    fetchBookings();
+   874→  }, [fetchBookings]);
+   875→
+   876→  const resetForm = () => {
+   877→    setActivities('');
+   878→    setSummary('');
+   879→    setMood('');
+   880→    setFoodIntake('');
+   881→    setMedicines('');
+   882→    setConcerns('');
+   883→  };
+   884→
+   885→  const handleSubmit = async (e: React.FormEvent) => {
+   886→    e.preventDefault();
+   887→    if (!selectedBookingId) {
+   888→      toast.error('Please select a booking.');
+   889→      return;
+   890→    }
+   891→    if (!reportDate) {
+   892→      toast.error('Please select a report date.');
+   893→      return;
+   894→    }
+   895→
+   896→    setSubmitting(true);
+   897→    try {
+   898→      const activityList = activities
+   899→        .split(',')
+   900→        .map((a) => a.trim())
+   901→        .filter(Boolean);
+   902→
+   903→      const medicineLines = medicines
+   904→        .split('\n')
+   905→        .map((line) => line.trim())
+   906→        .filter(Boolean);
+   907→
+   908→      const medicineEntries = medicineLines.map((line) => {
+   909→        const parts = line.split(',').map((p) => p.trim());
+   910→        return {
+   911→          name: parts[0] || '',
+   912→          time: parts[1] || '',
+   913→          given: parts[2]?.toLowerCase() === 'yes',
+   914→        };
+   915→      });
+   916→
+   917→      await api.reports.create({
+   918→        bookingId: selectedBookingId,
+   919→        caregiverId: profile?.id,
+   920→        reportDate,
+   921→        activities: JSON.stringify(activityList),
+   922→        summary,
+   923→        mood,
+   924→        foodIntake,
+   925→        medicinesGiven: JSON.stringify(medicineEntries),
+   926→        concerns,
+   927→      });
+   928→
+   929→      toast.success('Care report submitted successfully!');
+   930→      resetForm();
+   931→    } catch (err: any) {
+   932→      toast.error(err.message || 'Failed to submit report');
+   933→    } finally {
+   934→      setSubmitting(false);
+   935→    }
+   936→  };
+   937→
+   938→  if (loading) {
+   939→    return (
+   940→      <div className="space-y-6">
+   941→        <Skeleton className="h-8 w-48" />
+   942→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   943→          <Skeleton className="h-72 rounded-2xl" />
+   944→          <Skeleton className="h-72 rounded-2xl" />
+   945→          <Skeleton className="h-64 rounded-2xl" />
+   946→          <Skeleton className="h-64 rounded-2xl" />
+   947→        </div>
+   948→      </div>
+   949→    );
+   950→  }
+   951→
+   952→  if (error) {
+   953→    return <ErrorState message={error} onRetry={fetchBookings} />;
+   954→  }
+   955→
+   956→  if (bookings.length === 0) {
+   957→    return (
+   958→      <div className="space-y-6">
+   959→        <div>
+   960→          <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+   961→          <p className="text-sm text-gray-400 mt-1">File daily care reports for your active bookings.</p>
+   962→        </div>
+   963→        <EmptyState
+   964→          icon={<ClipboardList className="h-7 w-7" />}
+   965→          title="No active bookings"
+   966→          description="You need at least one confirmed or in-progress booking to submit a care report."
+   967→        />
+   968→      </div>
+   969→    );
+   970→  }
+   971→
+   972→  return (
+   973→    <div className="space-y-6">
+   974→      <div>
+   975→        <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+   976→        <p className="text-sm text-gray-400 mt-1">File daily care reports for your active bookings.</p>
+   977→      </div>
+   978→
+   979→      <form onSubmit={handleSubmit}>
+   980→        <motion.div
+   981→          initial={{ opacity: 0, y: 12 }}
+   982→          animate={{ opacity: 1, y: 0 }}
+   983→          transition={{ duration: 0.3 }}
+   984→          className="space-y-6"
+   985→        >
+   986→          {/* Booking & Date Row */}
+   987→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   988→            <div className="space-y-2">
+   989→              <Label className="text-sm font-medium text-gray-700">Booking</Label>
+   990→              <Select value={selectedBookingId} onValueChange={setSelectedBookingId}>
+   991→                <SelectTrigger className="rounded-xl">
+   992→                  <SelectValue placeholder="Select booking" />
+   993→                </SelectTrigger>
+   994→                <SelectContent>
+   995→                  {bookings.map((b) => (
+   996→                    <SelectItem key={b.id} value={b.id}>
+   997→                      {b.patientName || 'Patient'} — {formatDate(b.date)}
+   998→                    </SelectItem>
+   999→                  ))}
+  1000→                </SelectContent>
+  1001→              </Select>
+  1002→            </div>
+  1003→            <div className="space-y-2">
+  1004→              <Label className="text-sm font-medium text-gray-700">Report Date</Label>
+  1005→              <input
+  1006→                type="date"
+  1007→                value={reportDate}
+  1008→                onChange={(e) => setReportDate(e.target.value)}
+  1009→                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+  1010→              />
+  1011→            </div>
+  1012→          </div>
+  1013→
+  1014→          {/* Activities & Summary */}
+  1015→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1016→            <div className="space-y-2">
+  1017→              <Label className="text-sm font-medium text-gray-700">
+  1018→                Activities
+  1019→                <span className="text-xs text-gray-400 font-normal ml-1.5">(comma-separated)</span>
+  1020→              </Label>
+  1021→              <Textarea
+  1022→                value={activities}
+  1023→                onChange={(e) => setActivities(e.target.value)}
+  1024→                placeholder="e.g. feeding, bathing, vital_check, medicine"
+  1025→                className="rounded-xl min-h-[100px] resize-none"
+  1026→              />
+  1027→              <div className="flex flex-wrap gap-1.5">
+  1028→                {ACTIVITY_OPTIONS.map((opt) => (
+  1029→                  <button
+  1030→                    key={opt.value}
+  1031→                    type="button"
+  1032→                    onClick={() => {
+  1033→                      const current = activities
+  1034→                        .split(',')
+  1035→                        .map((a) => a.trim().toLowerCase())
+  1036→                        .filter(Boolean);
+  1037→                      if (current.includes(opt.value)) {
+  1038→                        setActivities(
+  1039→                          current.filter((a) => a !== opt.value).join(', ')
+  1040→                        );
+  1041→                      } else {
+  1042→                        setActivities(
+  1043→                          [...current, opt.value].join(', ')
+  1044→                        );
+  1045→                      }
+  1046→                    }}
+  1047→                    className={`text-xs px-2.5 py-1 rounded-full border transition-all duration-150 ${
+  1048→                      activities
+  1049→                        .split(',')
+  1050→                        .map((a) => a.trim().toLowerCase())
+  1051→                        .includes(opt.value)
+  1052→                        ? 'bg-forest-900 text-white border-forest-900'
+  1053→                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-forest-300 hover:text-forest-700'
+  1054→                    }`}
+  1055→                  >
+  1056→                    {opt.label}
+  1057→                  </button>
+  1058→                ))}
+  1059→              </div>
+  1060→            </div>
+  1061→            <div className="space-y-2">
+  1062→              <Label className="text-sm font-medium text-gray-700">Summary</Label>
+  1063→              <Textarea
+  1064→                value={summary}
+  1065→                onChange={(e) => setSummary(e.target.value)}
+  1066→                placeholder="Brief summary of the care provided today..."
+  1067→                className="rounded-xl min-h-[100px] resize-none"
+  1068→              />
+  1069→            </div>
+  1070→          </div>
+  1071→
+  1072→          {/* Mood & Food Intake */}
+  1073→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1074→            <div className="space-y-2">
+  1075→              <Label className="text-sm font-medium text-gray-700">Patient Mood</Label>
+  1076→              <Select value={mood} onValueChange={setMood}>
+  1077→                <SelectTrigger className="rounded-xl">
+  1078→                  <SelectValue placeholder="Select mood" />
+  1079→                </SelectTrigger>
+  1080→                <SelectContent>
+  1081→                  <SelectItem value="good">😊 Good</SelectItem>
+  1082→                  <SelectItem value="normal">😐 Normal</SelectItem>
+  1083→                  <SelectItem value="upset">😟 Upset</SelectItem>
+  1084→                  <SelectItem value="unwell">🤒 Unwell</SelectItem>
+  1085→                </SelectContent>
+  1086→              </Select>
+  1087→            </div>
+  1088→            <div className="space-y-2">
+  1089→              <Label className="text-sm font-medium text-gray-700">Food Intake</Label>
+  1090→              <Select value={foodIntake} onValueChange={setFoodIntake}>
+  1091→                <SelectTrigger className="rounded-xl">
+  1092→                  <SelectValue placeholder="Select food intake" />
+  1093→                </SelectTrigger>
+  1094→                <SelectContent>
+  1095→                  <SelectItem value="good">Good</SelectItem>
+  1096→                  <SelectItem value="normal">Normal</SelectItem>
+  1097→                  <SelectItem value="poor">Poor</SelectItem>
+  1098→                  <SelectItem value="refused">Refused</SelectItem>
+  1099→                </SelectContent>
+  1100→              </Select>
+  1101→            </div>
+  1102→          </div>
+  1103→
+  1104→          {/* Medicines & Concerns */}
+  1105→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1106→            <div className="space-y-2">
+  1107→              <Label className="text-sm font-medium text-gray-700">
+  1108→                Medicines Given
+  1109→                <span className="text-xs text-gray-400 font-normal ml-1.5">
+  1110→                  (one per line: name, time, yes/no)
+  1111→                </span>
+  1112→              </Label>
+  1113→              <Textarea
+  1114→                value={medicines}
+  1115→                onChange={(e) => setMedicines(e.target.value)}
+  1116→                placeholder={`Paracetamol 500mg, 8:00 AM, yes\nMetformin, 9:00 AM, yes\nVitamin D, 12:00 PM, no`}
+  1117→                className="rounded-xl min-h-[100px] resize-none font-mono text-xs"
+  1118→              />
+  1119→            </div>
+  1120→            <div className="space-y-2">
+  1121→              <Label className="text-sm font-medium text-gray-700">Concerns</Label>
+  1122→              <Textarea
+  1123→                value={concerns}
+  1124→                onChange={(e) => setConcerns(e.target.value)}
+  1125→                placeholder="Any concerns, unusual observations, or notes for the family..."
+  1126→                className="rounded-xl min-h-[100px] resize-none"
+  1127→              />
+  1128→            </div>
+  1129→          </div>
+  1130→
+  1131→          {/* Submit Button */}
+  1132→          <div className="flex justify-end pt-2">
+  1133→            <Button
+  1134→              type="submit"
+  1135→              disabled={submitting}
+  1136→              className="btn-black px-8 h-11 text-sm"
+  1137→            >
+  1138→              {submitting ? (
+  1139→                <>
+  1140→                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+  1141→                  Submitting...
+  1142→                </>
+  1143→              ) : (
+  1144→                <>
+  1145→                  <Send className="h-4 w-4 mr-2" />
+  1146→                  Submit Report
+  1147→                </>
+  1148→              )}
+  1149→            </Button>
+  1150→          </div>
+  1151→        </motion.div>
+  1152→      </form>
+  1153→    </div>
+  1154→  );
+  1155→}
+  1156→
+  1157→/* ============================================================ */
+  1158→/* REVIEWS TAB                                                   */
+  1159→/* ============================================================ */
+  1160→
+  1161→function ReviewsTab({ user }: { user: User }) {
+  1162→  const profile = user.caregiverProfile;
+  1163→  const [reviews, setReviews] = useState<Review[]>([]);
+  1164→  const [loading, setLoading] = useState(true);
+  1165→  const [error, setError] = useState('');
+  1166→
+  1167→  const fetchReviews = useCallback(async () => {
+  1168→    if (!profile?.id) return;
+  1169→    setLoading(true);
+  1170→    setError('');
+  1171→    try {
+  1172→      const res = await api.reviews.list(profile.id);
+  1173→      const mapped = (res.reviews || []).map((r: any) => ({
+  1174→        ...r,
+  1175→        overallRating: r.rating,
+  1176→        familyName: r.family?.name,
+  1177→      }));
+  1178→      setReviews(mapped);
+  1179→    } catch (err: any) {
+  1180→      setError(err.message || 'Failed to load reviews');
+  1181→    } finally {
+  1182→      setLoading(false);
+  1183→    }
+  1184→  }, [profile?.id]);
+  1185→
+  1186→  useEffect(() => {
+  1187→    fetchReviews();
+  1188→  }, [fetchReviews]);
+  1189→
+  1190→  if (loading) {
+  1191→    return (
+  1192→      <div className="space-y-6">
+  1193→        <Skeleton className="h-8 w-48" />
+  1194→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  1195→          <Skeleton className="h-48 rounded-2xl" />
+  1196→          <div className="lg:col-span-2">
+  1197→            <LoadingCards count={3} />
+  1198→          </div>
+  1199→        </div>
+  1200→      </div>
+  1201→    );
+  1202→  }
+  1203→
+  1204→  if (error) {
+  1205→    return <ErrorState message={error} onRetry={fetchReviews} />;
+  1206→  }
+  1207→
+  1208→  const avgRating =
+  1209→    reviews.length > 0
+  1210→      ? reviews.reduce((sum, r) => sum + r.overallRating, 0) / reviews.length
+  1211→      : 0;
+  1212→
+  1213→  const avgComm =
+  1214→    reviews.length > 0
+  1215→      ? reviews.reduce((sum, r) => sum + (r.communicationRating || 0), 0) / reviews.length
+  1216→      : 0;
+  1217→  const avgPunct =
+  1218→    reviews.length > 0
+  1219→      ? reviews.reduce((sum, r) => sum + (r.punctualityRating || 0), 0) / reviews.length
+  1220→      : 0;
+  1221→  const avgCare =
+  1222→    reviews.length > 0
+  1223→      ? reviews.reduce((sum, r) => sum + (r.careQualityRating || 0), 0) / reviews.length
+  1224→      : 0;
+  1225→
+  1226→  return (
+  1227→    <div className="space-y-6">
+  1228→      <div>
+  1229→        <h2 className="text-2xl font-bold text-gray-900">My Reviews</h2>
+  1230→        <p className="text-sm text-gray-400 mt-1">Feedback from the families you&apos;ve served.</p>
+  1231→      </div>
+  1232→
+  1233→      {reviews.length === 0 ? (
+  1234→        <EmptyState
+  1235→          icon={<Star className="h-7 w-7" />}
+  1236→          title="No reviews yet"
+  1237→          description="Once you complete bookings and families leave reviews, they will appear here."
+  1238→        />
+  1239→      ) : (
+  1240→        <>
+  1241→          {/* Rating Summary Card */}
+  1242→          <motion.div
+  1243→            initial={{ opacity: 0, y: 12 }}
+  1244→            animate={{ opacity: 1, y: 0 }}
+  1245→            transition={{ duration: 0.3 }}
+  1246→          >
+  1247→            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  1248→              <Card className="rounded-2xl border-gray-100">
+  1249→                <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+  1250→                  <p className="text-5xl font-bold text-gray-900">{avgRating.toFixed(1)}</p>
+  1251→                  <StarRating rating={avgRating} size="md" />
+  1252→                  <p className="text-sm text-gray-400 mt-2">
+  1253→                    Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+  1254→                  </p>
+  1255→                </CardContent>
+  1256→              </Card>
+  1257→
+  1258→              <Card className="lg:col-span-2 rounded-2xl border-gray-100">
+  1259→                <CardContent className="p-5 space-y-3">
+  1260→                  {[
+  1261→                    { label: 'Communication', value: avgComm, color: 'bg-forest-500' },
+  1262→                    { label: 'Punctuality', value: avgPunct, color: 'bg-lime-500' },
+  1263→                    { label: 'Care Quality', value: avgCare, color: 'bg-forest-700' },
+  1264→                  ].map((item) => (
+  1265→                    <div key={item.label} className="flex items-center gap-3">
+  1266→                      <span className="text-sm text-gray-600 w-28 shrink-0">{item.label}</span>
+  1267→                      <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+  1268→                        <motion.div
+  1269→                          className={`h-full rounded-full ${item.color}`}
+  1270→                          initial={{ width: 0 }}
+  1271→                          animate={{ width: `${(item.value / 5) * 100}%` }}
+  1272→                          transition={{ duration: 0.6, delay: 0.2 }}
+  1273→                        />
+  1274→                      </div>
+  1275→                      <span className="text-sm font-semibold text-gray-700 w-8 text-right">
+  1276→                        {item.value.toFixed(1)}
+  1277→                      </span>
+  1278→                    </div>
+  1279→                  ))}
+  1280→                </CardContent>
+  1281→              </Card>
+  1282→            </div>
+  1283→          </motion.div>
+  1284→
+  1285→          {/* Reviews List */}
+  1286→          <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
+  1287→            {reviews.map((review, i) => (
+  1288→              <motion.div
+  1289→                key={review.id}
+  1290→                initial={{ opacity: 0, y: 8 }}
+  1291→                animate={{ opacity: 1, y: 0 }}
+  1292→                transition={{ delay: i * 0.04 }}
+  1293→              >
+  1294→                <Card className="rounded-2xl border-gray-100">
+  1295→                  <CardContent className="p-5">
+  1296→                    <div className="flex items-start justify-between gap-3 mb-3">
+  1297→                      <div className="flex items-center gap-3">
+  1298→                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+  1299→                          <span className="text-sm font-bold text-forest-700">
+  1300→                            {(review.familyName || 'F')
+  1301→                              .split(' ')
+  1302→                              .map((n) => n[0])
+  1303→                              .join('')
+  1304→                              .toUpperCase()
+  1305→                              .slice(0, 2)}
+  1306→                          </span>
+  1307→                        </div>
+  1308→                        <div>
+  1309→                          <p className="text-sm font-semibold text-gray-800">
+  1310→                            {review.familyName || 'Family Member'}
+  1311→                          </p>
+  1312→                          <p className="text-xs text-gray-400">
+  1313→                            {formatDate(review.createdAt)}
+  1314→                          </p>
+  1315→                        </div>
+  1316→                      </div>
+  1317→                      <div className="flex items-center gap-1.5">
+  1318→                        <Star className="h-4 w-4 fill-lime-400 text-lime-400" />
+  1319→                        <span className="text-sm font-bold text-gray-900">
+  1320→                          {review.overallRating.toFixed(1)}
+  1321→                        </span>
+  1322→                      </div>
+  1323→                    </div>
+  1324→
+  1325→                    {/* Sub-ratings */}
+  1326→                    <div className="grid grid-cols-3 gap-3 mb-3">
+  1327→                      <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+  1328→                        <p className="text-[11px] text-gray-400 mb-0.5">Communication</p>
+  1329→                        <StarRating rating={review.communicationRating || 0} />
+  1330→                      </div>
+  1331→                      <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+  1332→                        <p className="text-[11px] text-gray-400 mb-0.5">Punctuality</p>
+  1333→                        <StarRating rating={review.punctualityRating || 0} />
+  1334→                      </div>
+  1335→                      <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+  1336→                        <p className="text-[11px] text-gray-400 mb-0.5">Care Quality</p>
+  1337→                        <StarRating rating={review.careQualityRating || 0} />
+  1338→                      </div>
+  1339→                    </div>
+  1340→
+  1341→                    {/* Comment */}
+  1342→                    {review.comment && (
+  1343→                      <p className="text-sm text-gray-600 leading-relaxed">
+  1344→                        {review.comment}
+  1345→                      </p>
+  1346→                    )}
+  1347→                  </CardContent>
+  1348→                </Card>
+  1349→              </motion.div>
+  1350→            ))}
+  1351→          </div>
+  1352→        </>
+  1353→      )}
+  1354→    </div>
+  1355→  );
+  1356→}
+  1357→
+  1358→/* ============================================================ */
+  1359→/* MAIN EXPORT                                                   */
+  1360→/* ============================================================ */
+  1361→
+  1362→export function CaregiverDashboard({ activeTab, user }: CaregiverDashboardProps) {
+  1363→  return (
+  1364→    <>
+  1365→      {activeTab === 'overview' && <OverviewTab user={user} />}
+  1366→      {activeTab === 'my-profile' && <ProfileTab user={user} />}
+  1367→      {activeTab === 'bookings' && <BookingsTab user={user} />}
+  1368→      {activeTab === 'submit-report' && <SubmitReportTab user={user} />}
+  1369→      {activeTab === 'reviews' && <ReviewsTab user={user} />}
+  1370→    </>
+  1371→  );
+  1372→}
+  1373→

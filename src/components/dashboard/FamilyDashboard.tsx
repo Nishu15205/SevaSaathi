@@ -245,6 +245,17 @@ function OverviewTab() {
         ))}
       </div>
 
+      {/* Quick Actions for new users */}
+      {!loading && stats.activeBookings === 0 && stats.patients === 0 && (
+        <Card className="rounded-2xl border-dashed border-2 border-forest-200 bg-forest-50/50">
+          <CardContent className="p-6 text-center">
+            <Heart className="h-8 w-8 text-forest-400 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-gray-800 mb-1">Get started with SevaSaathi</h3>
+            <p className="text-sm text-gray-500">Add a patient profile from the Patients tab, then search and book a caregiver.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent Bookings */}
       <div>
         <h3 className="text-base font-semibold text-gray-800 mb-3">Recent Bookings</h3>
@@ -643,6 +654,17 @@ function FindCaregiversTab() {
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id || !bookingCaregiver) return;
+
+    // Validate required fields
+    if (!bookingForm.patientId) {
+      toast.error('Please select a patient first. Add a patient from the Patients tab.');
+      return;
+    }
+    if (!bookingForm.startDate) {
+      toast.error('Please select a start date.');
+      return;
+    }
+
     setBookingSubmitting(true);
     try {
       await api.bookings.create({
@@ -892,15 +914,24 @@ function FindCaregiversTab() {
             <DialogTitle>Book {bookingCaregiver?.user?.name || 'Caregiver'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleBookSubmit} className="space-y-4 mt-2">
-            <div>
-              <Label className="text-xs font-medium text-gray-600">Patient *</Label>
-              <Select value={bookingForm.patientId} onValueChange={v => setBookingForm(p => ({...p, patientId: v}))}>
-                <SelectTrigger className="mt-1 rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                <SelectContent>
-                  {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.age} yrs, {p.relationship})</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            {patients.length === 0 ? (
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Patient *</Label>
+                <div className="mt-1 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
+                  No patient profiles yet. Please add a patient from the <strong>Patients</strong> tab first.
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Patient *</Label>
+                <Select value={bookingForm.patientId} onValueChange={v => setBookingForm(p => ({...p, patientId: v}))}>
+                  <SelectTrigger className="mt-1 rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+                  <SelectContent>
+                    {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.age} yrs, {p.relationship})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label className="text-xs font-medium text-gray-600">Shift Type *</Label>
               <Select value={bookingForm.shiftType} onValueChange={v => setBookingForm(p => ({...p, shiftType: v}))}>

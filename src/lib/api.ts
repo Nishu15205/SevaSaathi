@@ -52,6 +52,10 @@ export const api = {
       if (params.mobilityStatus) sp.set("mobilityStatus", params.mobilityStatus);
       return request<{ results: any[]; total: number }>(`/api/search?${sp}`);
     },
+    create: (data: any) =>
+      request<{ caregiver: any }>('/api/caregivers', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<{ caregiver: any }>(`/api/caregivers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   bookings: {
     list: (params: { familyId?: string; caregiverId?: string; status?: string; page?: number }) => {
@@ -82,6 +86,10 @@ export const api = {
       request<{ reviews: any[] }>(`/api/reviews?caregiverId=${caregiverId}`),
     create: (data: any) =>
       request<{ review: any }>("/api/reviews", { method: "POST", body: JSON.stringify(data) }),
+  },
+  notifications: {
+    list: (userId: string) =>
+      request<{ notifications: any[] }>(`/api/notifications?userId=${userId}`),
   },
   complaints: {
     list: (params: { familyId?: string; caregiverId?: string }) => {

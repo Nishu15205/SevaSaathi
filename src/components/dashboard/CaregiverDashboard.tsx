@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
@@ -45,6 +46,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import type { User } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 
 /* ============================================================ */
@@ -234,7 +236,7 @@ function OverviewTab({ user }: { user: User }) {
   const [error, setError] = useState('');
 
   const fetchData = useCallback(async () => {
-    if (!profile?.id) return;
+    if (!profile?.id) { setLoading(false); return; }
     setLoading(true);
     setError('');
     try {
@@ -257,6 +259,27 @@ function OverviewTab({ user }: { user: User }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // No profile yet - show setup guidance
+  if (!profile) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Welcome, {user.name.split(' ')[0]}!</h2>
+          <p className="text-sm text-gray-400 mt-1">Complete your profile to start receiving care requests.</p>
+        </div>
+        <Card className="rounded-2xl border-dashed border-2 border-forest-200 bg-forest-50/50">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center mx-auto mb-4">
+              <ClipboardList className="h-7 w-7 text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Set Up Your Caregiver Profile</h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">Go to the <strong>My Profile</strong> tab to create your caregiver profile. Families will be able to find and book you once your profile is set up.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -447,6 +470,110 @@ function OverviewTab({ user }: { user: User }) {
 }
 
 /* ============================================================ */
+/* CREATE PROFILE FORM                                           */
+/* ============================================================ */
+
+const ALL_SKILLS = ['elderly-care', 'bedridden-care', 'feeding', 'wound-care', 'medicine-management', 'dementia-care', 'physiotherapy-assist', 'post-surgery-care', 'mobility-support', 'hygiene-care', 'elderly-companionship', 'ventilator-care'];
+
+function CreateProfileForm({ userId, onCreated }: { userId: string; onCreated: (profile: any) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(['elderly-care']);
+  const [form, setForm] = useState({
+    city: '', yearsExperience: '', hourlyRate: '', qualifications: '', languages: 'Hindi, English', bio: '',
+  });
+
+  const toggleSkill = (skill: string) => {
+    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.city || !form.yearsExperience || !form.hourlyRate) {
+      toast.error('Please fill in City, Experience, and Hourly Rate.');
+      return;
+    }
+    if (selectedSkills.length === 0) {
+      toast.error('Please select at least one skill.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.caregivers.create({
+        userId,
+        city: form.city,
+        yearsExperience: parseInt(form.yearsExperience),
+        hourlyRate: parseInt(form.hourlyRate),
+        skills: JSON.stringify(selectedSkills),
+        qualifications: form.qualifications ? JSON.stringify(form.qualifications.split(',').map((s: string) => s.trim()).filter(Boolean)) : JSON.stringify(['Caregiver']),
+        languages: JSON.stringify(form.languages.split(',').map((s: string) => s.trim()).filter(Boolean)),
+        bio: form.bio,
+      });
+      toast.success('Profile created successfully!');
+      onCreated(res.caregiver);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Create Your Profile</h2>
+        <p className="text-sm text-gray-400 mt-1">Set up your caregiver profile to start receiving booking requests from families.</p>
+      </div>
+      <Card className="rounded-2xl border-gray-100">
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-medium text-gray-600">City *</Label>
+                <Input value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="e.g., Delhi" className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Years of Experience *</Label>
+                <Input type="number" min="0" max="50" value={form.yearsExperience} onChange={e => setForm(p => ({...p, yearsExperience: e.target.value}))} placeholder="e.g., 5" className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Hourly Rate (INR) *</Label>
+                <Input type="number" min="50" max="5000" value={form.hourlyRate} onChange={e => setForm(p => ({...p, hourlyRate: e.target.value}))} placeholder="e.g., 250" className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Qualifications</Label>
+                <Input value={form.qualifications} onChange={e => setForm(p => ({...p, qualifications: e.target.value}))} placeholder="e.g., BSc Nursing, GNM" className="mt-1 rounded-xl" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Languages</Label>
+              <Input value={form.languages} onChange={e => setForm(p => ({...p, languages: e.target.value}))} placeholder="e.g., Hindi, English, Punjabi" className="mt-1 rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600 mb-2 block">Skills *</Label>
+              <div className="flex flex-wrap gap-2">
+                {ALL_SKILLS.map(skill => (
+                  <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selectedSkills.includes(skill) ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
+                    {skill}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Bio</Label>
+              <Textarea value={form.bio} onChange={e => setForm(p => ({...p, bio: e.target.value}))} placeholder="Tell families about your experience and care approach..." className="mt-1 rounded-xl min-h-[100px]" />
+            </div>
+            <Button type="submit" disabled={saving} className="btn-black text-sm gap-2 rounded-full">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Create Profile
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================ */
 /* PROFILE TAB                                                   */
 /* ============================================================ */
 
@@ -457,10 +584,16 @@ function ProfileTab({ user }: { user: User }) {
 
   if (!profile) {
     return (
-      <EmptyState
-        icon={<UserRound className="h-7 w-7" />}
-        title="Profile not found"
-        description="Your caregiver profile has not been set up yet. Please contact support."
+      <CreateProfileForm
+        userId={user.id}
+        onCreated={() => {
+          // Reload auth data from server to get the clean profile
+          api.auth.me(user.id).then(res => {
+            if (res.user) useAuthStore.getState().setAuth(res.user);
+          }).catch(() => {
+            window.location.reload();
+          });
+        }}
       />
     );
   }

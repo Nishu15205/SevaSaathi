@@ -369,3 +369,82 @@ Stage Summary:
 - Mobile responsive with Sheet sidebar menu
 - All 24 API endpoints working
 - Zero runtime errors
+---
+Task ID: 9
+Agent: backend-fixes
+Task: Fix backend APIs - caregiver profile CRUD, notifications
+
+Work Log:
+- Read prisma schema, existing caregivers routes (GET), and api.ts client to understand codebase patterns
+- Added POST handler to /api/caregivers/route.ts with zod validation, JSON field normalization, default availability, and P2002 duplicate handling
+- Added PUT handler to /api/caregivers/[id]/route.ts with zod validation, partial update support, same JSON normalization, and 404 check
+- Created /api/notifications/route.ts with GET handler that returns latest 20 notifications ordered by createdAt desc and marks them as read
+- Added api.caregivers.create, api.caregivers.update, and api.notifications.list methods to /src/lib/api.ts
+- Ran ESLint — no errors
+
+Stage Summary:
+- POST /api/caregivers creates a caregiver profile with zod-validated fields, JSON array string handling, and default weekday availability
+- PUT /api/caregivers/[id] updates any subset of caregiver fields with full GET-style response including relations
+- GET /api/notifications?userId=X returns latest 20 notifications and marks them read in a single request
+- api.ts client now exposes api.caregivers.create(), api.caregivers.update(), and api.notifications.list() for frontend consumption
+
+---
+Task ID: 10
+Agent: frontend-booking-fix
+Task: Fix booking validation and empty state guidance in FamilyDashboard
+
+Work Log:
+- Read FamilyDashboard.tsx to understand current code structure
+- Added client-side validation at the start of handleBookSubmit (line ~643): checks for empty patientId and startDate before API call, shows user-friendly toast.error messages and returns early
+- Added guidance card in OverviewTab (line ~248): shown when both patients and activeBookings are 0, displays a dashed border card with Heart icon and instructions to get started
+- Replaced patient Select in booking dialog (line ~917): conditionally renders an amber warning message when patients array is empty, directing users to add a patient from the Patients tab
+- Ran lint — no errors
+
+Stage Summary:
+- Three targeted fixes applied to FamilyDashboard.tsx without rewriting the file
+- handleBookSubmit now validates required fields with clear toast messages instead of letting the API return a generic 400
+- OverviewTab shows a helpful onboarding card for brand-new users with no data
+- Booking dialog shows an actionable amber warning when no patients exist instead of an empty dropdown
+
+---
+Task ID: 11
+Agent: notification-fix
+Task: Add notification dropdown panel to DashboardShell
+
+Work Log:
+- Read DashboardShell.tsx to understand current structure and exact code
+- Added `useCallback` to the React import (line 3)
+- Added `Popover, PopoverContent, PopoverTrigger` and `api` imports
+- Added `notifications`, `notifOpen`, `notifLoading` state variables
+- Added `fetchNotifications` callback that calls `api.notifications.list`
+- Replaced the static bell button with a Popover-based notification dropdown
+- The dropdown shows loading state, empty state, and notification list with title/message/date
+- Notification badge now only renders when there are notifications
+- Ran ESLint — no errors
+
+Stage Summary:
+- DashboardShell notification bell is now fully functional with a Popover dropdown
+- Notifications are fetched on-demand when the popover opens via `api.notifications.list`
+- Proper loading, empty, and populated states are handled
+- Conditional notification count badge on the bell icon
+
+---
+Task ID: 12
+Agent: Main Agent
+Task: Add caregiver profile creation form and fix onCreated crash
+
+Work Log:
+- Added `useAuthStore` import and `Input` import to CaregiverDashboard.tsx
+- Created `CreateProfileForm` component with city, experience, hourly rate, qualifications, languages, skills (toggle chips), and bio fields
+- Replaced ProfileTab's `if (!profile)` empty state with CreateProfileForm component
+- Fixed React hooks rule violation in OverviewTab: moved useState/useCallback/useEffect before the early return guard
+- Added `if (!profile)` guard in OverviewTab showing a green gradient card with setup instructions
+- Fixed onCreated callback crash: replaced manual profile object construction with `api.auth.me(userId)` call that fetches clean data from server
+- Tested end-to-end: registered new caregiver, saw "Set Up Your Profile" guidance, navigated to My Profile, filled form, created profile successfully, profile view rendered without crash
+
+Stage Summary:
+- New caregivers now see a clear "Set Up Your Caregiver Profile" CTA in Overview
+- My Profile tab shows a complete profile creation form with skill toggles
+- Profile creation calls POST /api/caregivers, then fetches clean data via GET /api/auth/me to update auth store
+- No more client-side crash after profile creation
+
