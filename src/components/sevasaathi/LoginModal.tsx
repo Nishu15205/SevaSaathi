@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { X, Eye, EyeOff, Loader2, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "@/stores/authStore";
+import { api } from "@/lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (user: { name: string; email: string; role: string }) => void;
 }
 
 type Tab = "login" | "register";
@@ -61,11 +62,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         return;
       }
 
-      onLogin({
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role.toLowerCase(),
-      });
+      const fullUser = await api.auth.me(data.user.id);
+      useAuthStore.getState().setAuth(fullUser.user);
+      onClose();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -97,12 +96,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
         return;
       }
 
-      setSuccess("Account created! Switching to login...");
-      setTimeout(() => {
-        setTab("login");
-        setLoginEmail(regEmail);
-        resetForm();
-      }, 1500);
+      const fullUser = await api.auth.me(data.user.id);
+      useAuthStore.getState().setAuth(fullUser.user);
+      onClose();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
