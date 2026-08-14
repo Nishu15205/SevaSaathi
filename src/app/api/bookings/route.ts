@@ -35,16 +35,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Caregiver not found' }, { status: 404 })
     }
 
-    const start = new Date(data.startTime)
-    const end = new Date(data.endTime)
-    let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    const parseTimeToHours = (timeStr: string) => {
+      const [h, m] = timeStr.split(':').map(Number)
+      return h + m / 60
+    }
+    const startHours = parseTimeToHours(data.startTime)
+    const endHours = parseTimeToHours(data.endTime)
+    let hours = endHours - startHours
     if (hours < 0) hours += 24 // overnight shift
+    if (hours === 0) hours = 24 // full day
 
     const totalDays = data.endDate
       ? Math.ceil((new Date(data.endDate).getTime() - new Date(data.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
       : 1
 
-    const totalAmount = Math.round(caregiver.hourlyRate * hours * totalDays)
+    const totalAmount = Math.max(1, Math.round(caregiver.hourlyRate * hours * totalDays))
     const platformFee = Math.round(totalAmount * 0.1)
 
     const booking = await db.booking.create({

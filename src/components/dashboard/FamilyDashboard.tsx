@@ -623,6 +623,91 @@ function PatientsTab() {
 /* ============================================================ */
 /* FIND CAREGIVERS TAB                                          */
 /* ============================================================ */
+function CaregiverCard({ caregiver, showMatch = false, onBook }: { caregiver: any; showMatch?: boolean; onBook: (c: any) => void }) {
+  let skills: string[] = [];
+  try { skills = typeof caregiver.skills === 'string' ? JSON.parse(caregiver.skills) : (caregiver.skills || []); } catch {}
+  const displayName = caregiver.user?.name || 'Caregiver';
+  const city = caregiver.city || '';
+  const rating = caregiver.overallRating || 0;
+  const reviews = caregiver.totalReviews || 0;
+  const rate = caregiver.hourlyRate || 0;
+  const exp = caregiver.yearsExperience || 0;
+  const verified = caregiver.isVerified;
+  const matchScore = caregiver.matchScore;
+
+  return (
+    <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow h-full flex flex-col">
+      <CardContent className="p-5 flex flex-col flex-1">
+        {showMatch && matchScore !== undefined && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-gray-500">Match Score</span>
+              <span className={`text-sm font-bold ${matchScore >= 70 ? 'text-forest-700' : matchScore >= 40 ? 'text-amber-600' : 'text-gray-500'}`}>
+                {matchScore}%
+              </span>
+            </div>
+            <Progress
+              value={matchScore}
+              className={`h-2 rounded-full ${matchScore >= 70 ? '[&>div]:bg-forest-600' : matchScore >= 40 ? '[&>div]:bg-amber-500' : '[&>div]:bg-gray-400'}`}
+            />
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-full bg-forest-100 flex items-center justify-center shrink-0">
+            <span className="text-sm font-bold text-forest-700">{displayName.charAt(0).toUpperCase()}</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-gray-900 truncate">{displayName}</p>
+            <div className="flex items-center gap-1.5">
+              {verified && (
+                <Badge className="bg-forest-50 text-forest-700 border-forest-200 text-[10px] gap-1 rounded-full px-1.5 py-0">
+                  <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 space-y-1.5 text-xs text-gray-500">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 text-gray-400" /> {city}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+            <span>{rating > 0 ? rating.toFixed(1) : 'N/A'}</span>
+            <span className="text-gray-300">|</span>
+            <span>{reviews} reviews</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <IndianRupee className="h-3.5 w-3.5 text-gray-400" />
+            <span>{rate}/hr</span>
+            <span className="text-gray-300">|</span>
+            <span>{exp} yrs exp</span>
+          </div>
+        </div>
+        {skills.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {skills.slice(0, 4).map((skill: string, si: number) => (
+              <Badge key={si} variant="secondary" className="text-[10px] rounded-full bg-lime-50 text-lime-700 border-lime-200">
+                {skill}
+              </Badge>
+            ))}
+            {skills.length > 4 && (
+              <Badge variant="secondary" className="text-[10px] rounded-full bg-gray-100 text-gray-500">
+                +{skills.length - 4}
+              </Badge>
+            )}
+          </div>
+        )}
+        <div className="mt-auto pt-4">
+          <Button className="btn-black w-full text-sm gap-2 rounded-full" onClick={() => onBook(caregiver)}>
+            Book Now <ArrowUpRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FindCaregiversTab() {
   const user = useAuthStore((s) => s.user);
   const [results, setResults] = useState<any[]>([]);
@@ -630,6 +715,8 @@ function FindCaregiversTab() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
+  const [allCaregivers, setAllCaregivers] = useState<any[]>([]);
+  const [allLoading, setAllLoading] = useState(true);
   const [bookingCaregiver, setBookingCaregiver] = useState<any>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingForm, setBookingForm] = useState({
@@ -642,20 +729,29 @@ function FindCaregiversTab() {
     city: '', skills: '', shiftType: '', date: '', patientAge: '', mobilityStatus: '',
   });
 
+  // Load patients and all caregivers on mount
   useEffect(() => {
     if (!user?.id) return;
     api.patients.list(user.id).then(r => setPatients(r.patients || [])).catch(() => {});
+    api.caregivers.search({}).then(r => {
+      setAllCaregivers(r.results || []);
+      setAllLoading(false);
+    }).catch(() => setAllLoading(false));
   }, [user?.id]);
 
   const updateForm = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleBookClick = (caregiver: any) => {
+    setBookingCaregiver(caregiver);
+    setBookingModalOpen(true);
+  };
+
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id || !bookingCaregiver) return;
 
-    // Validate required fields
     if (!bookingForm.patientId) {
       toast.error('Please select a patient first. Add a patient from the Patients tab.');
       return;
@@ -805,6 +901,7 @@ function FindCaregiversTab() {
 
       {error && <ErrorState message={error} />}
 
+      {/* Search Results (only when user has searched) */}
       {loading && <LoadingCards count={3} />}
 
       {!loading && searched && results.length === 0 && (
@@ -815,99 +912,64 @@ function FindCaregiversTab() {
         />
       )}
 
-      {!loading && !error && results.length > 0 && (
+      {!loading && !error && searched && results.length > 0 && (
         <div>
-          <p className="text-sm text-gray-500 mb-3">{total} caregiver{total !== 1 ? 's' : ''} found</p>
+          <p className="text-sm text-gray-500 mb-3">{total} caregiver{total !== 1 ? 's' : ''} found (search results)</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {results.map((caregiver: any, i: number) => (
               <motion.div
-                key={caregiver.id}
+                key={`search-${caregiver.id}`}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
               >
-                <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow h-full flex flex-col">
-                  <CardContent className="p-5 flex flex-col flex-1">
-                    {/* Match Score */}
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-gray-500">Match Score</span>
-                        <span className={`text-sm font-bold ${caregiver.matchScore >= 70 ? 'text-forest-700' : caregiver.matchScore >= 40 ? 'text-amber-600' : 'text-gray-500'}`}>
-                          {caregiver.matchScore}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={caregiver.matchScore}
-                        className={`h-2 rounded-full ${caregiver.matchScore >= 70 ? '[&>div]:bg-forest-600' : caregiver.matchScore >= 40 ? '[&>div]:bg-amber-500' : '[&>div]:bg-gray-400'}`}
-                      />
-                    </div>
-
-                    {/* Name & Verified */}
-                    <div className="flex items-center gap-2">
-                      <p className="text-base font-semibold text-gray-900">{caregiver.user?.name || 'Caregiver'}</p>
-                      {caregiver.isVerified && (
-                        <Badge className="bg-forest-50 text-forest-700 border-forest-200 text-[10px] gap-1 rounded-full">
-                          <ShieldCheck className="h-3 w-3" /> Verified
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Details */}
-                    <div className="mt-2 space-y-1.5 text-xs text-gray-500">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-gray-400" /> {caregiver.city}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                        <span>{caregiver.overallRating || 'N/A'}</span>
-                        <span className="text-gray-300">|</span>
-                        <span>{caregiver.totalReviews} reviews</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <IndianRupee className="h-3.5 w-3.5 text-gray-400" />
-                        <span>{caregiver.hourlyRate}/hr</span>
-                        <span className="text-gray-300">|</span>
-                        <span>{caregiver.yearsExperience} yrs exp</span>
-                      </div>
-                    </div>
-
-                    {/* Skills */}
-                    {caregiver.skills && caregiver.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {caregiver.skills.slice(0, 4).map((skill: string, si: number) => (
-                          <Badge key={si} variant="secondary" className="text-[10px] rounded-full bg-lime-50 text-lime-700 border-lime-200">
-                            {skill}
-                          </Badge>
-                        ))}
-                        {caregiver.skills.length > 4 && (
-                          <Badge variant="secondary" className="text-[10px] rounded-full bg-gray-100 text-gray-500">
-                            +{caregiver.skills.length - 4}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-auto pt-4">
-                      <Button className="btn-black w-full text-sm gap-2 rounded-full" onClick={() => { setBookingCaregiver(caregiver); setBookingModalOpen(true); }}>
-                        Book Now <ArrowUpRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <CaregiverCard caregiver={caregiver} showMatch onBook={handleBookClick} />
               </motion.div>
             ))}
           </div>
         </div>
       )}
 
-      {!searched && !loading && (
-        <EmptyState
-          icon={<Search className="h-7 w-7" />}
-          title="Search for caregivers"
-          description="Use the form above to find the best matched caregivers for your needs."
-        />
+      {/* Separator between search results and all caregivers */}
+      {searched && results.length > 0 && allCaregivers.length > 0 && (
+        <Separator className="my-2" />
       )}
 
+      {/* All Caregivers - always shown */}
+      {allLoading ? (
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-3">All Available Caregivers</p>
+          <LoadingCards count={6} />
+        </div>
+      ) : allCaregivers.length > 0 ? (
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-3">
+            All Available Caregivers ({allCaregivers.length})
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allCaregivers.map((caregiver: any, i: number) => (
+              <motion.div
+                key={`all-${caregiver.id}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+              >
+                <CaregiverCard caregiver={caregiver} showMatch={!searched} onBook={handleBookClick} />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        !loading && !searched && (
+          <EmptyState
+            icon={<Search className="h-7 w-7" />}
+            title="No caregivers available"
+            description="No caregivers have registered yet. Please check back later."
+          />
+        )
+      )}
+
+      {/* Booking Dialog */}
       <Dialog open={bookingModalOpen} onOpenChange={(open) => { setBookingModalOpen(open); if (!open) setBookingCaregiver(null); }}>
         <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>

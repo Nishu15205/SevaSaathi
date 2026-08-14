@@ -448,3 +448,27 @@ Stage Summary:
 - Profile creation calls POST /api/caregivers, then fetches clean data via GET /api/auth/me to update auth store
 - No more client-side crash after profile creation
 
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix Confirm Booking button and add all caregivers list below search
+
+Work Log:
+- Diagnosed Confirm Booking bug: API route used `new Date("08:00")` for time strings, returning Invalid Date -> NaN for amount -> 500 error
+- Fixed by replacing with proper time parsing: `const [h, m] = timeStr.split(":").map(Number); return h + m/60`
+- Added safety floor `Math.max(1, ...)` for totalAmount
+- Rewrote FindCaregiversTab to load all caregivers on mount via `api.caregivers.search({})`
+- Created reusable CaregiverCard component with avatar initial, skills parsing, and Book Now button
+- All caregivers now display below search form with match scores
+- When searching, search results appear above with separator, then all caregivers below
+- Verified booking API works: POST /api/bookings returns 201 with correct totalAmount (250*12=3000) and platformFee (300)
+- Verified caregiver list loads: 10 caregivers shown with Book Now buttons
+- ESLint passes clean
+
+Stage Summary:
+- File changed: /home/z/my-project/src/app/api/bookings/route.ts (time parsing fix)
+- File changed: /home/z/my-project/src/components/dashboard/FamilyDashboard.tsx (CaregiverCard component + FindCaregiversTab rewrite)
+- Booking API confirmed working via curl test
+- All caregivers visible in Find Caregivers tab
+
