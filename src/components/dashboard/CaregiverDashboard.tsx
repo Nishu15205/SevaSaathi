@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   CalendarCheck,
   CheckCircle2,
@@ -239,7 +239,13 @@ function OverviewTab({ user }: { user: User }) {
     setError('');
     try {
       const res = await api.bookings.list({ caregiverId: profile.id });
-      const all = res.bookings || [];
+      const all = (res.bookings || []).map((b: any) => ({
+        ...b,
+        date: b.startDate,
+        patientName: b.patient?.name,
+        familyName: b.family?.name,
+        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+      }));
       setBookings(all);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard data');
@@ -649,7 +655,14 @@ function BookingsTab({ user }: { user: User }) {
     setError('');
     try {
       const res = await api.bookings.list({ caregiverId: profile.id });
-      setBookings(res.bookings || []);
+      const mapped = (res.bookings || []).map((b: any) => ({
+        ...b,
+        date: b.startDate,
+        patientName: b.patient?.name,
+        familyName: b.family?.name,
+        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+      }));
+      setBookings(mapped);
     } catch (err: any) {
       setError(err.message || 'Failed to load bookings');
     } finally {
@@ -835,8 +848,14 @@ function SubmitReportTab({ user }: { user: User }) {
     setError('');
     try {
       const res = await api.bookings.list({ caregiverId: profile.id });
-      const all = res.bookings || [];
-      const eligible = all.filter((b: any) =>
+      const mapped = (res.bookings || []).map((b: any) => ({
+        ...b,
+        date: b.startDate,
+        patientName: b.patient?.name,
+        familyName: b.family?.name,
+        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+      }));
+      const eligible = mapped.filter((b: any) =>
         ['IN_PROGRESS', 'CONFIRMED'].includes(b.status)
       );
       setBookings(eligible);
@@ -1151,7 +1170,12 @@ function ReviewsTab({ user }: { user: User }) {
     setError('');
     try {
       const res = await api.reviews.list(profile.id);
-      setReviews(res.reviews || []);
+      const mapped = (res.reviews || []).map((r: any) => ({
+        ...r,
+        overallRating: r.rating,
+        familyName: r.family?.name,
+      }));
+      setReviews(mapped);
     } catch (err: any) {
       setError(err.message || 'Failed to load reviews');
     } finally {
@@ -1337,20 +1361,12 @@ function ReviewsTab({ user }: { user: User }) {
 
 export function CaregiverDashboard({ activeTab, user }: CaregiverDashboardProps) {
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-      >
-        {activeTab === 'overview' && <OverviewTab user={user} />}
-        {activeTab === 'my-profile' && <ProfileTab user={user} />}
-        {activeTab === 'bookings' && <BookingsTab user={user} />}
-        {activeTab === 'submit-report' && <SubmitReportTab user={user} />}
-        {activeTab === 'reviews' && <ReviewsTab user={user} />}
-      </motion.div>
-    </AnimatePresence>
+    <>
+      {activeTab === 'overview' && <OverviewTab user={user} />}
+      {activeTab === 'my-profile' && <ProfileTab user={user} />}
+      {activeTab === 'bookings' && <BookingsTab user={user} />}
+      {activeTab === 'submit-report' && <SubmitReportTab user={user} />}
+      {activeTab === 'reviews' && <ReviewsTab user={user} />}
+    </>
   );
 }

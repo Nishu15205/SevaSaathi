@@ -585,9 +585,20 @@ function PatientsTab() {
                     <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{patient.city}</span>
                     <span className="flex items-center gap-1"><CalendarCheck className="h-3 w-3" />{patient._count?.bookings || 0} bookings</span>
                   </div>
-                  {patient.medicalHistory && patient.medicalHistory !== 'null' && patient.medicalHistory !== '[]' && (
-                    <p className="mt-2 text-xs text-gray-400 line-clamp-2">{typeof patient.medicalHistory === 'string' ? patient.medicalHistory : JSON.stringify(patient.medicalHistory)}</p>
-                  )}
+                  {patient.medicalHistory && patient.medicalHistory !== 'null' && patient.medicalHistory !== '[]' && (() => {
+                    let conditions: any[] = [];
+                    try { conditions = JSON.parse(typeof patient.medicalHistory === 'string' ? patient.medicalHistory : JSON.stringify(patient.medicalHistory)); } catch {}
+                    if (!Array.isArray(conditions) || conditions.length === 0) return null;
+                    return (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {conditions.map((c: any, ci: number) => (
+                          <span key={ci} className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100">
+                            {c.condition || c.name || `Condition ${ci + 1}`}{c.since ? ` (since ${c.since})` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </motion.div>
@@ -608,13 +619,53 @@ function FindCaregiversTab() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
+  const [bookingCaregiver, setBookingCaregiver] = useState<any>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    patientId: '', shiftType: 'TWELVE_HOUR', startDate: '', endDate: '', startTime: '08:00', endTime: '20:00', familyNotes: '',
+  });
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     city: '', skills: '', shiftType: '', date: '', patientAge: '', mobilityStatus: '',
   });
 
+  useEffect(() => {
+    if (!user?.id) return;
+    api.patients.list(user.id).then(r => setPatients(r.patients || [])).catch(() => {});
+  }, [user?.id]);
+
   const updateForm = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBookSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id || !bookingCaregiver) return;
+    setBookingSubmitting(true);
+    try {
+      await api.bookings.create({
+        patientId: bookingForm.patientId,
+        caregiverId: bookingCaregiver.id,
+        familyId: user.id,
+        shiftType: bookingForm.shiftType,
+        startDate: bookingForm.startDate,
+        endDate: bookingForm.endDate || null,
+        startTime: bookingForm.startTime,
+        endTime: bookingForm.endTime,
+        careRequirements: { needs: bookingCaregiver.skills || [] },
+        familyNotes: bookingForm.familyNotes,
+      });
+      toast.success('Booking created successfully!');
+      setBookingModalOpen(false);
+      setBookingCaregiver(null);
+      setBookingForm({ patientId: '', shiftType: 'TWELVE_HOUR', startDate: '', endDate: '', startTime: '08:00', endTime: '20:00', familyNotes: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create booking');
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -815,7 +866,7 @@ function FindCaregiversTab() {
                     )}
 
                     <div className="mt-auto pt-4">
-                      <Button className="btn-black w-full text-sm gap-2 rounded-full">
+                      <Button className="btn-black w-full text-sm gap-2 rounded-full" onClick={() => { setBookingCaregiver(caregiver); setBookingModalOpen(true); }}>
                         Book Now <ArrowUpRight className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -834,6 +885,69 @@ function FindCaregiversTab() {
           description="Use the form above to find the best matched caregivers for your needs."
         />
       )}
+
+      <Dialog open={bookingModalOpen} onOpenChange={(open) => { setBookingModalOpen(open); if (!open) setBookingCaregiver(null); }}>
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Book {bookingCaregiver?.user?.name || 'Caregiver'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleBookSubmit} className="space-y-4 mt-2">
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Patient *</Label>
+              <Select value={bookingForm.patientId} onValueChange={v => setBookingForm(p => ({...p, patientId: v}))}>
+                <SelectTrigger className="mt-1 rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+                <SelectContent>
+                  {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.age} yrs, {p.relationship})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Shift Type *</Label>
+              <Select value={bookingForm.shiftType} onValueChange={v => setBookingForm(p => ({...p, shiftType: v}))}>
+                <SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DAY_SHIFT">Day Shift</SelectItem>
+                  <SelectItem value="NIGHT_SHIFT">Night Shift</SelectItem>
+                  <SelectItem value="TWELVE_HOUR">12 Hour</SelectItem>
+                  <SelectItem value="TWENTY_FOUR_HOUR">24 Hour</SelectItem>
+                  <SelectItem value="HOURLY">Hourly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Start Date *</Label>
+                <Input type="date" value={bookingForm.startDate} onChange={e => setBookingForm(p => ({...p, startDate: e.target.value}))} className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">End Date</Label>
+                <Input type="date" value={bookingForm.endDate} onChange={e => setBookingForm(p => ({...p, endDate: e.target.value}))} className="mt-1 rounded-xl" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Start Time *</Label>
+                <Input type="time" value={bookingForm.startTime} onChange={e => setBookingForm(p => ({...p, startTime: e.target.value}))} className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">End Time *</Label>
+                <Input type="time" value={bookingForm.endTime} onChange={e => setBookingForm(p => ({...p, endTime: e.target.value}))} className="mt-1 rounded-xl" required />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Notes for Caregiver</Label>
+              <Textarea value={bookingForm.familyNotes} onChange={e => setBookingForm(p => ({...p, familyNotes: e.target.value}))} placeholder="Any special instructions..." className="mt-1 rounded-xl min-h-[80px]" />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => setBookingModalOpen(false)} className="rounded-xl">Cancel</Button>
+              <Button type="submit" disabled={bookingSubmitting} className="btn-black text-sm gap-2">
+                {bookingSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Confirm Booking
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1102,17 +1216,9 @@ function ReportsTab() {
                 </div>
               </button>
 
-              <AnimatePresence>
-                {expandedBooking === booking.id && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-4 sm:px-5 pb-4 sm:pb-5">
-                      <Separator className="mb-4" />
+              {expandedBooking === booking.id && (
+                <div className="px-4 sm:px-5 pb-4 sm:pb-5 animate-accordion-down">
+                  <Separator className="mb-4" />
                       {loadingReports === booking.id ? (
                         <div className="space-y-3">
                           <Skeleton className="h-20 rounded-xl" />
@@ -1190,9 +1296,7 @@ function ReportsTab() {
                         </div>
                       )}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              )}
             </Card>
           ))}
         </div>
@@ -1419,6 +1523,7 @@ function ComplaintsTab() {
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [caregivers, setCaregivers] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     subject: '', description: '', priority: 'medium', caregiverId: '',
@@ -1431,6 +1536,16 @@ function ComplaintsTab() {
     try {
       const res = await api.complaints.list({ familyId: user.id });
       setComplaints(res.complaints || []);
+      // Also fetch unique caregivers from bookings
+      api.bookings.list({ familyId: user.id }).then(bRes => {
+        const uniqueCaregivers = new Map<string, any>();
+        (bRes.bookings || []).forEach((b: any) => {
+          if (b.caregiver && !uniqueCaregivers.has(b.caregiverId)) {
+            uniqueCaregivers.set(b.caregiverId, b.caregiver);
+          }
+        });
+        setCaregivers(Array.from(uniqueCaregivers.values()));
+      }).catch(() => {});
     } catch (err: any) {
       setError(err.message || 'Failed to load complaints');
     } finally {
@@ -1504,14 +1619,15 @@ function ComplaintsTab() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-2">
               <div>
-                <Label className="text-xs font-medium text-gray-600">Caregiver ID *</Label>
-                <Input
-                  required
-                  value={form.caregiverId}
-                  onChange={(e) => updateForm('caregiverId', e.target.value)}
-                  placeholder="Enter caregiver ID"
-                  className="mt-1 rounded-xl"
-                />
+                <Label className="text-xs font-medium text-gray-600">Caregiver *</Label>
+                <Select value={form.caregiverId} onValueChange={v => updateForm('caregiverId', v)}>
+                  <SelectTrigger className="mt-1 rounded-xl"><SelectValue placeholder="Select caregiver" /></SelectTrigger>
+                  <SelectContent>
+                    {caregivers.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.user?.name || 'Unknown Caregiver'}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-xs font-medium text-gray-600">Subject *</Label>

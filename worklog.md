@@ -279,3 +279,66 @@ Stage Summary:
 - Family: Overview, Patients CRUD, Find Caregivers (smart search), Bookings, Care Reports, Reviews, Complaints
 - Caregiver: Overview, Profile, Bookings (with complete action), Submit Report (full form), Reviews
 - Zero lint errors, all API endpoints verified working
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix DashboardShell.tsx and CaregiverDashboard.tsx bugs
+
+Work Log:
+- Fixed ISSUE 1 (triple rendering): Removed nested AnimatePresence + motion.div wrapper from DashboardShell.tsx content area. The individual dashboard tab components already handle their own animations, so the outer wrapper caused redundant DOM rendering.
+- Removed unused framer-motion import (motion, AnimatePresence) from DashboardShell.tsx since no animation wrappers remain.
+- Fixed ISSUE 2 (data mapping bugs): API returns bookings with nested objects (patient.name, family.name, startDate, careRequirements) but CaregiverDashboard's Booking interface expected flat fields (patientName, familyName, date, careType).
+- Added .map() data transformation in all 3 tabs that fetch bookings:
+  - OverviewTab: maps startDate→date, patient?.name→patientName, family?.name→familyName, careRequirements?.needs→careType
+  - BookingsTab: same mapping applied
+  - SubmitReportTab: same mapping applied before filtering eligible bookings
+- Fixed ISSUE 3: Removed AnimatePresence + motion.div wrapper from CaregiverDashboard export function. Replaced with a simple React fragment (<>) wrapper.
+- Cleaned up unused AnimatePresence import from CaregiverDashboard.tsx (kept motion import since individual tabs still use motion.div internally).
+- Verified: zero lint errors, clean dev server compilation.
+
+Stage Summary:
+- Eliminated triple DOM rendering caused by nested AnimatePresence (DashboardShell + CaregiverDashboard + individual tabs)
+- Caregiver dashboard now correctly displays patient names, family names, dates, and care types from API nested response objects
+- All booking-dependent tabs (Overview, Bookings, Submit Report) properly transform API data before rendering
+- Zero lint errors, clean compilation
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Fix all bugs in FamilyDashboard.tsx
+
+Work Log:
+- FIX 1 (Medical History raw JSON): Replaced plain text rendering of `patient.medicalHistory` with JSON parser that extracts conditions array and renders them as styled pill badges (red-50 bg, red-600 text) with condition name and "since" year.
+- FIX 2 (Care Reports Accordion not expanding): Replaced broken `AnimatePresence` + `motion.div` with `height: 'auto'` (which doesn't animate properly) with a simple conditional render using `animate-accordion-down` CSS animation class. Added `@keyframes accordion-down` to `globals.css`.
+- FIX 3 (Book Now button does nothing): Added booking dialog to FindCaregiversTab. Added state for `bookingCaregiver`, `bookingModalOpen`, `bookingForm`, `bookingSubmitting`, `patients`. Added `useEffect` to fetch patients list. Added `handleBookSubmit` function that calls `api.bookings.create()`. Added `onClick` handler to Book Now button. Added full Dialog with form fields: Patient select, Shift Type select, Start/End Date, Start/End Time, Notes textarea.
+- FIX 4 (Reviews Tab field names): Verified the reviews API route at `/api/reviews/route.ts`. The API expects `rating`, `communicationRating`, `punctualityRating`, `careQualityRating` — which matches exactly what the frontend sends. No fix needed. The booking context (caregiver name + patient name + date) is already clearly displayed.
+- FIX 5 (Complaints caregiver ID input): Replaced plain text Input for caregiver ID with a Select dropdown populated from unique caregivers fetched from user's bookings via `api.bookings.list()`. Added `caregivers` state and fetch logic inside `fetchComplaints` callback.
+
+Stage Summary:
+- 5 bugs fixed in FamilyDashboard.tsx: medical history display, accordion animation, booking functionality, reviews field verification, complaints caregiver dropdown
+- Added CSS animation keyframes to globals.css for accordion expansion
+- Zero lint errors, clean compilation
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix all dashboard bugs - test everything and fix if not working
+
+Work Log:
+- Browser-tested entire application end-to-end (landing, family dashboard, caregiver dashboard)
+- Identified 7 bugs across DashboardShell, CaregiverDashboard, and FamilyDashboard
+- Fixed triple rendering: removed nested AnimatePresence from DashboardShell and CaregiverDashboard export
+- Fixed Caregiver BookingsTab data mapping: API returns nested objects (patient.name, family.name, startDate) but code expected flat fields (patientName, familyName, date) - added .map() transformation in OverviewTab, BookingsTab, and SubmitReportTab
+- Fixed Patient medical history: raw JSON string displayed as-is - replaced with JSON parser rendering condition pills (e.g., "Diabetes Type 2 (since 2010)")
+- Fixed Care Reports accordion: framer-motion height:'auto' animation doesn't work - replaced with CSS @keyframes accordion-down animation
+- Fixed Find Caregivers Book Now button: no onClick handler - added full booking dialog with patient select, shift type, date/time pickers, notes, and Confirm Booking
+- Fixed Family Complaints: raw caregiver ID text input - replaced with Select dropdown populated from unique caregivers in user's bookings
+- Fixed Caregiver ReviewsTab crash: API returns `rating` field but code accessed `review.overallRating` causing NaN and crash - added mapping in fetchReviews
+- Verified all 12 tabs across both dashboards work correctly
+
+Stage Summary:
+- All dashboard functionality now working end-to-end
+- Family Dashboard (7 tabs): Overview, Patients, Find Caregivers, My Bookings, Care Reports, Reviews, Complaints
+- Caregiver Dashboard (5 tabs): Overview, My Profile, My Bookings, Submit Report, My Reviews
+- Zero lint errors, clean compilation, no runtime crashes
+- Key fixes: data mapping, accordion animation, booking dialog, medical history parsing, complaint dropdown

@@ -1,0 +1,1529 @@
+     1→   110→      </div>
+     2→   111→      <h3 className="text-base font-semibold text-gray-800 mb-1">Something went wrong</h3>
+     3→   112→      <p className="text-sm text-gray-400 max-w-sm mb-4">{message}</p>
+     4→   113→      {onRetry && (
+     5→   114→        <Button variant="outline" size="sm" onClick={onRetry} className="rounded-xl">
+     6→   115→          Try Again
+     7→   116→        </Button>
+     8→   117→      )}
+     9→   118→    </div>
+    10→   119→  );
+    11→   120→}
+    12→   121→
+    13→   122→function LoadingGrid({ count = 3 }: { count?: number }) {
+    14→   123→  return (
+    15→   124→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    16→   125→      {Array.from({ length: count }).map((_, i) => (
+    17→   126→        <Skeleton key={i} className="h-28 rounded-2xl" />
+    18→   127→      ))}
+    19→   128→    </div>
+    20→   129→  );
+    21→   130→}
+    22→   131→
+    23→   132→function LoadingCards({ count = 3 }: { count?: number }) {
+    24→   133→  return (
+    25→   134→    <div className="space-y-3">
+    26→   135→      {Array.from({ length: count }).map((_, i) => (
+    27→   136→        <Skeleton key={i} className="h-24 rounded-2xl" />
+    28→   137→      ))}
+    29→   138→    </div>
+    30→   139→  );
+    31→   140→}
+    32→   141→
+    33→   142→/* ============================================================ */
+    34→   143→/* OVERVIEW TAB                                                  */
+    35→   144→/* ============================================================ */
+    36→   145→function OverviewTab() {
+    37→   146→  const user = useAuthStore((s) => s.user);
+    38→   147→  const [stats, setStats] = useState({ patients: 0, activeBookings: 0, reports: 0, pendingReviews: 0 });
+    39→   148→  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+    40→   149→  const [loading, setLoading] = useState(true);
+    41→   150→  const [error, setError] = useState('');
+    42→   151→
+    43→   152→  const fetchData = useCallback(async () => {
+    44→   153→    if (!user?.id) return;
+    45→   154→    setLoading(true);
+    46→   155→    setError('');
+    47→   156→    try {
+    48→   157→      const [patientsRes, bookingsRes] = await Promise.all([
+    49→   158→        api.patients.list(user.id),
+    50→   159→        api.bookings.list({ familyId: user.id }),
+    51→   160→      ]);
+    52→   161→
+    53→   162→      const patients = patientsRes.patients || [];
+    54→   163→      const bookings = bookingsRes.bookings || [];
+    55→   164→
+    56→   165→      const activeBookings = bookings.filter((b: any) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(b.status));
+    57→   166→      const totalReports = bookings.reduce((acc: number, b: any) => acc + (b.careReports?.length || 0), 0);
+    58→   167→      const completedWithoutReview = bookings.filter(
+    59→   168→        (b: any) => b.status === 'COMPLETED' && (!b.reviews || b.reviews.length === 0)
+    60→   169→      ).length;
+    61→   170→
+    62→   171→      setStats({
+    63→   172→        patients: patients.length,
+    64→   173→        activeBookings: activeBookings.length,
+    65→   174→        reports: totalReports,
+    66→   175→        pendingReviews: completedWithoutReview,
+    67→   176→      });
+    68→   177→      setRecentBookings(bookings.slice(0, 5));
+    69→   178→    } catch (err: any) {
+    70→   179→      setError(err.message || 'Failed to load dashboard data');
+    71→   180→    } finally {
+    72→   181→      setLoading(false);
+    73→   182→    }
+    74→   183→  }, [user?.id]);
+    75→   184→
+    76→   185→  useEffect(() => {
+    77→   186→    fetchData();
+    78→   187→  }, [fetchData]);
+    79→   188→
+    80→   189→  if (loading) {
+    81→   190→    return (
+    82→   191→      <div className="space-y-6">
+    83→   192→        <LoadingGrid count={4} />
+    84→   193→        <div>
+    85→   194→          <Skeleton className="h-6 w-40 mb-3" />
+    86→   195→          <LoadingCards count={3} />
+    87→   196→        </div>
+    88→   197→      </div>
+    89→   198→    );
+    90→   199→  }
+    91→   200→
+    92→   201→  if (error) {
+    93→   202→    return <ErrorState message={error} onRetry={fetchData} />;
+    94→   203→  }
+    95→   204→
+    96→   205→  const statCards = [
+    97→   206→    { label: 'Total Patients', value: stats.patients, icon: <Users className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
+    98→   207→    { label: 'Active Bookings', value: stats.activeBookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'bg-blue-50 text-blue-700' },
+    99→   208→    { label: 'Care Reports', value: stats.reports, icon: <FileText className="h-5 w-5" />, color: 'bg-amber-50 text-amber-700' },
+   100→   209→    { label: 'Pending Reviews', value: stats.pendingReviews, icon: <Star className="h-5 w-5" />, color: 'bg-lime-50 text-lime-700' },
+   101→   210→  ];
+   102→   211→
+   103→   212→  return (
+   104→   213→    <div className="space-y-6">
+   105→   214→      {/* Welcome */}
+   106→   215→      <div>
+   107→   216→        <h2 className="text-2xl font-bold text-gray-900">
+   108→   217→          Welcome back, {user?.name?.split(' ')[0]}!
+   109→   218→        </h2>
+   110→   219→        <p className="text-sm text-gray-400 mt-1">Here's what's happening with your care requests.</p>
+   111→   220→      </div>
+   112→   221→
+   113→   222→      {/* Stat Cards */}
+   114→   223→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   115→   224→        {statCards.map((stat, i) => (
+   116→   225→          <motion.div
+   117→   226→            key={stat.label}
+   118→   227→            initial={{ opacity: 0, y: 12 }}
+   119→   228→            animate={{ opacity: 1, y: 0 }}
+   120→   229→            transition={{ delay: i * 0.05 }}
+   121→   230→          >
+   122→   231→            <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow">
+   123→   232→              <CardContent className="p-5">
+   124→   233→                <div className="flex items-center justify-between">
+   125→   234→                  <div>
+   126→   235→                    <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
+   127→   236→                    <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+   128→   237→                  </div>
+   129→   238→                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${stat.color}`}>
+   130→   239→                    {stat.icon}
+   131→   240→                  </div>
+   132→   241→                </div>
+   133→   242→              </CardContent>
+   134→   243→            </Card>
+   135→   244→          </motion.div>
+   136→   245→        ))}
+   137→   246→      </div>
+   138→   247→
+   139→   248→      {/* Recent Bookings */}
+   140→   249→      <div>
+   141→   250→        <h3 className="text-base font-semibold text-gray-800 mb-3">Recent Bookings</h3>
+   142→   251→        {recentBookings.length === 0 ? (
+   143→   252→          <EmptyState
+   144→   253→            icon={<CalendarCheck className="h-7 w-7" />}
+   145→   254→            title="No bookings yet"
+   146→   255→            description="Find a caregiver and book your first care session."
+   147→   256→          />
+   148→   257→        ) : (
+   149→   258→          <div className="space-y-3">
+   150→   259→            {recentBookings.map((booking: any) => (
+   151→   260→              <Card key={booking.id} className="rounded-2xl border-gray-100">
+   152→   261→                <CardContent className="p-4">
+   153→   262→                  <div className="flex items-center justify-between gap-4">
+   154→   263→                    <div className="flex items-center gap-3 min-w-0">
+   155→   264→                      <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+   156→   265→                        <UserRound className="h-5 w-5 text-forest-700" />
+   157→   266→                      </div>
+   158→   267→                      <div className="min-w-0">
+   159→   268→                        <p className="text-sm font-semibold text-gray-800 truncate">
+   160→   269→                          {booking.patient?.name || 'Patient'}
+   161→   270→                        </p>
+   162→   271→                        <p className="text-xs text-gray-400">
+   163→   272→                          {booking.caregiver?.user?.name || 'Caregiver'} &middot; {booking.shiftType?.replace(/_/g, ' ')}
+   164→   273→                        </p>
+   165→   274→                      </div>
+   166→   275→                    </div>
+   167→   276→                    <div className="text-right shrink-0">
+   168→   277→                      <Badge variant="outline" className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}>
+   169→   278→                        {booking.status}
+   170→   279→                      </Badge>
+   171→   280→                      <p className="text-xs text-gray-400 mt-1">
+   172→   281→                        {booking.totalAmount ? `₹${booking.totalAmount}` : '--'}
+   173→   282→                      </p>
+   174→   283→                    </div>
+   175→   284→                  </div>
+   176→   285→                </CardContent>
+   177→   286→              </Card>
+   178→   287→            ))}
+   179→   288→          </div>
+   180→   289→        )}
+   181→   290→      </div>
+   182→   291→    </div>
+   183→   292→  );
+   184→   293→}
+   185→   294→
+   186→   295→/* ============================================================ */
+   187→   296→/* PATIENTS TAB                                                 */
+   188→   297→/* ============================================================ */
+   189→   298→function PatientsTab() {
+   190→   299→  const user = useAuthStore((s) => s.user);
+   191→   300→  const [patients, setPatients] = useState<any[]>([]);
+   192→   301→  const [loading, setLoading] = useState(true);
+   193→   302→  const [error, setError] = useState('');
+   194→   303→  const [modalOpen, setModalOpen] = useState(false);
+   195→   304→  const [submitting, setSubmitting] = useState(false);
+   196→   305→
+   197→   306→  // Form state
+   198→   307→  const [form, setForm] = useState({
+   199→   308→    name: '', age: '', gender: '', relationship: '', address: '', city: '',
+   200→   309→    pincode: '', mobilityStatus: '', medicalHistory: '', careRequirements: '',
+   201→   310→    emergencyName: '', emergencyPhone: '',
+   202→   311→  });
+   203→   312→
+   204→   313→  const fetchPatients = useCallback(async () => {
+   205→   314→    if (!user?.id) return;
+   206→   315→    setLoading(true);
+   207→   316→    setError('');
+   208→   317→    try {
+   209→   318→      const res = await api.patients.list(user.id);
+   210→   319→      setPatients(res.patients || []);
+   211→   320→    } catch (err: any) {
+   212→   321→      setError(err.message || 'Failed to load patients');
+   213→   322→    } finally {
+   214→   323→      setLoading(false);
+   215→   324→    }
+   216→   325→  }, [user?.id]);
+   217→   326→
+   218→   327→  useEffect(() => {
+   219→   328→    fetchPatients();
+   220→   329→  }, [fetchPatients]);
+   221→   330→
+   222→   331→  const updateForm = (field: string, value: string) => {
+   223→   332→    setForm((prev) => ({ ...prev, [field]: value }));
+   224→   333→  };
+   225→   334→
+   226→   335→  const handleSubmit = async (e: React.FormEvent) => {
+   227→   336→    e.preventDefault();
+   228→   337→    if (!user?.id) return;
+   229→   338→    setSubmitting(true);
+   230→   339→    try {
+   231→   340→      await api.patients.create({
+   232→   341→        familyId: user.id,
+   233→   342→        name: form.name,
+   234→   343→        age: parseInt(form.age, 10) || 0,
+   235→   344→        gender: form.gender,
+   236→   345→        relationship: form.relationship,
+   237→   346→        address: form.address,
+   238→   347→        city: form.city,
+   239→   348→        pincode: form.pincode || undefined,
+   240→   349→        mobilityStatus: form.mobilityStatus || 'mobile',
+   241→   350→        medicalHistory: form.medicalHistory,
+   242→   351→        careRequirements: form.careRequirements,
+   243→   352→        emergencyContact: JSON.stringify({ name: form.emergencyName, phone: form.emergencyPhone }),
+   244→   353→      });
+   245→   354→      toast.success('Patient profile created successfully!');
+   246→   355→      setModalOpen(false);
+   247→   356→      setForm({
+   248→   357→        name: '', age: '', gender: '', relationship: '', address: '', city: '',
+   249→   358→        pincode: '', mobilityStatus: '', medicalHistory: '', careRequirements: '',
+   250→   359→        emergencyName: '', emergencyPhone: '',
+   251→   360→      });
+   252→   361→      fetchPatients();
+   253→   362→    } catch (err: any) {
+   254→   363→      toast.error(err.message || 'Failed to create patient');
+   255→   364→    } finally {
+   256→   365→      setSubmitting(false);
+   257→   366→    }
+   258→   367→  };
+   259→   368→
+   260→   369→  if (loading) {
+   261→   370→    return <LoadingCards count={3} />;
+   262→   371→  }
+   263→   372→
+   264→   373→  if (error) {
+   265→   374→    return <ErrorState message={error} onRetry={fetchPatients} />;
+   266→   375→  }
+   267→   376→
+   268→   377→  const mobilityLabel: Record<string, string> = {
+   269→   378→    mobile: 'Mobile', bedridden: 'Bedridden', limited: 'Limited Mobility', wheelchair: 'Wheelchair',
+   270→   379→  };
+   271→   380→
+   272→   381→  return (
+   273→   382→    <div className="space-y-6">
+   274→   383→      <div className="flex items-center justify-between">
+   275→   384→        <div>
+   276→   385→          <h2 className="text-xl font-bold text-gray-900">Patient Profiles</h2>
+   277→   386→          <p className="text-sm text-gray-400">Manage care recipients in your family.</p>
+   278→   387→        </div>
+   279→   388→        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+   280→   389→          <DialogTrigger asChild>
+   281→   390→            <Button className="btn-black text-sm gap-2">
+   282→   391→              <Plus className="h-4 w-4" /> Add Patient
+   283→   392→            </Button>
+   284→   393→          </DialogTrigger>
+   285→   394→          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+   286→   395→            <DialogHeader>
+   287→   396→              <DialogTitle>Add New Patient</DialogTitle>
+   288→   397→            </DialogHeader>
+   289→   398→            <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+   290→   399→              <div className="grid grid-cols-2 gap-3">
+   291→   400→                <div className="col-span-2">
+   292→   401→                  <Label className="text-xs font-medium text-gray-600">Full Name *</Label>
+   293→   402→                  <Input
+   294→   403→                    required
+   295→   404→                    value={form.name}
+   296→   405→                    onChange={(e) => updateForm('name', e.target.value)}
+   297→   406→                    placeholder="Patient name"
+   298→   407→                    className="mt-1 rounded-xl"
+   299→   408→                  />
+   300→   409→                </div>
+   301→   410→                <div>
+   302→   411→                  <Label className="text-xs font-medium text-gray-600">Age *</Label>
+   303→   412→                  <Input
+   304→   413→                    required
+   305→   414→                    type="number"
+   306→   415→                    min={0}
+   307→   416→                    max={150}
+   308→   417→                    value={form.age}
+   309→   418→                    onChange={(e) => updateForm('age', e.target.value)}
+   310→   419→                    placeholder="Age"
+   311→   420→                    className="mt-1 rounded-xl"
+   312→   421→                  />
+   313→   422→                </div>
+   314→   423→                <div>
+   315→   424→                  <Label className="text-xs font-medium text-gray-600">Gender *</Label>
+   316→   425→                  <Select value={form.gender} onValueChange={(v) => updateForm('gender', v)}>
+   317→   426→                    <SelectTrigger className="mt-1 rounded-xl">
+   318→   427→                      <SelectValue placeholder="Select gender" />
+   319→   428→                    </SelectTrigger>
+   320→   429→                    <SelectContent>
+   321→   430→                      <SelectItem value="Male">Male</SelectItem>
+   322→   431→                      <SelectItem value="Female">Female</SelectItem>
+   323→   432→                      <SelectItem value="Other">Other</SelectItem>
+   324→   433→                    </SelectContent>
+   325→   434→                  </Select>
+   326→   435→                </div>
+   327→   436→                <div>
+   328→   437→                  <Label className="text-xs font-medium text-gray-600">Relationship *</Label>
+   329→   438→                  <Select value={form.relationship} onValueChange={(v) => updateForm('relationship', v)}>
+   330→   439→                    <SelectTrigger className="mt-1 rounded-xl">
+   331→   440→                      <SelectValue placeholder="Select" />
+   332→   441→                    </SelectTrigger>
+   333→   442→                    <SelectContent>
+   334→   443→                      <SelectItem value="mother">Mother</SelectItem>
+   335→   444→                      <SelectItem value="father">Father</SelectItem>
+   336→   445→                      <SelectItem value="spouse">Spouse</SelectItem>
+   337→   446→                      <SelectItem value="parent">Parent</SelectItem>
+   338→   447→                      <SelectItem value="child">Child</SelectItem>
+   339→   448→                      <SelectItem value="sibling">Sibling</SelectItem>
+   340→   449→                      <SelectItem value="other">Other</SelectItem>
+   341→   450→                    </SelectContent>
+   342→   451→                  </Select>
+   343→   452→                </div>
+   344→   453→                <div>
+   345→   454→                  <Label className="text-xs font-medium text-gray-600">Mobility Status</Label>
+   346→   455→                  <Select value={form.mobilityStatus} onValueChange={(v) => updateForm('mobilityStatus', v)}>
+   347→   456→                    <SelectTrigger className="mt-1 rounded-xl">
+   348→   457→                      <SelectValue placeholder="Select" />
+   349→   458→                    </SelectTrigger>
+   350→   459→                    <SelectContent>
+   351→   460→                      <SelectItem value="mobile">Mobile</SelectItem>
+   352→   461→                      <SelectItem value="bedridden">Bedridden</SelectItem>
+   353→   462→                      <SelectItem value="limited">Limited Mobility</SelectItem>
+   354→   463→                      <SelectItem value="wheelchair">Wheelchair</SelectItem>
+   355→   464→                    </SelectContent>
+   356→   465→                  </Select>
+   357→   466→                </div>
+   358→   467→                <div className="col-span-2">
+   359→   468→                  <Label className="text-xs font-medium text-gray-600">Address *</Label>
+   360→   469→                  <Input
+   361→   470→                    required
+   362→   471→                    value={form.address}
+   363→   472→                    onChange={(e) => updateForm('address', e.target.value)}
+   364→   473→                    placeholder="Full address"
+   365→   474→                    className="mt-1 rounded-xl"
+   366→   475→                  />
+   367→   476→                </div>
+   368→   477→                <div>
+   369→   478→                  <Label className="text-xs font-medium text-gray-600">City *</Label>
+   370→   479→                  <Input
+   371→   480→                    required
+   372→   481→                    value={form.city}
+   373→   482→                    onChange={(e) => updateForm('city', e.target.value)}
+   374→   483→                    placeholder="e.g., Delhi"
+   375→   484→                    className="mt-1 rounded-xl"
+   376→   485→                  />
+   377→   486→                </div>
+   378→   487→                <div>
+   379→   488→                  <Label className="text-xs font-medium text-gray-600">Pincode</Label>
+   380→   489→                  <Input
+   381→   490→                    value={form.pincode}
+   382→   491→                    onChange={(e) => updateForm('pincode', e.target.value)}
+   383→   492→                    placeholder="e.g., 110001"
+   384→   493→                    className="mt-1 rounded-xl"
+   385→   494→                  />
+   386→   495→                </div>
+   387→   496→                <div className="col-span-2">
+   388→   497→                  <Label className="text-xs font-medium text-gray-600">Medical History</Label>
+   389→   498→                  <Textarea
+   390→   499→                    value={form.medicalHistory}
+   391→   500→                    onChange={(e) => updateForm('medicalHistory', e.target.value)}
+   392→   501→                    placeholder="List conditions, allergies, past surgeries..."
+   393→   502→                    className="mt-1 rounded-xl min-h-[80px]"
+   394→   503→                  />
+   395→   504→                </div>
+   396→   505→                <div className="col-span-2">
+   397→   506→                  <Label className="text-xs font-medium text-gray-600">Care Requirements</Label>
+   398→   507→                  <Textarea
+   399→   508→                    value={form.careRequirements}
+   400→   509→                    onChange={(e) => updateForm('careRequirements', e.target.value)}
+   401→   510→                    placeholder="Describe specific care needs..."
+   402→   511→                    className="mt-1 rounded-xl min-h-[80px]"
+   403→   512→                  />
+   404→   513→                </div>
+   405→   514→              </div>
+   406→   515→              <Separator />
+   407→   516→              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Emergency Contact</p>
+   408→   517→              <div className="grid grid-cols-2 gap-3">
+   409→   518→                <div>
+   410→   519→                  <Label className="text-xs font-medium text-gray-600">Contact Name</Label>
+   411→   520→                  <Input
+   412→   521→                    value={form.emergencyName}
+   413→   522→                    onChange={(e) => updateForm('emergencyName', e.target.value)}
+   414→   523→                    placeholder="Emergency contact name"
+   415→   524→                    className="mt-1 rounded-xl"
+   416→   525→                  />
+   417→   526→                </div>
+   418→   527→                <div>
+   419→   528→                  <Label className="text-xs font-medium text-gray-600">Phone</Label>
+   420→   529→                  <Input
+   421→   530→                    value={form.emergencyPhone}
+   422→   531→                    onChange={(e) => updateForm('emergencyPhone', e.target.value)}
+   423→   532→                    placeholder="+91 98765 43210"
+   424→   533→                    className="mt-1 rounded-xl"
+   425→   534→                  />
+   426→   535→                </div>
+   427→   536→              </div>
+   428→   537→              <div className="flex gap-2 justify-end pt-2">
+   429→   538→                <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="rounded-xl">
+   430→   539→                  Cancel
+   431→   540→                </Button>
+   432→   541→                <Button type="submit" disabled={submitting} className="btn-black text-sm gap-2">
+   433→   542→                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+   434→   543→                  Add Patient
+   435→   544→                </Button>
+   436→   545→              </div>
+   437→   546→            </form>
+   438→   547→          </DialogContent>
+   439→   548→        </Dialog>
+   440→   549→      </div>
+   441→   550→
+   442→   551→      {patients.length === 0 ? (
+   443→   552→        <EmptyState
+   444→   553→          icon={<Users className="h-7 w-7" />}
+   445→   554→          title="No patients added yet"
+   446→   555→          description="Add a patient profile to start booking care services."
+   447→   556→        />
+   448→   557→      ) : (
+   449→   558→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   450→   559→          {patients.map((patient: any, i: number) => (
+   451→   560→            <motion.div
+   452→   561→              key={patient.id}
+   453→   562→              initial={{ opacity: 0, y: 8 }}
+   454→   563→              animate={{ opacity: 1, y: 0 }}
+   455→   564→              transition={{ delay: i * 0.03 }}
+   456→   565→            >
+   457→   566→              <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow">
+   458→   567→                <CardContent className="p-5">
+   459→   568→                  <div className="flex items-start justify-between gap-3">
+   460→   569→                    <div className="flex items-center gap-3">
+   461→   570→                      <div className="w-11 h-11 rounded-2xl bg-forest-50 flex items-center justify-center shrink-0">
+   462→   571→                        <UserRound className="h-5 w-5 text-forest-700" />
+   463→   572→                      </div>
+   464→   573→                      <div>
+   465→   574→                        <p className="text-sm font-semibold text-gray-800">{patient.name}</p>
+   466→   575→                        <p className="text-xs text-gray-400">
+   467→   576→                          {patient.age} yrs, {patient.gender} &middot; {patient.relationship}
+   468→   577→                        </p>
+   469→   578→                      </div>
+   470→   579→                    </div>
+   471→   580→                    <Badge variant="outline" className="text-[11px] rounded-full border-forest-200 text-forest-700 bg-forest-50 whitespace-nowrap">
+   472→   581→                      {mobilityLabel[patient.mobilityStatus] || patient.mobilityStatus}
+   473→   582→                    </Badge>
+   474→   583→                  </div>
+   475→   584→                  <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+   476→   585→                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{patient.city}</span>
+   477→   586→                    <span className="flex items-center gap-1"><CalendarCheck className="h-3 w-3" />{patient._count?.bookings || 0} bookings</span>
+   478→   587→                  </div>
+   479→   588→                  {patient.medicalHistory && patient.medicalHistory !== 'null' && patient.medicalHistory !== '[]' && (
+   480→   589→                    <p className="mt-2 text-xs text-gray-400 line-clamp-2">{typeof patient.medicalHistory === 'string' ? patient.medicalHistory : JSON.stringify(patient.medicalHistory)}</p>
+   481→   590→                  )}
+   482→   591→                </CardContent>
+   483→   592→              </Card>
+   484→   593→            </motion.div>
+   485→   594→          ))}
+   486→   595→        </div>
+   487→   596→      )}
+   488→   597→    </div>
+   489→   598→  );
+   490→   599→}
+   491→   600→
+   492→   601→/* ============================================================ */
+   493→   602→/* FIND CAREGIVERS TAB                                          */
+   494→   603→/* ============================================================ */
+   495→   604→function FindCaregiversTab() {
+   496→   605→  const user = useAuthStore((s) => s.user);
+   497→   606→  const [results, setResults] = useState<any[]>([]);
+   498→   607→  const [total, setTotal] = useState(0);
+   499→   608→  const [loading, setLoading] = useState(false);
+   500→   609→  const [searched, setSearched] = useState(false);
+   501→   610→  const [error, setError] = useState('');
+   502→   611→
+   503→   612→  const [form, setForm] = useState({
+   504→   613→    city: '', skills: '', shiftType: '', date: '', patientAge: '', mobilityStatus: '',
+   505→   614→  });
+   506→   615→
+   507→   616→  const updateForm = (field: string, value: string) => {
+   508→   617→    setForm((prev) => ({ ...prev, [field]: value }));
+   509→   618→  };
+   510→   619→
+   511→   620→  const handleSearch = async (e: React.FormEvent) => {
+   512→   621→    e.preventDefault();
+   513→   622→    setLoading(true);
+   514→   623→    setError('');
+   515→   624→    try {
+   516→   625→      const params: Record<string, string | number> = {};
+   517→   626→      if (form.city) params.city = form.city;
+   518→   627→      if (form.skills) params.skills = form.skills;
+   519→   628→      if (form.shiftType) params.shiftType = form.shiftType;
+   520→   629→      if (form.date) params.date = form.date;
+   521→   630→      if (form.patientAge) params.patientAge = parseInt(form.patientAge, 10);
+   522→   631→      if (form.mobilityStatus) params.mobilityStatus = form.mobilityStatus;
+   523→   632→
+   524→   633→      const res = await api.caregivers.search(params as any);
+   525→   634→      setResults(res.results || []);
+   526→   635→      setTotal(res.total || 0);
+   527→   636→      setSearched(true);
+   528→   637→    } catch (err: any) {
+   529→   638→      setError(err.message || 'Search failed');
+   530→   639→    } finally {
+   531→   640→      setLoading(false);
+   532→   641→    }
+   533→   642→  };
+   534→   643→
+   535→   644→  return (
+   536→   645→    <div className="space-y-6">
+   537→   646→      <div>
+   538→   647→        <h2 className="text-xl font-bold text-gray-900">Find Caregivers</h2>
+   539→   648→        <p className="text-sm text-gray-400">Search and match with verified caregivers near you.</p>
+   540→   649→      </div>
+   541→   650→
+   542→   651→      {/* Search Form */}
+   543→   652→      <Card className="rounded-2xl border-gray-100">
+   544→   653→        <CardContent className="p-5">
+   545→   654→          <form onSubmit={handleSearch} className="space-y-4">
+   546→   655→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   547→   656→              <div>
+   548→   657→                <Label className="text-xs font-medium text-gray-600">City</Label>
+   549→   658→                <Input
+   550→   659→                  value={form.city}
+   551→   660→                  onChange={(e) => updateForm('city', e.target.value)}
+   552→   661→                  placeholder="e.g., Delhi"
+   553→   662→                  className="mt-1 rounded-xl"
+   554→   663→                />
+   555→   664→              </div>
+   556→   665→              <div>
+   557→   666→                <Label className="text-xs font-medium text-gray-600">Skills (comma separated)</Label>
+   558→   667→                <Input
+   559→   668→                  value={form.skills}
+   560→   669→                  onChange={(e) => updateForm('skills', e.target.value)}
+   561→   670→                  placeholder="e.g., elderly-care, feeding"
+   562→   671→                  className="mt-1 rounded-xl"
+   563→   672→                />
+   564→   673→              </div>
+   565→   674→              <div>
+   566→   675→                <Label className="text-xs font-medium text-gray-600">Shift Type</Label>
+   567→   676→                <Select value={form.shiftType} onValueChange={(v) => updateForm('shiftType', v)}>
+   568→   677→                  <SelectTrigger className="mt-1 rounded-xl">
+   569→   678→                    <SelectValue placeholder="Any shift" />
+   570→   679→                  </SelectTrigger>
+   571→   680→                  <SelectContent>
+   572→   681→                    <SelectItem value="DAY_SHIFT">Day Shift</SelectItem>
+   573→   682→                    <SelectItem value="NIGHT_SHIFT">Night Shift</SelectItem>
+   574→   683→                    <SelectItem value="TWELVE_HOUR">12 Hour</SelectItem>
+   575→   684→                    <SelectItem value="TWENTY_FOUR_HOUR">24 Hour</SelectItem>
+   576→   685→                    <SelectItem value="HOURLY">Hourly</SelectItem>
+   577→   686→                  </SelectContent>
+   578→   687→                </Select>
+   579→   688→              </div>
+   580→   689→              <div>
+   581→   690→                <Label className="text-xs font-medium text-gray-600">Preferred Date</Label>
+   582→   691→                <Input
+   583→   692→                  type="date"
+   584→   693→                  value={form.date}
+   585→   694→                  onChange={(e) => updateForm('date', e.target.value)}
+   586→   695→                  className="mt-1 rounded-xl"
+   587→   696→                />
+   588→   697→              </div>
+   589→   698→              <div>
+   590→   699→                <Label className="text-xs font-medium text-gray-600">Patient Age</Label>
+   591→   700→                <Input
+   592→   701→                  type="number"
+   593→   702→                  min={0}
+   594→   703→                  max={150}
+   595→   704→                  value={form.patientAge}
+   596→   705→                  onChange={(e) => updateForm('patientAge', e.target.value)}
+   597→   706→                  placeholder="e.g., 72"
+   598→   707→                  className="mt-1 rounded-xl"
+   599→   708→                />
+   600→   709→              </div>
+   601→   710→              <div>
+   602→   711→                <Label className="text-xs font-medium text-gray-600">Mobility Status</Label>
+   603→   712→                <Select value={form.mobilityStatus} onValueChange={(v) => updateForm('mobilityStatus', v)}>
+   604→   713→                  <SelectTrigger className="mt-1 rounded-xl">
+   605→   714→                    <SelectValue placeholder="Any" />
+   606→   715→                  </SelectTrigger>
+   607→   716→                  <SelectContent>
+   608→   717→                    <SelectItem value="mobile">Mobile</SelectItem>
+   609→   718→                    <SelectItem value="bedridden">Bedridden</SelectItem>
+   610→   719→                    <SelectItem value="limited">Limited</SelectItem>
+   611→   720→                    <SelectItem value="wheelchair">Wheelchair</SelectItem>
+   612→   721→                  </SelectContent>
+   613→   722→                </Select>
+   614→   723→              </div>
+   615→   724→            </div>
+   616→   725→            <Button type="submit" disabled={loading} className="btn-black text-sm gap-2">
+   617→   726→              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+   618→   727→              Search Caregivers
+   619→   728→            </Button>
+   620→   729→          </form>
+   621→   730→        </CardContent>
+   622→   731→      </Card>
+   623→   732→
+   624→   733→      {error && <ErrorState message={error} />}
+   625→   734→
+   626→   735→      {loading && <LoadingCards count={3} />}
+   627→   736→
+   628→   737→      {!loading && searched && results.length === 0 && (
+   629→   738→        <EmptyState
+   630→   739→          icon={<Search className="h-7 w-7" />}
+   631→   740→          title="No caregivers found"
+   632→   741→          description="Try adjusting your search criteria to find more matches."
+   633→   742→        />
+   634→   743→      )}
+   635→   744→
+   636→   745→      {!loading && !error && results.length > 0 && (
+   637→   746→        <div>
+   638→   747→          <p className="text-sm text-gray-500 mb-3">{total} caregiver{total !== 1 ? 's' : ''} found</p>
+   639→   748→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   640→   749→            {results.map((caregiver: any, i: number) => (
+   641→   750→              <motion.div
+   642→   751→                key={caregiver.id}
+   643→   752→                initial={{ opacity: 0, y: 8 }}
+   644→   753→                animate={{ opacity: 1, y: 0 }}
+   645→   754→                transition={{ delay: i * 0.03 }}
+   646→   755→              >
+   647→   756→                <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow h-full flex flex-col">
+   648→   757→                  <CardContent className="p-5 flex flex-col flex-1">
+   649→   758→                    {/* Match Score */}
+   650→   759→                    <div className="mb-3">
+   651→   760→                      <div className="flex items-center justify-between mb-1">
+   652→   761→                        <span className="text-xs font-medium text-gray-500">Match Score</span>
+   653→   762→                        <span className={`text-sm font-bold ${caregiver.matchScore >= 70 ? 'text-forest-700' : caregiver.matchScore >= 40 ? 'text-amber-600' : 'text-gray-500'}`}>
+   654→   763→                          {caregiver.matchScore}%
+   655→   764→                        </span>
+   656→   765→                      </div>
+   657→   766→                      <Progress
+   658→   767→                        value={caregiver.matchScore}
+   659→   768→                        className={`h-2 rounded-full ${caregiver.matchScore >= 70 ? '[&>div]:bg-forest-600' : caregiver.matchScore >= 40 ? '[&>div]:bg-amber-500' : '[&>div]:bg-gray-400'}`}
+   660→   769→                      />
+   661→   770→                    </div>
+   662→   771→
+   663→   772→                    {/* Name & Verified */}
+   664→   773→                    <div className="flex items-center gap-2">
+   665→   774→                      <p className="text-base font-semibold text-gray-900">{caregiver.user?.name || 'Caregiver'}</p>
+   666→   775→                      {caregiver.isVerified && (
+   667→   776→                        <Badge className="bg-forest-50 text-forest-700 border-forest-200 text-[10px] gap-1 rounded-full">
+   668→   777→                          <ShieldCheck className="h-3 w-3" /> Verified
+   669→   778→                        </Badge>
+   670→   779→                      )}
+   671→   780→                    </div>
+   672→   781→
+   673→   782→                    {/* Details */}
+   674→   783→                    <div className="mt-2 space-y-1.5 text-xs text-gray-500">
+   675→   784→                      <div className="flex items-center gap-1.5">
+   676→   785→                        <MapPin className="h-3.5 w-3.5 text-gray-400" /> {caregiver.city}
+   677→   786→                      </div>
+   678→   787→                      <div className="flex items-center gap-1.5">
+   679→   788→                        <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+   680→   789→                        <span>{caregiver.overallRating || 'N/A'}</span>
+   681→   790→                        <span className="text-gray-300">|</span>
+   682→   791→                        <span>{caregiver.totalReviews} reviews</span>
+   683→   792→                      </div>
+   684→   793→                      <div className="flex items-center gap-1.5">
+   685→   794→                        <IndianRupee className="h-3.5 w-3.5 text-gray-400" />
+   686→   795→                        <span>{caregiver.hourlyRate}/hr</span>
+   687→   796→                        <span className="text-gray-300">|</span>
+   688→   797→                        <span>{caregiver.yearsExperience} yrs exp</span>
+   689→   798→                      </div>
+   690→   799→                    </div>
+   691→   800→
+   692→   801→                    {/* Skills */}
+   693→   802→                    {caregiver.skills && caregiver.skills.length > 0 && (
+   694→   803→                      <div className="flex flex-wrap gap-1.5 mt-3">
+   695→   804→                        {caregiver.skills.slice(0, 4).map((skill: string, si: number) => (
+   696→   805→                          <Badge key={si} variant="secondary" className="text-[10px] rounded-full bg-lime-50 text-lime-700 border-lime-200">
+   697→   806→                            {skill}
+   698→   807→                          </Badge>
+   699→   808→                        ))}
+   700→   809→                        {caregiver.skills.length > 4 && (
+   701→   810→                          <Badge variant="secondary" className="text-[10px] rounded-full bg-gray-100 text-gray-500">
+   702→   811→                            +{caregiver.skills.length - 4}
+   703→   812→                          </Badge>
+   704→   813→                        )}
+   705→   814→                      </div>
+   706→   815→                    )}
+   707→   816→
+   708→   817→                    <div className="mt-auto pt-4">
+   709→   818→                      <Button className="btn-black w-full text-sm gap-2 rounded-full">
+   710→   819→                        Book Now <ArrowUpRight className="h-3.5 w-3.5" />
+   711→   820→                      </Button>
+   712→   821→                    </div>
+   713→   822→                  </CardContent>
+   714→   823→                </Card>
+   715→   824→              </motion.div>
+   716→   825→            ))}
+   717→   826→          </div>
+   718→   827→        </div>
+   719→   828→      )}
+   720→   829→
+   721→   830→      {!searched && !loading && (
+   722→   831→        <EmptyState
+   723→   832→          icon={<Search className="h-7 w-7" />}
+   724→   833→          title="Search for caregivers"
+   725→   834→          description="Use the form above to find the best matched caregivers for your needs."
+   726→   835→        />
+   727→   836→      )}
+   728→   837→    </div>
+   729→   838→  );
+   730→   839→}
+   731→   840→
+   732→   841→/* ============================================================ */
+   733→   842→/* MY BOOKINGS TAB                                              */
+   734→   843→/* ============================================================ */
+   735→   844→function BookingsTab() {
+   736→   845→  const user = useAuthStore((s) => s.user);
+   737→   846→  const [bookings, setBookings] = useState<any[]>([]);
+   738→   847→  const [loading, setLoading] = useState(true);
+   739→   848→  const [error, setError] = useState('');
+   740→   849→  const [cancelling, setCancelling] = useState<string | null>(null);
+   741→   850→
+   742→   851→  const fetchBookings = useCallback(async () => {
+   743→   852→    if (!user?.id) return;
+   744→   853→    setLoading(true);
+   745→   854→    setError('');
+   746→   855→    try {
+   747→   856→      const res = await api.bookings.list({ familyId: user.id });
+   748→   857→      setBookings(res.bookings || []);
+   749→   858→    } catch (err: any) {
+   750→   859→      setError(err.message || 'Failed to load bookings');
+   751→   860→    } finally {
+   752→   861→      setLoading(false);
+   753→   862→    }
+   754→   863→  }, [user?.id]);
+   755→   864→
+   756→   865→  useEffect(() => {
+   757→   866→    fetchBookings();
+   758→   867→  }, [fetchBookings]);
+   759→   868→
+   760→   869→  const handleCancel = async (bookingId: string) => {
+   761→   870→    setCancelling(bookingId);
+   762→   871→    try {
+   763→   872→      await api.bookings.updateStatus(bookingId, { status: 'CANCELLED' });
+   764→   873→      toast.success('Booking cancelled successfully');
+   765→   874→      fetchBookings();
+   766→   875→    } catch (err: any) {
+   767→   876→      toast.error(err.message || 'Failed to cancel booking');
+   768→   877→    } finally {
+   769→   878→      setCancelling(null);
+   770→   879→    }
+   771→   880→  };
+   772→   881→
+   773→   882→  if (loading) {
+   774→   883→    return <LoadingCards count={4} />;
+   775→   884→  }
+   776→   885→
+   777→   886→  if (error) {
+   778→   887→    return <ErrorState message={error} onRetry={fetchBookings} />;
+   779→   888→  }
+   780→   889→
+   781→   890→  return (
+   782→   891→    <div className="space-y-6">
+   783→   892→      <div>
+   784→   893→        <h2 className="text-xl font-bold text-gray-900">My Bookings</h2>
+   785→   894→        <p className="text-sm text-gray-400">View and manage all your care bookings.</p>
+   786→   895→      </div>
+   787→   896→
+   788→   897→      {bookings.length === 0 ? (
+   789→   898→        <EmptyState
+   790→   899→          icon={<CalendarCheck className="h-7 w-7" />}
+   791→   900→          title="No bookings yet"
+   792→   901→          description="Once you book a caregiver, your bookings will appear here."
+   793→   902→        />
+   794→   903→      ) : (
+   795→   904→        <div className="space-y-3">
+   796→   905→          {bookings.map((booking: any, i: number) => (
+   797→   906→            <motion.div
+   798→   907→              key={booking.id}
+   799→   908→              initial={{ opacity: 0, y: 6 }}
+   800→   909→              animate={{ opacity: 1, y: 0 }}
+   801→   910→              transition={{ delay: i * 0.03 }}
+   802→   911→            >
+   803→   912→              <Card className="rounded-2xl border-gray-100">
+   804→   913→                <CardContent className="p-4 sm:p-5">
+   805→   914→                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   806→   915→                    <div className="flex items-start gap-3 min-w-0">
+   807→   916→                      <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0 mt-0.5">
+   808→   917→                        <Heart className="h-5 w-5 text-forest-700" />
+   809→   918→                      </div>
+   810→   919→                      <div className="min-w-0">
+   811→   920→                        <p className="text-sm font-semibold text-gray-800">
+   812→   921→                          {booking.patient?.name || 'Patient'}
+   813→   922→                        </p>
+   814→   923→                        <p className="text-xs text-gray-400 mt-0.5">
+   815→   924→                          Caregiver: <span className="text-gray-600">{booking.caregiver?.user?.name || '--'}</span>
+   816→   925→                        </p>
+   817→   926→                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-400">
+   818→   927→                          <span className="flex items-center gap-1">
+   819→   928→                            <Clock className="h-3 w-3" />{booking.shiftType?.replace(/_/g, ' ')}
+   820→   929→                          </span>
+   821→   930→                          <span>{booking.startTime} - {booking.endTime}</span>
+   822→   931→                          <span>{new Date(booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+   823→   932→                          {booking.endDate && (
+   824→   933→                            <span>to {new Date(booking.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+   825→   934→                          )}
+   826→   935→                        </div>
+   827→   936→                      </div>
+   828→   937→                    </div>
+   829→   938→                    <div className="flex items-center gap-3 sm:shrink-0">
+   830→   939→                      <div className="text-right">
+   831→   940→                        <Badge variant="outline" className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}>
+   832→   941→                          {booking.status?.replace(/_/g, ' ')}
+   833→   942→                        </Badge>
+   834→   943→                        <p className="text-sm font-semibold text-gray-800 mt-1">₹{booking.totalAmount || 0}</p>
+   835→   944→                      </div>
+   836→   945→                      {booking.status === 'PENDING' && (
+   837→   946→                        <Button
+   838→   947→                          size="sm"
+   839→   948→                          variant="outline"
+   840→   949→                          onClick={() => handleCancel(booking.id)}
+   841→   950→                          disabled={cancelling === booking.id}
+   842→   951→                          className="rounded-xl text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 gap-1 text-xs"
+   843→   952→                        >
+   844→   953→                          {cancelling === booking.id ? (
+   845→   954→                            <Loader2 className="h-3 w-3 animate-spin" />
+   846→   955→                          ) : (
+   847→   956→                            <XCircle className="h-3 w-3" />
+   848→   957→                          )}
+   849→   958→                          Cancel
+   850→   959→                        </Button>
+   851→   960→                      )}
+   852→   961→                    </div>
+   853→   962→                  </div>
+   854→   963→                </CardContent>
+   855→   964→              </Card>
+   856→   965→            </motion.div>
+   857→   966→          ))}
+   858→   967→        </div>
+   859→   968→      )}
+   860→   969→    </div>
+   861→   970→  );
+   862→   971→}
+   863→   972→
+   864→   973→/* ============================================================ */
+   865→   974→/* CARE REPORTS TAB                                             */
+   866→   975→/* ============================================================ */
+   867→   976→function ReportsTab() {
+   868→   977→  const user = useAuthStore((s) => s.user);
+   869→   978→  const [bookingsWithReports, setBookingsWithReports] = useState<any[]>([]);
+   870→   979→  const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
+   871→   980→  const [reports, setReports] = useState<Record<string, any[]>>({});
+   872→   981→  const [loading, setLoading] = useState(true);
+   873→   982→  const [loadingReports, setLoadingReports] = useState<string | null>(null);
+   874→   983→  const [error, setError] = useState('');
+   875→   984→
+   876→   985→  const fetchBookings = useCallback(async () => {
+   877→   986→    if (!user?.id) return;
+   878→   987→    setLoading(true);
+   879→   988→    setError('');
+   880→   989→    try {
+   881→   990→      const res = await api.bookings.list({ familyId: user.id });
+   882→   991→      const withReports = (res.bookings || []).filter((b: any) => b.careReports && b.careReports.length > 0);
+   883→   992→      setBookingsWithReports(withReports);
+   884→   993→    } catch (err: any) {
+   885→   994→      setError(err.message || 'Failed to load bookings');
+   886→   995→    } finally {
+   887→   996→      setLoading(false);
+   888→   997→    }
+   889→   998→  }, [user?.id]);
+   890→   999→
+   891→  1000→  useEffect(() => {
+   892→  1001→    fetchBookings();
+   893→  1002→  }, [fetchBookings]);
+   894→  1003→
+   895→  1004→  const fetchReports = async (bookingId: string) => {
+   896→  1005→    if (reports[bookingId]) {
+   897→  1006→      setExpandedBooking(expandedBooking === bookingId ? null : bookingId);
+   898→  1007→      return;
+   899→  1008→    }
+   900→  1009→    setLoadingReports(bookingId);
+   901→  1010→    try {
+   902→  1011→      const res = await api.reports.list({ bookingId });
+   903→  1012→      setReports((prev) => ({ ...prev, [bookingId]: res.reports || [] }));
+   904→  1013→      setExpandedBooking(bookingId);
+   905→  1014→    } catch (err: any) {
+   906→  1015→      toast.error(err.message || 'Failed to load reports');
+   907→  1016→    } finally {
+   908→  1017→      setLoadingReports(null);
+   909→  1018→    }
+   910→  1019→  };
+   911→  1020→
+   912→  1021→  const moodIcon = (mood: string) => {
+   913→  1022→    switch (mood) {
+   914→  1023→      case 'good': return <Smile className="h-4 w-4 text-green-500" />;
+   915→  1024→      case 'upset': return <Frown className="h-4 w-4 text-orange-500" />;
+   916→  1025→      case 'unwell': return <Frown className="h-4 w-4 text-red-500" />;
+   917→  1026→      default: return <Meh className="h-4 w-4 text-gray-400" />;
+   918→  1027→    }
+   919→  1028→  };
+   920→  1029→
+   921→  1030→  const parseActivities = (activities: string) => {
+   922→  1031→    try {
+   923→  1032→      const parsed = JSON.parse(activities);
+   924→  1033→      return Array.isArray(parsed) ? parsed : [];
+   925→  1034→    } catch {
+   926→  1035→      return [];
+   927→  1036→    }
+   928→  1037→  };
+   929→  1038→
+   930→  1039→  const parseMedicines = (medicines: string | null) => {
+   931→  1040→    if (!medicines) return [];
+   932→  1041→    try {
+   933→  1042→      const parsed = JSON.parse(medicines);
+   934→  1043→      return Array.isArray(parsed) ? parsed : [];
+   935→  1044→    } catch {
+   936→  1045→      return [];
+   937→  1046→    }
+   938→  1047→  };
+   939→  1048→
+   940→  1049→  if (loading) {
+   941→  1050→    return <LoadingCards count={3} />;
+   942→  1051→  }
+   943→  1052→
+   944→  1053→  if (error) {
+   945→  1054→    return <ErrorState message={error} onRetry={fetchBookings} />;
+   946→  1055→  }
+   947→  1056→
+   948→  1057→  return (
+   949→  1058→    <div className="space-y-6">
+   950→  1059→      <div>
+   951→  1060→        <h2 className="text-xl font-bold text-gray-900">Care Reports</h2>
+   952→  1061→        <p className="text-sm text-gray-400">Daily care reports submitted by your caregivers.</p>
+   953→  1062→      </div>
+   954→  1063→
+   955→  1064→      {bookingsWithReports.length === 0 ? (
+   956→  1065→        <EmptyState
+   957→  1066→          icon={<FileText className="h-7 w-7" />}
+   958→  1067→          title="No care reports yet"
+   959→  1068→          description="Care reports will appear here once caregivers submit them."
+   960→  1069→        />
+   961→  1070→      ) : (
+   962→  1071→        <div className="space-y-3">
+   963→  1072→          {bookingsWithReports.map((booking: any) => (
+   964→  1073→            <Card key={booking.id} className="rounded-2xl border-gray-100">
+   965→  1074→              <button
+   966→  1075→                className="w-full text-left p-4 sm:p-5"
+   967→  1076→                onClick={() => fetchReports(booking.id)}
+   968→  1077→              >
+   969→  1078→                <div className="flex items-center justify-between">
+   970→  1079→                  <div className="flex items-center gap-3 min-w-0">
+   971→  1080→                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+   972→  1081→                      <FileText className="h-5 w-5 text-amber-600" />
+   973→  1082→                    </div>
+   974→  1083→                    <div className="min-w-0">
+   975→  1084→                      <p className="text-sm font-semibold text-gray-800 truncate">
+   976→  1085→                        {booking.patient?.name || 'Patient'}
+   977→  1086→                      </p>
+   978→  1087→                      <p className="text-xs text-gray-400">
+   979→  1088→                        {booking.caregiver?.user?.name || 'Caregiver'} &middot; {booking.careReports.length} report{booking.careReports.length !== 1 ? 's' : ''}
+   980→  1089→                      </p>
+   981→  1090→                    </div>
+   982→  1091→                  </div>
+   983→  1092→                  <div className="flex items-center gap-2 shrink-0">
+   984→  1093→                    <Badge variant="outline" className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}>
+   985→  1094→                      {booking.status}
+   986→  1095→                    </Badge>
+   987→  1096→                    {expandedBooking === booking.id ? (
+   988→  1097→                      <ChevronUp className="h-4 w-4 text-gray-400" />
+   989→  1098→                    ) : (
+   990→  1099→                      <ChevronDown className="h-4 w-4 text-gray-400" />
+   991→  1100→                    )}
+   992→  1101→                  </div>
+   993→  1102→                </div>
+   994→  1103→              </button>
+   995→  1104→
+   996→  1105→              <AnimatePresence>
+   997→  1106→                {expandedBooking === booking.id && (
+   998→  1107→                  <motion.div
+   999→  1108→                    initial={{ height: 0, opacity: 0 }}
+  1000→  1109→                    animate={{ height: 'auto', opacity: 1 }}
+  1001→  1110→                    exit={{ height: 0, opacity: 0 }}
+  1002→  1111→                    transition={{ duration: 0.2 }}
+  1003→  1112→                    className="overflow-hidden"
+  1004→  1113→                  >
+  1005→  1114→                    <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+  1006→  1115→                      <Separator className="mb-4" />
+  1007→  1116→                      {loadingReports === booking.id ? (
+  1008→  1117→                        <div className="space-y-3">
+  1009→  1118→                          <Skeleton className="h-20 rounded-xl" />
+  1010→  1119→                          <Skeleton className="h-20 rounded-xl" />
+  1011→  1120→                        </div>
+  1012→  1121→                      ) : (
+  1013→  1122→                        <div className="space-y-3">
+  1014→  1123→                          {(reports[booking.id] || []).map((report: any) => {
+  1015→  1124→                            const activities = parseActivities(report.activities);
+  1016→  1125→                            const medicines = parseMedicines(report.medicinesGiven);
+  1017→  1126→                            return (
+  1018→  1127→                              <div key={report.id} className="bg-gray-50 rounded-2xl p-4 space-y-3">
+  1019→  1128→                                <div className="flex items-center justify-between">
+  1020→  1129→                                  <div className="flex items-center gap-2">
+  1021→  1130→                                    <p className="text-sm font-semibold text-gray-800">{report.reportDate}</p>
+  1022→  1131→                                    {report.mood && (
+  1023→  1132→                                      <span className="flex items-center gap-1 text-xs text-gray-500">
+  1024→  1133→                                        {moodIcon(report.mood)} {report.mood}
+  1025→  1134→                                      </span>
+  1026→  1135→                                    )}
+  1027→  1136→                                  </div>
+  1028→  1137→                                  {report.foodIntake && (
+  1029→  1138→                                    <span className="flex items-center gap-1 text-xs text-gray-500">
+  1030→  1139→                                      <Utensils className="h-3 w-3" /> {report.foodIntake}
+  1031→  1140→                                    </span>
+  1032→  1141→                                  )}
+  1033→  1142→                                </div>
+  1034→  1143→
+  1035→  1144→                                {activities.length > 0 && (
+  1036→  1145→                                  <div className="flex flex-wrap gap-1.5">
+  1037→  1146→                                    {activities.map((act: any, ai: number) => (
+  1038→  1147→                                      <Badge key={ai} variant="secondary" className="text-[10px] rounded-full bg-white border-gray-200 text-gray-600">
+  1039→  1148→                                        <Activity className="h-2.5 w-2.5 mr-1" />
+  1040→  1149→                                        {typeof act === 'string' ? act : act.name || act.type || JSON.stringify(act)}
+  1041→  1150→                                      </Badge>
+  1042→  1151→                                    ))}
+  1043→  1152→                                  </div>
+  1044→  1153→                                )}
+  1045→  1154→
+  1046→  1155→                                {medicines.length > 0 && (
+  1047→  1156→                                  <div>
+  1048→  1157→                                    <p className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+  1049→  1158→                                      <Pill className="h-3 w-3" /> Medicines Given
+  1050→  1159→                                    </p>
+  1051→  1160→                                    <div className="space-y-1">
+  1052→  1161→                                      {medicines.map((med: any, mi: number) => (
+  1053→  1162→                                        <div key={mi} className="flex items-center gap-2 text-xs text-gray-600">
+  1054→  1163→                                          <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+  1055→  1164→                                          <span className="font-medium">{med.name || med.medicine || `Medicine ${mi + 1}`}</span>
+  1056→  1165→                                          {med.time && <span className="text-gray-400">at {med.time}</span>}
+  1057→  1166→                                          {med.given !== undefined && (
+  1058→  1167→                                            <Badge variant="outline" className={`text-[9px] rounded-full ${med.given ? 'border-green-200 text-green-700 bg-green-50' : 'border-red-200 text-red-600 bg-red-50'}`}>
+  1059→  1168→                                              {med.given ? 'Given' : 'Missed'}
+  1060→  1169→                                            </Badge>
+  1061→  1170→                                          )}
+  1062→  1171→                                        </div>
+  1063→  1172→                                      ))}
+  1064→  1173→                                    </div>
+  1065→  1174→                                  </div>
+  1066→  1175→                                )}
+  1067→  1176→
+  1068→  1177→                                {report.summary && (
+  1069→  1178→                                  <p className="text-xs text-gray-600 leading-relaxed">{report.summary}</p>
+  1070→  1179→                                )}
+  1071→  1180→
+  1072→  1181→                                {report.concerns && (
+  1073→  1182→                                  <div className="flex items-start gap-1.5 text-xs text-orange-600 bg-orange-50 rounded-xl p-2.5">
+  1074→  1183→                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+  1075→  1184→                                    <span>{report.concerns}</span>
+  1076→  1185→                                  </div>
+  1077→  1186→                                )}
+  1078→  1187→                              </div>
+  1079→  1188→                            );
+  1080→  1189→                          })}
+  1081→  1190→                        </div>
+  1082→  1191→                      )}
+  1083→  1192→                    </div>
+  1084→  1193→                  </motion.div>
+  1085→  1194→                )}
+  1086→  1195→              </AnimatePresence>
+  1087→  1196→            </Card>
+  1088→  1197→          ))}
+  1089→  1198→        </div>
+  1090→  1199→      )}
+  1091→  1200→    </div>
+  1092→  1201→  );
+  1093→  1202→}
+  1094→  1203→
+  1095→  1204→/* ============================================================ */
+  1096→  1205→/* REVIEWS TAB                                                  */
+  1097→  1206→/* ============================================================ */
+  1098→  1207→function ReviewsTab() {
+  1099→  1208→  const user = useAuthStore((s) => s.user);
+  1100→  1209→  const [completedBookings, setCompletedBookings] = useState<any[]>([]);
+  1101→  1210→  const [loading, setLoading] = useState(true);
+  1102→  1211→  const [error, setError] = useState('');
+  1103→  1212→  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  1104→  1213→  const [ratings, setRatings] = useState<Record<string, { rating: number; communication: number; punctuality: number; careQuality: number; comment: string }>>({});
+  1105→  1214→
+  1106→  1215→  const fetchBookings = useCallback(async () => {
+  1107→  1216→    if (!user?.id) return;
+  1108→  1217→    setLoading(true);
+  1109→  1218→    setError('');
+  1110→  1219→    try {
+  1111→  1220→      const res = await api.bookings.list({ familyId: user.id });
+  1112→  1221→      const completed = (res.bookings || []).filter(
+  1113→  1222→        (b: any) => b.status === 'COMPLETED' && (!b.reviews || b.reviews.length === 0)
+  1114→  1223→      );
+  1115→  1224→      setCompletedBookings(completed);
+  1116→  1225→    } catch (err: any) {
+  1117→  1226→      setError(err.message || 'Failed to load bookings');
+  1118→  1227→    } finally {
+  1119→  1228→      setLoading(false);
+  1120→  1229→    }
+  1121→  1230→  }, [user?.id]);
+  1122→  1231→
+  1123→  1232→  useEffect(() => {
+  1124→  1233→    fetchBookings();
+  1125→  1234→  }, [fetchBookings]);
+  1126→  1235→
+  1127→  1236→  const updateRating = (bookingId: string, field: string, value: number | string) => {
+  1128→  1237→    setRatings((prev) => ({
+  1129→  1238→      ...prev,
+  1130→  1239→      [bookingId]: {
+  1131→  1240→        rating: 5,
+  1132→  1241→        communication: 5,
+  1133→  1242→        punctuality: 5,
+  1134→  1243→        careQuality: 5,
+  1135→  1244→        comment: '',
+  1136→  1245→        ...prev[bookingId],
+  1137→  1246→        [field]: value,
+  1138→  1247→      },
+  1139→  1248→    }));
+  1140→  1249→  };
+  1141→  1250→
+  1142→  1251→  const handleSubmitReview = async (booking: any) => {
+  1143→  1252→    const r = ratings[booking.id];
+  1144→  1253→    if (!r) {
+  1145→  1254→      toast.error('Please set a rating first');
+  1146→  1255→      return;
+  1147→  1256→    }
+  1148→  1257→    setSubmittingId(booking.id);
+  1149→  1258→    try {
+  1150→  1259→      await api.reviews.create({
+  1151→  1260→        bookingId: booking.id,
+  1152→  1261→        familyId: user!.id,
+  1153→  1262→        caregiverId: booking.caregiverId,
+  1154→  1263→        rating: r.rating,
+  1155→  1264→        communicationRating: r.communication,
+  1156→  1265→        punctualityRating: r.punctuality,
+  1157→  1266→        careQualityRating: r.careQuality,
+  1158→  1267→        comment: r.comment || undefined,
+  1159→  1268→      });
+  1160→  1269→      toast.success('Review submitted successfully!');
+  1161→  1270→      fetchBookings();
+  1162→  1271→    } catch (err: any) {
+  1163→  1272→      toast.error(err.message || 'Failed to submit review');
+  1164→  1273→    } finally {
+  1165→  1274→      setSubmittingId(null);
+  1166→  1275→    }
+  1167→  1276→  };
+  1168→  1277→
+  1169→  1278→  const StarRating = ({ value, onChange, size = 'md' }: { value: number; onChange: (v: number) => void; size?: 'sm' | 'md' }) => {
+  1170→  1279→    const sz = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
+  1171→  1280→    return (
+  1172→  1281→      <div className="flex items-center gap-0.5">
+  1173→  1282→        {[1, 2, 3, 4, 5].map((star) => (
+  1174→  1283→          <button
+  1175→  1284→            key={star}
+  1176→  1285→            type="button"
+  1177→  1286→            onClick={() => onChange(star)}
+  1178→  1287→            className={`${sz} transition-colors ${
+  1179→  1288→              star <= value ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'
+  1180→  1289→            }`}
+  1181→  1290→          >
+  1182→  1291→            <Star className={`${sz} ${star <= value ? 'fill-amber-400' : ''}`} />
+  1183→  1292→          </button>
+  1184→  1293→        ))}
+  1185→  1294→      </div>
+  1186→  1295→    );
+  1187→  1296→  };
+  1188→  1297→
+  1189→  1298→  if (loading) {
+  1190→  1299→    return <LoadingCards count={3} />;
+  1191→  1300→  }
+  1192→  1301→
+  1193→  1302→  if (error) {
+  1194→  1303→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1195→  1304→  }
+  1196→  1305→
+  1197→  1306→  return (
+  1198→  1307→    <div className="space-y-6">
+  1199→  1308→      <div>
+  1200→  1309→        <h2 className="text-xl font-bold text-gray-900">Reviews</h2>
+  1201→  1310→        <p className="text-sm text-gray-400">Rate and review your completed care sessions.</p>
+  1202→  1311→      </div>
+  1203→  1312→
+  1204→  1313→      {completedBookings.length === 0 ? (
+  1205→  1314→        <EmptyState
+  1206→  1315→          icon={<Star className="h-7 w-7" />}
+  1207→  1316→          title="No pending reviews"
+  1208→  1317→          description="Once a care session is completed, you can leave a review for the caregiver."
+  1209→  1318→        />
+  1210→  1319→      ) : (
+  1211→  1320→        <div className="space-y-4">
+  1212→  1321→          {completedBookings.map((booking: any, i: number) => {
+  1213→  1322→            const r = ratings[booking.id];
+  1214→  1323→            return (
+  1215→  1324→              <motion.div
+  1216→  1325→                key={booking.id}
+  1217→  1326→                initial={{ opacity: 0, y: 8 }}
+  1218→  1327→                animate={{ opacity: 1, y: 0 }}
+  1219→  1328→                transition={{ delay: i * 0.03 }}
+  1220→  1329→              >
+  1221→  1330→                <Card className="rounded-2xl border-gray-100">
+  1222→  1331→                  <CardContent className="p-4 sm:p-5 space-y-4">
+  1223→  1332→                    <div className="flex items-center justify-between">
+  1224→  1333→                      <div className="flex items-center gap-3">
+  1225→  1334→                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+  1226→  1335→                          <UserRound className="h-5 w-5 text-forest-700" />
+  1227→  1336→                        </div>
+  1228→  1337→                        <div>
+  1229→  1338→                          <p className="text-sm font-semibold text-gray-800">
+  1230→  1339→                            {booking.caregiver?.user?.name || 'Caregiver'}
+  1231→  1340→                          </p>
+  1232→  1341→                          <p className="text-xs text-gray-400">
+  1233→  1342→                            {booking.patient?.name} &middot; {new Date(booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+  1234→  1343→                          </p>
+  1235→  1344→                        </div>
+  1236→  1345→                      </div>
+  1237→  1346→                    </div>
+  1238→  1347→
+  1239→  1348→                    <Separator />
+  1240→  1349→
+  1241→  1350→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1242→  1351→                      <div>
+  1243→  1352→                        <Label className="text-xs font-medium text-gray-600">Overall Rating *</Label>
+  1244→  1353→                        <div className="mt-1.5">
+  1245→  1354→                          <StarRating value={r?.rating || 0} onChange={(v) => updateRating(booking.id, 'rating', v)} />
+  1246→  1355→                        </div>
+  1247→  1356→                      </div>
+  1248→  1357→                      <div>
+  1249→  1358→                        <Label className="text-xs font-medium text-gray-600">Communication</Label>
+  1250→  1359→                        <div className="mt-1.5">
+  1251→  1360→                          <StarRating value={r?.communication || 0} onChange={(v) => updateRating(booking.id, 'communication', v)} size="sm" />
+  1252→  1361→                        </div>
+  1253→  1362→                      </div>
+  1254→  1363→                      <div>
+  1255→  1364→                        <Label className="text-xs font-medium text-gray-600">Punctuality</Label>
+  1256→  1365→                        <div className="mt-1.5">
+  1257→  1366→                          <StarRating value={r?.punctuality || 0} onChange={(v) => updateRating(booking.id, 'punctuality', v)} size="sm" />
+  1258→  1367→                        </div>
+  1259→  1368→                      </div>
+  1260→  1369→                      <div>
+  1261→  1370→                        <Label className="text-xs font-medium text-gray-600">Care Quality</Label>
+  1262→  1371→                        <div className="mt-1.5">
+  1263→  1372→                          <StarRating value={r?.careQuality || 0} onChange={(v) => updateRating(booking.id, 'careQuality', v)} size="sm" />
+  1264→  1373→                        </div>
+  1265→  1374→                      </div>
+  1266→  1375→                    </div>
+  1267→  1376→
+  1268→  1377→                    <div>
+  1269→  1378→                      <Label className="text-xs font-medium text-gray-600">Comment (optional)</Label>
+  1270→  1379→                      <Textarea
+  1271→  1380→                        value={r?.comment || ''}
+  1272→  1381→                        onChange={(e) => updateRating(booking.id, 'comment', e.target.value)}
+  1273→  1382→                        placeholder="Share your experience..."
+  1274→  1383→                        className="mt-1 rounded-xl min-h-[60px]"
+  1275→  1384→                      />
+  1276→  1385→                    </div>
+  1277→  1386→
+  1278→  1387→                    <div className="flex justify-end">
+  1279→  1388→                      <Button
+  1280→  1389→                        onClick={() => handleSubmitReview(booking)}
+  1281→  1390→                        disabled={submittingId === booking.id || !r?.rating}
+  1282→  1391→                        className="btn-black text-sm gap-2"
+  1283→  1392→                      >
+  1284→  1393→                        {submittingId === booking.id ? (
+  1285→  1394→                          <Loader2 className="h-4 w-4 animate-spin" />
+  1286→  1395→                        ) : (
+  1287→  1396→                          <Send className="h-4 w-4" />
+  1288→  1397→                        )}
+  1289→  1398→                        Submit Review
+  1290→  1399→                      </Button>
+  1291→  1400→                    </div>
+  1292→  1401→                  </CardContent>
+  1293→  1402→                </Card>
+  1294→  1403→              </motion.div>
+  1295→  1404→            );
+  1296→  1405→          })}
+  1297→  1406→        </div>
+  1298→  1407→      )}
+  1299→  1408→    </div>
+  1300→  1409→  );
+  1301→  1410→}
+  1302→  1411→
+  1303→  1412→/* ============================================================ */
+  1304→  1413→/* COMPLAINTS TAB                                               */
+  1305→  1414→/* ============================================================ */
+  1306→  1415→function ComplaintsTab() {
+  1307→  1416→  const user = useAuthStore((s) => s.user);
+  1308→  1417→  const [complaints, setComplaints] = useState<any[]>([]);
+  1309→  1418→  const [loading, setLoading] = useState(true);
+  1310→  1419→  const [error, setError] = useState('');
+  1311→  1420→  const [modalOpen, setModalOpen] = useState(false);
+  1312→  1421→  const [submitting, setSubmitting] = useState(false);
+  1313→  1422→
+  1314→  1423→  const [form, setForm] = useState({
+  1315→  1424→    subject: '', description: '', priority: 'medium', caregiverId: '',
+  1316→  1425→  });
+  1317→  1426→
+  1318→  1427→  const fetchComplaints = useCallback(async () => {
+  1319→  1428→    if (!user?.id) return;
+  1320→  1429→    setLoading(true);
+  1321→  1430→    setError('');
+  1322→  1431→    try {
+  1323→  1432→      const res = await api.complaints.list({ familyId: user.id });
+  1324→  1433→      setComplaints(res.complaints || []);
+  1325→  1434→    } catch (err: any) {
+  1326→  1435→      setError(err.message || 'Failed to load complaints');
+  1327→  1436→    } finally {
+  1328→  1437→      setLoading(false);
+  1329→  1438→    }
+  1330→  1439→  }, [user?.id]);
+  1331→  1440→
+  1332→  1441→  useEffect(() => {
+  1333→  1442→    fetchComplaints();
+  1334→  1443→  }, [fetchComplaints]);
+  1335→  1444→
+  1336→  1445→  const updateForm = (field: string, value: string) => {
+  1337→  1446→    setForm((prev) => ({ ...prev, [field]: value }));
+  1338→  1447→  };
+  1339→  1448→
+  1340→  1449→  const handleSubmit = async (e: React.FormEvent) => {
+  1341→  1450→    e.preventDefault();
+  1342→  1451→    if (!user?.id) return;
+  1343→  1452→    if (!form.caregiverId) {
+  1344→  1453→      toast.error('Please select a caregiver');
+  1345→  1454→      return;
+  1346→  1455→    }
+  1347→  1456→    setSubmitting(true);
+  1348→  1457→    try {
+  1349→  1458→      await api.complaints.create({
+  1350→  1459→        familyId: user.id,
+  1351→  1460→        caregiverId: form.caregiverId,
+  1352→  1461→        subject: form.subject,
+  1353→  1462→        description: form.description,
+  1354→  1463→        priority: form.priority,
+  1355→  1464→      });
+  1356→  1465→      toast.success('Complaint filed successfully');
+  1357→  1466→      setModalOpen(false);
+  1358→  1467→      setForm({ subject: '', description: '', priority: 'medium', caregiverId: '' });
+  1359→  1468→      fetchComplaints();
+  1360→  1469→    } catch (err: any) {
+  1361→  1470→      toast.error(err.message || 'Failed to file complaint');
+  1362→  1471→    } finally {
+  1363→  1472→      setSubmitting(false);
+  1364→  1473→    }
+  1365→  1474→  };
+  1366→  1475→
+  1367→  1476→  const priorityLabel: Record<string, string> = {
+  1368→  1477→    low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent',
+  1369→  1478→  };
+  1370→  1479→
+  1371→  1480→  if (loading) {
+  1372→  1481→    return <LoadingCards count={3} />;
+  1373→  1482→  }
+  1374→  1483→
+  1375→  1484→  if (error) {
+  1376→  1485→    return <ErrorState message={error} onRetry={fetchComplaints} />;
+  1377→  1486→  }
+  1378→  1487→
+  1379→  1488→  return (
+  1380→  1489→    <div className="space-y-6">
+  1381→  1490→      <div className="flex items-center justify-between">
+  1382→  1491→        <div>
+  1383→  1492→          <h2 className="text-xl font-bold text-gray-900">Complaints</h2>
+  1384→  1493→          <p className="text-sm text-gray-400">File and track complaints about care services.</p>
+  1385→  1494→        </div>
+  1386→  1495→        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+  1387→  1496→          <DialogTrigger asChild>
+  1388→  1497→            <Button className="btn-black text-sm gap-2">
+  1389→  1498→              <AlertTriangle className="h-4 w-4" /> File Complaint
+  1390→  1499→            </Button>
+  1391→  1500→          </DialogTrigger>
+  1392→  1501→          <DialogContent className="max-w-lg rounded-2xl">
+  1393→  1502→            <DialogHeader>
+  1394→  1503→              <DialogTitle>File a Complaint</DialogTitle>
+  1395→  1504→            </DialogHeader>
+  1396→  1505→            <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+  1397→  1506→              <div>
+  1398→  1507→                <Label className="text-xs font-medium text-gray-600">Caregiver ID *</Label>
+  1399→  1508→                <Input
+  1400→  1509→                  required
+  1401→  1510→                  value={form.caregiverId}
+  1402→  1511→                  onChange={(e) => updateForm('caregiverId', e.target.value)}
+  1403→  1512→                  placeholder="Enter caregiver ID"
+  1404→  1513→                  className="mt-1 rounded-xl"
+  1405→  1514→                />
+  1406→  1515→              </div>
+  1407→  1516→              <div>
+  1408→  1517→                <Label className="text-xs font-medium text-gray-600">Subject *</Label>
+  1409→  1518→                <Input
+  1410→  1519→                  required
+  1411→  1520→                  value={form.subject}
+  1412→  1521→                  onChange={(e) => updateForm('subject', e.target.value)}
+  1413→  1522→                  placeholder="Brief subject"
+  1414→  1523→                  className="mt-1 rounded-xl"
+  1415→  1524→                />
+  1416→  1525→              </div>
+  1417→  1526→              <div>
+  1418→  1527→                <Label className="text-xs font-medium text-gray-600">Description *</Label>
+  1419→  1528→                <Textarea
+  1420→  1529→                  required
+  1421→  1530→                  minLength={10}
+  1422→  1531→                  value={form.description}
+  1423→  1532→                  onChange={(e) => updateForm('description', e.target.value)}
+  1424→  1533→                  placeholder="Describe the issue in detail..."
+  1425→  1534→                  className="mt-1 rounded-xl min-h-[100px]"
+  1426→  1535→                />
+  1427→  1536→              </div>
+  1428→  1537→              <div>
+  1429→  1538→                <Label className="text-xs font-medium text-gray-600">Priority</Label>
+  1430→  1539→                <Select value={form.priority} onValueChange={(v) => updateForm('priority', v)}>
+  1431→  1540→                  <SelectTrigger className="mt-1 rounded-xl">
+  1432→  1541→                    <SelectValue />
+  1433→  1542→                  </SelectTrigger>
+  1434→  1543→                  <SelectContent>
+  1435→  1544→                    <SelectItem value="low">Low</SelectItem>
+  1436→  1545→                    <SelectItem value="medium">Medium</SelectItem>
+  1437→  1546→                    <SelectItem value="high">High</SelectItem>
+  1438→  1547→                    <SelectItem value="urgent">Urgent</SelectItem>
+  1439→  1548→                  </SelectContent>
+  1440→  1549→                </Select>
+  1441→  1550→              </div>
+  1442→  1551→              <div className="flex gap-2 justify-end pt-2">
+  1443→  1552→                <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="rounded-xl">
+  1444→  1553→                  Cancel
+  1445→  1554→                </Button>
+  1446→  1555→                <Button type="submit" disabled={submitting} className="btn-black text-sm gap-2">
+  1447→  1556→                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+  1448→  1557→                  Submit
+  1449→  1558→                </Button>
+  1450→  1559→              </div>
+  1451→  1560→            </form>
+  1452→  1561→          </DialogContent>
+  1453→  1562→        </Dialog>
+  1454→  1563→      </div>
+  1455→  1564→
+  1456→  1565→      {complaints.length === 0 ? (
+  1457→  1566→        <EmptyState
+  1458→  1567→          icon={<MessageCircle className="h-7 w-7" />}
+  1459→  1568→          title="No complaints filed"
+  1460→  1569→          description="If you have any issues with a caregiver or service, file a complaint here."
+  1461→  1570→        />
+  1462→  1571→      ) : (
+  1463→  1572→        <div className="space-y-3">
+  1464→  1573→          {complaints.map((complaint: any, i: number) => (
+  1465→  1574→            <motion.div
+  1466→  1575→              key={complaint.id}
+  1467→  1576→              initial={{ opacity: 0, y: 6 }}
+  1468→  1577→              animate={{ opacity: 1, y: 0 }}
+  1469→  1578→              transition={{ delay: i * 0.03 }}
+  1470→  1579→            >
+  1471→  1580→              <Card className="rounded-2xl border-gray-100">
+  1472→  1581→                <CardContent className="p-4 sm:p-5">
+  1473→  1582→                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+  1474→  1583→                    <div className="min-w-0">
+  1475→  1584→                      <p className="text-sm font-semibold text-gray-800">{complaint.subject}</p>
+  1476→  1585→                      <p className="text-xs text-gray-400 mt-0.5">
+  1477→  1586→                        {complaint.caregiver?.user?.name || 'Caregiver'} &middot; {new Date(complaint.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+  1478→  1587→                      </p>
+  1479→  1588→                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">{complaint.description}</p>
+  1480→  1589→                    </div>
+  1481→  1590→                    <div className="flex items-center gap-2 sm:shrink-0">
+  1482→  1591→                      <Badge className={`text-[10px] rounded-full ${priorityColors[complaint.priority] || ''}`}>
+  1483→  1592→                        {priorityLabel[complaint.priority] || complaint.priority}
+  1484→  1593→                      </Badge>
+  1485→  1594→                      <Badge variant="outline" className={`text-[10px] rounded-full ${complaintStatusColors[complaint.status] || ''}`}>
+  1486→  1595→                        {complaint.status?.replace(/_/g, ' ')}
+  1487→  1596→                      </Badge>
+  1488→  1597→                    </div>
+  1489→  1598→                  </div>
+  1490→  1599→                  {complaint.resolution && (
+  1491→  1600→                    <div className="mt-3 bg-green-50 rounded-xl p-3 text-xs text-green-700">
+  1492→  1601→                      <p className="font-medium">Resolution:</p>
+  1493→  1602→                      <p className="mt-0.5">{complaint.resolution}</p>
+  1494→  1603→                    </div>
+  1495→  1604→                  )}
+  1496→  1605→                </CardContent>
+  1497→  1606→              </Card>
+  1498→  1607→            </motion.div>
+  1499→  1608→          ))}
+  1500→  1609→        </div>
+  1501→  1610→      )}
+  1502→  1611→    </div>
+  1503→  1612→  );
+  1504→  1613→}
+  1505→  1614→
+  1506→  1615→/* ============================================================ */
+  1507→  1616→/* MAIN EXPORT                                                  */
+  1508→  1617→/* ============================================================ */
+  1509→  1618→export function FamilyDashboard({ activeTab }: FamilyDashboardProps) {
+  1510→  1619→  switch (activeTab) {
+  1511→  1620→    case 'overview':
+  1512→  1621→      return <OverviewTab />;
+  1513→  1622→    case 'patients':
+  1514→  1623→      return <PatientsTab />;
+  1515→  1624→    case 'find-caregivers':
+  1516→  1625→      return <FindCaregiversTab />;
+  1517→  1626→    case 'bookings':
+  1518→  1627→      return <BookingsTab />;
+  1519→  1628→    case 'reports':
+  1520→  1629→      return <ReportsTab />;
+  1521→  1630→    case 'reviews':
+  1522→  1631→      return <ReviewsTab />;
+  1523→  1632→    case 'complaints':
+  1524→  1633→      return <ComplaintsTab />;
+  1525→  1634→    default:
+  1526→  1635→      return <OverviewTab />;
+  1527→  1636→  }
+  1528→  1637→}
+  1529→  1638→

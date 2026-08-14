@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import {
   Heart,
   LayoutDashboard,
@@ -235,21 +235,11 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
 
         {/* Content Area */}
         <main className="flex-1 p-4 sm:p-6">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              {user?.role === 'CAREGIVER' ? (
-                <CaregiverDashboard activeTab={activeTab} user={user} />
-              ) : (
-                <FamilyDashboard activeTab={activeTab} />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          {user?.role === 'CAREGIVER' ? (
+            <CaregiverDashboard activeTab={activeTab} user={user} />
+          ) : (
+            <FamilyDashboard activeTab={activeTab} />
+          )}
         </main>
       </div>
     </div>
