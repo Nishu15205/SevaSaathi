@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Eye, EyeOff, Loader2, Heart } from "lucide-react";
+import { X, Eye, EyeOff, Loader2, Heart, User, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
 import { api } from "@/lib/api";
@@ -15,7 +15,7 @@ type Tab = "login" | "register";
 
 type UserRole = "FAMILY" | "CAREGIVER";
 
-export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [tab, setTab] = useState<Tab>("login");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,7 +63,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       }
 
       const fullUser = await api.auth.me(data.user.id);
-      useAuthStore.getState().setAuth(fullUser.user);
+      if (fullUser.user) {
+        useAuthStore.getState().setAuth(fullUser.user);
+      }
       onClose();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -97,7 +99,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
       }
 
       const fullUser = await api.auth.me(data.user.id);
-      useAuthStore.getState().setAuth(fullUser.user);
+      if (fullUser.user) {
+        useAuthStore.getState().setAuth(fullUser.user);
+      }
       onClose();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -369,12 +373,60 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 </form>
               )}
 
-              {/* Demo hint */}
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs text-center text-gray-400">
-                  Demo: Register a new account or login with existing credentials
-                </p>
-              </div>
+              {/* Demo credentials */}
+              {tab === 'login' && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-center text-gray-400 mb-3">Demo Accounts</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setLoginEmail('anita.gupta@email.com'); setLoginPassword('password123'); }}
+                      className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-forest-50 flex items-center justify-center shrink-0">
+                        <User className="h-4 w-4 text-forest-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-700">Family Member</p>
+                        <p className="text-[10px] text-gray-400 truncate">anita.gupta@email.com</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLoginEmail('sunita.care@email.com'); setLoginPassword('password123'); }}
+                      className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-lime-50 flex items-center justify-center shrink-0">
+                        <Heart className="h-4 w-4 text-lime-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-700">Caregiver</p>
+                        <p className="text-[10px] text-gray-400 truncate">sunita.care@email.com</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLoginEmail('admin@sevasaathi.in'); setLoginPassword('password123'); }}
+                      className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                        <Shield className="h-4 w-4 text-amber-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-700">Admin</p>
+                        <p className="text-[10px] text-gray-400 truncate">admin@sevasaathi.in</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+              {tab === 'register' && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-center text-gray-400">
+                    Register a new {regRole === 'FAMILY' ? 'family' : 'caregiver'} account to get started.
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

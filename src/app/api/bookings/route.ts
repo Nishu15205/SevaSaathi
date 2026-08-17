@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
           caregiver: { select: { id: true, user: { select: { name: true, phone: true } }, hourlyRate: true, isVerified: true } },
           payment: { select: { id: true, status: true, amount: true, paidAt: true } },
           careReports: { select: { id: true }, take: 1 },
+          reviews: { select: { id: true }, take: 1 },
         },
         orderBy: { createdAt: 'desc' },
         skip,

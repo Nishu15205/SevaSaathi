@@ -519,3 +519,31 @@ Stage Summary:
 - Admin can view all platform reviews
 - Aadhar verification available in caregiver profile using AI vision
 - Font changed to Inter (sans-serif)
+
+---
+Task ID: auth-fix
+Agent: Main Agent
+Task: Fix login/registration authentication for all roles, change font to sans-serif, fix reviews/complaints
+
+Work Log:
+- Identified and fixed TypeScript error in LoginModal.tsx (removed unused `onLogin` prop from destructuring)
+- Added demo account quick-fill buttons to LoginModal (Family, Caregiver, Admin with email/password)
+- Added Shield icon import for Admin demo account button
+- Added null safety check when setting auth state after login/register
+- Changed font from Inter (next/font) to native sans-serif font stack in layout.tsx and globals.css
+- Fixed reviews filtering bug: added `reviews: { select: { id: true }, take: 1 }` to bookings GET API include
+- Verified all authentication flows via agent-browser:
+  - Family login (anita.gupta@email.com) ✅
+  - Caregiver login (sunita.care@email.com) ✅
+  - Admin login (admin@sevasaathi.in) ✅
+  - New user registration ✅
+  - Caregiver booking approve/decline buttons ✅
+  - Reviews tabs (Family, Caregiver, Admin) ✅
+  - Complaints tabs (Family, Caregiver, Admin) ✅
+
+Stage Summary:
+- All 3 roles (Family, Caregiver, Admin) login and register correctly
+- Demo credentials displayed in login modal for quick testing
+- Font changed to system sans-serif stack
+- Reviews API now properly includes review data in booking responses for filtering
+- Lint passes with 0 errors
