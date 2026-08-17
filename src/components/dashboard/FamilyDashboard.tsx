@@ -62,6 +62,8 @@ import {
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
+import { PaymentDialog } from '@/components/payment/PaymentDialog';
+import { PaymentHistory } from '@/components/payment/PaymentHistory';
 
 interface FamilyDashboardProps {
   activeTab: string;
@@ -1965,6 +1967,142 @@ function ComplaintsTab() {
 }
 
 /* ============================================================ */
+/* PAYMENTS TAB                                                  */
+/* ============================================================ */
+function PaymentsTab() {
+  const user = useAuthStore((s) => s.user);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const res = await api.bookings.list({ familyId: user.id });
+      setBookings(res.bookings || []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const unpaidBookings = bookings.filter(
+    (b) =>
+      (b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS') &&
+      !b.payment
+  );
+
+  const handlePayNow = (booking: any) => {
+    setSelectedBooking(booking);
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    fetchData();
+  };
+
+  if (!user?.id) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Payments</h2>
+        <p className="text-sm text-gray-400 mt-1">
+          Manage your care booking payments and view transaction history.
+        </p>
+      </div>
+
+      {/* Pending Payments */}
+      {!loading && unpaidBookings.length > 0 && (
+        <div>
+          <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+            Pending Payments ({unpaidBookings.length})
+          </h3>
+          <div className="space-y-3">
+            {unpaidBookings.map((booking) => {
+              const startDate = booking.startDate
+                ? new Date(booking.startDate).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : 'N/A';
+              return (
+                <motion.div
+                  key={booking.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Card className="rounded-2xl border-yellow-100 bg-yellow-50/30 hover:shadow-sm transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
+                            <IndianRupee className="h-5 w-5 text-yellow-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 truncate">
+                              {booking.caregiver?.user?.name || 'Caregiver'}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {booking.patient?.name} &middot; {startDate} &middot;{' '}
+                              {booking.shiftType?.replace(/_/g, ' ')}
+                            </p>
+                            <p className="text-base font-bold text-forest-900 mt-1">
+                              ₹{booking.totalAmount?.toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => handlePayNow(booking)}
+                          className="shrink-0 bg-black hover:bg-gray-900 text-white rounded-xl text-sm font-semibold gap-1.5 cursor-pointer"
+                        >
+                          <IndianRupee className="h-3.5 w-3.5" />
+                          Pay Now
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Payment History */}
+      <div>
+        <h3 className="text-base font-semibold text-gray-800 mb-3">
+          {loading ? 'Loading...' : 'Transaction History'}
+        </h3>
+        {loading ? (
+          <LoadingCards count={3} />
+        ) : (
+          <PaymentHistory userId={user.id} role="FAMILY" />
+        )}
+      </div>
+
+      {/* Payment Dialog */}
+      <PaymentDialog
+        isOpen={paymentDialogOpen}
+        onClose={() => setPaymentDialogOpen(false)}
+        booking={selectedBooking}
+        onSuccess={handlePaymentSuccess}
+      />
+    </div>
+  );
+}
+
+/* ============================================================ */
 /* MAIN EXPORT                                                  */
 /* ============================================================ */
 export function FamilyDashboard({ activeTab }: FamilyDashboardProps) {
@@ -1977,6 +2115,8 @@ export function FamilyDashboard({ activeTab }: FamilyDashboardProps) {
       return <FindCaregiversTab />;
     case 'bookings':
       return <BookingsTab />;
+    case 'payments':
+      return <PaymentsTab />;
     case 'reports':
       return <ReportsTab />;
     case 'reviews':

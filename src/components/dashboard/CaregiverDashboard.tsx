@@ -54,6 +54,7 @@ import { api } from '@/lib/api';
 import type { User } from '@/stores/authStore';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
+import { PaymentHistory } from '@/components/payment/PaymentHistory';
 
 /* ============================================================ */
 /* TYPES                                                         */
@@ -1792,6 +1793,170 @@ function ReviewsTab({ user }: { user: User }) {
 }
 
 /* ============================================================ */
+/* EARNINGS TAB                                                  */
+/* ============================================================ */
+function EarningsTab({ user }: { user: User }) {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const caregiverId = user.caregiverId || user.id;
+
+  const fetchPayments = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.payments.list(caregiverId, 'CAREGIVER');
+      setPayments(res.payments || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load earnings');
+    } finally {
+      setLoading(false);
+    }
+  }, [caregiverId]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
+
+  const totalEarnings = payments
+    .filter((p) => p.status === 'COMPLETED')
+    .reduce((sum, p) => sum + p.caregiverPayout, 0) / 100;
+  const pendingPayouts = payments
+    .filter((p) => p.status === 'PENDING')
+    .reduce((sum, p) => sum + p.caregiverPayout, 0) / 100;
+  const totalPlatformFee = payments
+    .filter((p) => p.status === 'COMPLETED')
+    .reduce((sum, p) => sum + p.platformFee, 0) / 100;
+  const completedPayments = payments.filter((p) => p.status === 'COMPLETED').length;
+
+  const statCards = [
+    {
+      label: 'Total Earnings',
+      value: `₹${totalEarnings.toLocaleString('en-IN')}`,
+      icon: <IndianRupee className='h-5 w-5' />,
+      color: 'bg-forest-50 text-forest-700',
+    },
+    {
+      label: 'Pending Payouts',
+      value: `₹${pendingPayouts.toLocaleString('en-IN')}`,
+      icon: <Clock className='h-5 w-5' />,
+      color: 'bg-yellow-50 text-yellow-700',
+    },
+    {
+      label: 'Platform Fees',
+      value: `₹${totalPlatformFee.toLocaleString('en-IN')}`,
+      icon: <Briefcase className='h-5 w-5' />,
+      color: 'bg-orange-50 text-orange-700',
+    },
+    {
+      label: 'Completed Payments',
+      value: completedPayments,
+      icon: <CheckCircle2 className='h-5 w-5' />,
+      color: 'bg-lime-50 text-lime-700',
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className='space-y-6'>
+        <Skeleton className='h-8 w-48' />
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className='h-28 rounded-2xl' />
+          ))}
+        </div>
+        <div className='space-y-3'>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className='h-24 rounded-2xl' />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='flex flex-col items-center justify-center py-16 text-center'>
+        <div className='w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mb-3 text-red-400'>
+          <AlertCircle className='h-6 w-6' />
+        </div>
+        <h3 className='text-sm font-semibold text-gray-800 mb-1'>Failed to load earnings</h3>
+        <p className='text-xs text-gray-400 mb-3'>{error}</p>
+        <button
+          onClick={fetchPayments}
+          className='text-xs font-medium text-forest-700 hover:underline'
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className='space-y-6'>
+      {/* Header */}
+      <div>
+        <h2 className='text-2xl font-bold text-gray-900'>Earnings</h2>
+        <p className='text-sm text-gray-400 mt-1'>
+          Track your earnings, payouts, and platform fee deductions.
+        </p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+        {statCards.map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+          >
+            <Card className='rounded-2xl border-gray-100 hover:shadow-md transition-shadow'>
+              <CardContent className='p-5'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-sm text-gray-500 font-medium'>{stat.label}</p>
+                    <p className='text-2xl font-bold text-gray-900 mt-1'>{stat.value}</p>
+                  </div>
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${stat.color}`}>
+                    {stat.icon}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Fee Breakdown Info */}
+      <Card className='rounded-2xl border-forest-100 bg-forest-50/30'>
+        <CardContent className='p-4'>
+          <div className='flex items-start gap-3'>
+            <div className='w-9 h-9 rounded-xl bg-forest-100 flex items-center justify-center shrink-0'>
+              <Briefcase className='h-4 w-4 text-forest-600' />
+            </div>
+            <div>
+              <p className='text-sm font-semibold text-forest-900'>Fee Structure</p>
+              <p className='text-xs text-gray-500 mt-0.5'>
+                SevaSaathi charges a <span className='font-semibold text-orange-600'>15% platform fee</span> on
+                each booking. You receive 85% of the total booking amount directly
+                to your account.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment History */}
+      <div>
+        <h3 className='text-base font-semibold text-gray-800 mb-3'>Earnings History</h3>
+        <PaymentHistory userId={caregiverId} role='CAREGIVER' />
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
 /* MAIN EXPORT                                                   */
 /* ============================================================ */
 
@@ -1801,6 +1966,7 @@ export function CaregiverDashboard({ activeTab, user }: CaregiverDashboardProps)
       {activeTab === 'overview' && <OverviewTab user={user} />}
       {activeTab === 'my-profile' && <ProfileTab user={user} />}
       {activeTab === 'bookings' && <BookingsTab user={user} />}
+      {activeTab === 'earnings' && <EarningsTab user={user} />}
       {activeTab === 'submit-report' && <SubmitReportTab user={user} />}
       {activeTab === 'reviews' && <ReviewsTab user={user} />}
       {activeTab === 'complaints' && <ComplaintsTab user={user} />}

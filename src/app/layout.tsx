@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import AuthProvider from "@/components/providers/AuthProvider";
 
 export const metadata: Metadata = {
   title: "SevaSaathi - Verified Home Care & Elder Support Platform",
@@ -41,7 +42,9 @@ export default function RootLayout({
         className="antialiased bg-background text-foreground"
         style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Toaster />
       </body>
     </html>

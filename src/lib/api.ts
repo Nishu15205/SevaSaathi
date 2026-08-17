@@ -139,6 +139,16 @@ export const api = {
         request<{ verification: any }>(`/api/admin/verifications/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     },
   },
+  payments: {
+    list: (userId: string, role: 'FAMILY' | 'CAREGIVER') =>
+      request<{ payments: any[] }>(`/api/payments?userId=${userId}&role=${role}`),
+    get: (id: string) =>
+      request<{ payment: any }>(`/api/payments/${id}`),
+    create: (data: { bookingId: string; paymentMethod: string; userId?: string }) =>
+      request<{ payment: any }>('/api/payments', { method: 'POST', body: JSON.stringify(data) }),
+    complete: (id: string) =>
+      request<{ payment: any }>(`/api/payments/${id}`, { method: 'POST' }),
+  },
   verifyAadhar: (imageBase64: string) =>
-    request<{ verified: boolean; aadharNumber?: string; name?: string; dob?: string; gender?: string; address?: string; error?: string }>("/api/verify-aadhar", { method: "POST", body: JSON.stringify({ image: imageBase64 }) }),
+    request<{ verified: boolean; aadharNumber?: string; name?: string; dob?: string; gender?: string; address?: string; error?: string }>('/api/verify-aadhar', { method: 'POST', body: JSON.stringify({ image: imageBase64 }) }),
 };

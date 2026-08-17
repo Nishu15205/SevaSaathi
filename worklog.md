@@ -651,3 +651,171 @@ Work Log:
 Stage Summary:
 - README.md created at /home/z/my-project/README.md
 - Clearly documents SQLite as the database (not MongoDB)
+
+---
+Task ID: 2
+Agent: Task 2 Agent
+Task: Rewrite LoginModal component to use real Google OAuth via NextAuth.js
+
+Work Log:
+- Read and analyzed all related source files: auth.ts, authStore.ts, api.ts, AuthProvider.tsx, current LoginModal.tsx, dialog.tsx, globals.css
+- Completely rewrote `/home/z/my-project/src/components/sevasaathi/LoginModal.tsx` with the following changes:
+  - **Removed**: All 4-tab structure (login/register/reset/otp-verify), demo account buttons, OTP verification flow, InputOTP imports
+  - **Added**: Real Google OAuth via `signIn("google")` from `next-auth/react`, prominent Google sign-in button with official Google "G" SVG icon
+  - **Added**: Credentials login via `signIn("credentials", { email, password, redirect: false })` with proper error handling
+  - **Added**: Registration flow that calls `api.auth.register()` then auto-logs in via `signIn("credentials")`
+  - **Simplified**: Tab structure to just Login and Register with a clean tab switcher (bg-gray-100 rounded-lg pill)
+  - **Added**: "Forgot password?" link in login tab that opens a nested Dialog for password reset (email + new password, no OTP)
+  - **Added**: Animated tab transitions via framer-motion AnimatePresence with slide left/right
+  - **Added**: Role selector on registration (Family/Caregiver toggle with forest-500 active state)
+  - **Added**: Error banners with animated height transitions, loading spinners on all buttons
+  - **Added**: Terms of Service / Privacy Policy footer text
+  - **Added**: Success toasts via `sonner` toast after login/register
+  - **Design**: Forest green (#14532d) primary buttons, lime accent (#a3e635) in the SevaSaathi logo icon, clean white card design
+  - **Google button**: White background, border, Google SVG, "Continue with Google" / "Sign up with Google" text
+  - **Divider**: "or continue with email" centered between Google button and email form
+  - **Responsive**: Works on mobile with sm:max-w-md Dialog sizing
+- Verified: ESLint passed with 0 errors, dev server compiled successfully (no errors in dev.log)
+
+Stage Summary:
+- LoginModal completely rewritten at `/home/z/my-project/src/components/sevasaathi/LoginModal.tsx`
+- Real Google OAuth + Credentials auth via NextAuth.js (no more demo accounts)
+- Clean 2-tab UI (Sign In / Create Account) with animated transitions
+- Nested Forgot Password dialog with simplified reset flow
+- Auth sync handled automatically by AuthProvider/AuthSync component
+
+---
+Task ID: 4
+Agent: Payment System Agent
+Task: Build complete Payment System with platform fee calculations
+
+Work Log:
+- Created `/home/z/my-project/src/app/api/payments/route.ts` (POST + GET)
+  - POST: Creates payment with 15% platform fee calculation (INR→paise conversion), validates booking ownership, prevents duplicate payments, auto-completes after 2s setTimeout
+  - GET: Lists payments by userId + role (FAMILY or CAREGIVER) with related booking/caregiver/family data
+- Created `/home/z/my-project/src/app/api/payments/[id]/route.ts` (GET + POST)
+  - GET: Fetches single payment with full details (booking, patient, caregiver, family)
+  - POST: Manually completes a PENDING payment, generates transaction ID, creates notification
+- Created `/home/z/my-project/src/components/payment/PaymentDialog.tsx`
+  - 3-step animated flow: details → processing → success
+  - Booking summary (caregiver, patient, date, shift)
+  - Payment breakdown card: caregiver fee, platform fee 15% (orange label), total amount
+  - 3 payment methods: UPI (default), Card, Net Banking - styled selection cards
+  - UPI ID input field (conditionally shown)
+  - Black "Pay ₹X,XXX" button with rupee icon
+  - 2-second processing spinner, then animated green checkmark success with transaction ID
+  - Forest green/lime accent theme, SSL security badge
+- Created `/home/z/my-project/src/components/payment/PaymentHistory.tsx`
+  - Expandable payment cards with status badges (green/yellow/red/orange)
+  - Shows amount in ₹INR (converts from paise), payment method icon, date
+  - Expanded view: fee breakdown, platform fee, caregiver payout, transaction ID, booking reference
+  - Empty state, loading skeleton, error state with retry
+  - Role-aware: FAMILY sees "Amount Paid" + "Caregiver Receives", CAREGIVER sees "Your Earnings" + "of X total"
+- Updated `/home/z/my-project/src/lib/api.ts` with `payments` namespace (list, get, create, complete)
+- Added `PaymentsTab` to FamilyDashboard:
+  - Lists unpaid bookings (CONFIRMED/IN_PROGRESS without payment) with yellow "Pay Now" cards
+  - Opens PaymentDialog on click, refreshes data after success
+  - Shows PaymentHistory below
+- Added `EarningsTab` to CaregiverDashboard:
+  - 4 stat cards: Total Earnings, Pending Payouts, Platform Fees, Completed Payments
+  - Fee structure info card (15% explanation)
+  - PaymentHistory with role=CAREGIVER
+- Updated DashboardShell:
+  - Added "Payments" nav item (IndianRupee icon) to familyNavItems after 'My Bookings'
+  - Added "Earnings" nav item (Wallet icon) to caregiverNavItems after 'My Bookings'
+  - Imported IndianRupee, Wallet from lucide-react
+
+Stage Summary:
+- Complete payment system with 15% platform fee (₹2000 → ₹300 fee → ₹1700 caregiver payout)
+- 2 API routes: `/api/payments` and `/api/payments/[id]`
+- 2 new components: PaymentDialog (3-step animated), PaymentHistory (expandable cards)
+- Integrated into Family (Payments tab) and Caregiver (Earnings tab) dashboards
+- Nav items added to DashboardShell sidebar
+- ESLint: 0 errors, dev server: compiling clean
+- Agent work record saved to `/home/z/my-project/agent-ctx/4-payment-system.md`---
+Task ID: 1
+Agent: Main
+Task: Set up NextAuth backend infrastructure
+
+Work Log:
+- Made passwordHash optional in Prisma schema (for Google OAuth users)
+- Created .env.local with NEXTAUTH_SECRET, GOOGLE_CLIENT_ID/SECRET placeholders
+- Created /src/lib/auth.ts with Google + Credentials providers, JWT session strategy
+- Created /src/app/api/auth/[...nextauth]/route.ts (GET + POST handlers)
+- Created /src/types/next-auth.d.ts (extended Session and JWT types with id, role)
+- Created /src/components/providers/AuthProvider.tsx (SessionProvider + AuthSync component)
+- Updated /src/app/layout.tsx to wrap children with AuthProvider
+- Updated /src/stores/authStore.ts (kept localStorage sync, AuthSync handles NextAuth→Zustand)
+- Updated DashboardShell to import signOut from next-auth/react and call on logout
+- Ran db:push to apply schema changes
+
+Stage Summary:
+- NextAuth v4 with Google OAuth + Credentials (email/password) providers working
+- JWT session strategy with 30-day expiry
+- AuthSync component auto-syncs NextAuth session → Zustand authStore
+- Existing seed users (with bcrypt password hashes) continue to work
+
+---
+Task ID: 2
+Agent: full-stack-developer subagent
+Task: Rewrite LoginModal with Google OAuth
+
+Work Log:
+- Completely rewrote /src/components/sevasaathi/LoginModal.tsx
+- Added Google sign-in button with official Google SVG icon
+- Added "or continue with email" divider
+- Replaced custom API login with signIn("credentials") from next-auth/react
+- Removed all demo account buttons
+- Removed OTP verification tab entirely
+- Simplified to 2 tabs: Sign In and Create Account
+- Added forgot password as nested dialog (no OTP)
+- Added "Sign up with Google" on registration tab
+
+Stage Summary:
+- Clean, modern auth UI like Instagram/Unstop
+- Google OAuth button prominent at top of both tabs
+- Email/password fallback works via NextAuth Credentials provider
+- No demo accounts, no OTP complexity
+
+---
+Task ID: 4
+Agent: full-stack-developer subagent
+Task: Build payment system with platform fee calculations
+
+Work Log:
+- Created /src/app/api/payments/route.ts (POST: create payment, GET: list payments)
+- Created /src/app/api/payments/[id]/route.ts (GET: details, POST: complete payment)
+- Created /src/components/payment/PaymentDialog.tsx (3-step: summary → processing → success)
+- Created /src/components/payment/PaymentHistory.tsx (expandable payment cards)
+- Updated FamilyDashboard: added Payments tab with pending payments + history
+- Updated CaregiverDashboard: added Earnings tab with stats + history
+- Updated DashboardShell: added Payments nav (Family) and Earnings nav (Caregiver)
+
+Stage Summary:
+- Platform fee: 15% of total booking amount
+- Payment breakdown: Caregiver Fee + Platform Fee (15%) = Total
+- Caregiver receives: Total - Platform Fee
+- Payment methods: UPI, Card, Net Banking
+- Auto-simulated payment completion (2-second delay)
+- All amounts stored in paise, displayed in INR
+
+---
+Task ID: 8
+Agent: Main (browser verification)
+Task: End-to-end browser verification
+
+Work Log:
+- Opened landing page: loads correctly with all sections
+- Opened Login modal: shows Google sign-in, email/password, no demo buttons
+- Logged in as Family (anita.gupta@email.com): dashboard loads, Payments tab works
+- Payment dialog shows: booking summary, fee breakdown (₹44,880 + ₹7,920 = ₹52,800), UPI/Card/Net Banking
+- Logged out and logged in as Admin: Admin dashboard with correct nav (Users, Verifications, All Bookings, Reviews, Complaints)
+- Logged out and logged in as Caregiver: Caregiver dashboard with Earnings tab
+- Checked Create Account tab: Google sign-up, role toggle (Family/Caregiver), all fields
+- Zero ESLint errors, zero console errors
+
+Stage Summary:
+- All 3 roles login successfully via NextAuth Credentials provider
+- Google OAuth button visible and functional (requires real Google credentials in .env.local)
+- Payment system integrated into Family (Payments) and Caregiver (Earnings) dashboards
+- Platform fee calculation: 15% deducted correctly

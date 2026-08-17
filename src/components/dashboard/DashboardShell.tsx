@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   KeyRound,
   Loader2,
+  IndianRupee,
+  Wallet,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -35,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuthStore, type User } from '@/stores/authStore';
+import { signOut } from 'next-auth/react';
 import { FamilyDashboard } from './FamilyDashboard';
 import { CaregiverDashboard } from './CaregiverDashboard';
 import { AdminDashboard } from './AdminDashboard';
@@ -50,6 +53,7 @@ const familyNavItems: NavItem[] = [
   { label: 'Members', key: 'patients', icon: <Users className="h-4 w-4" /> },
   { label: 'Find Caregivers', key: 'find-caregivers', icon: <Search className="h-4 w-4" /> },
   { label: 'My Bookings', key: 'bookings', icon: <CalendarCheck className="h-4 w-4" /> },
+  { label: 'Payments', key: 'payments', icon: <IndianRupee className="h-4 w-4" /> },
   { label: 'Care Reports', key: 'reports', icon: <FileText className="h-4 w-4" /> },
   { label: 'Reviews', key: 'reviews', icon: <Star className="h-4 w-4" /> },
   { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
@@ -68,6 +72,7 @@ const caregiverNavItems: NavItem[] = [
   { label: 'Overview', key: 'overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: 'My Profile', key: 'my-profile', icon: <UserCog className="h-4 w-4" /> },
   { label: 'My Bookings', key: 'bookings', icon: <CalendarCheck className="h-4 w-4" /> },
+  { label: 'Earnings', key: 'earnings', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Submit Report', key: 'submit-report', icon: <ClipboardList className="h-4 w-4" /> },
   { label: 'My Reviews', key: 'reviews', icon: <MessageSquare className="h-4 w-4" /> },
   { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
@@ -132,8 +137,9 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
     setMobileOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearAuth();
+    await signOut({ callbackUrl: '/', redirect: false });
     onBack();
   };
 
