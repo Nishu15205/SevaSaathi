@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Bell,
   ShieldCheck,
+  KeyRound,
+  Loader2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,8 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuthStore, type User } from '@/stores/authStore';
 import { FamilyDashboard } from './FamilyDashboard';
@@ -81,6 +85,33 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
+
+  // Change password state
+  const [pwdDialogOpen, setPwdDialogOpen] = useState(false);
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdCurrent, setPwdCurrent] = useState('');
+  const [pwdNew, setPwdNew] = useState('');
+  const [pwdConfirm, setPwdConfirm] = useState('');
+
+  const handleChangePassword = async () => {
+    if (!user?.id) return;
+    if (!pwdCurrent || !pwdNew || !pwdConfirm) { toast.error('All fields are required'); return; }
+    if (pwdNew !== pwdConfirm) { toast.error('New passwords do not match'); return; }
+    if (pwdNew.length < 6) { toast.error('New password must be at least 6 characters'); return; }
+    setPwdSaving(true);
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, currentPassword: pwdCurrent, newPassword: pwdNew }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || 'Failed to change password'); return; }
+      toast.success('Password changed successfully!');
+      setPwdDialogOpen(false);
+      setPwdCurrent(''); setPwdNew(''); setPwdConfirm('');
+    } catch { toast.error('Something went wrong'); } finally { setPwdSaving(false); }
+  };
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
@@ -187,8 +218,16 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
         </div>
         <Button
           variant="ghost"
+          onClick={() => setPwdDialogOpen(true)}
+          className="w-full mt-2 text-gray-500 hover:text-forest-700 hover:bg-forest-50 justify-start gap-2 rounded-xl px-3"
+        >
+          <KeyRound className="h-4 w-4" />
+          Change Password
+        </Button>
+        <Button
+          variant="ghost"
           onClick={handleLogout}
-          className="w-full mt-2 text-red-500 hover:text-red-600 hover:bg-red-50 justify-start gap-2 rounded-xl px-3"
+          className="w-full mt-1 text-red-500 hover:text-red-600 hover:bg-red-50 justify-start gap-2 rounded-xl px-3"
         >
           <LogOut className="h-4 w-4" />
           Logout
@@ -283,19 +322,62 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
                 </PopoverContent>
               </Popover>
 
-              <div className="hidden sm:flex items-center gap-2 ml-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-forest-900 text-white text-xs font-semibold">
-                    {user ? getInitials(user.name) : '??'}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
-                  {user?.name}
-                </span>
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <div className="hidden sm:flex items-center gap-2 ml-2 cursor-pointer hover:bg-gray-50 rounded-xl px-2 py-1 transition-colors">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-forest-900 text-white text-xs font-semibold">
+                        {user ? getInitials(user.name) : '??'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
+                      {user?.name}
+                    </span>
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-56 p-2 rounded-2xl">
+                  <button onClick={() => setPwdDialogOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:text-forest-800 hover:bg-forest-50 rounded-xl transition-colors">
+                    <KeyRound className="h-4 w-4" /> Change Password
+                  </button>
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                    <LogOut className="h-4 w-4" /> Logout
+                  </button>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </header>
+
+        {/* Change Password Dialog */}
+        <Dialog open={pwdDialogOpen} onOpenChange={setPwdDialogOpen}>
+          <DialogContent className="max-w-sm rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-forest-800" /> Change Password</DialogTitle>
+              <DialogDescription>Update your account password</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 mt-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Current Password</label>
+                <input type="password" value={pwdCurrent} onChange={(e) => setPwdCurrent(e.target.value)} placeholder="Enter current password" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
+                <input type="password" value={pwdNew} onChange={(e) => setPwdNew(e.target.value)} placeholder="Min 6 characters" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Confirm New Password</label>
+                <input type="password" value={pwdConfirm} onChange={(e) => setPwdConfirm(e.target.value)} placeholder="Re-enter new password" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => setPwdDialogOpen(false)} className="flex-1 rounded-full">Cancel</Button>
+                <Button onClick={handleChangePassword} disabled={pwdSaving} className="btn-black flex-1 text-sm gap-2">
+                  {pwdSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Update Password
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Content Area */}
         <main className="flex-1 p-4 sm:p-6">

@@ -547,3 +547,26 @@ Stage Summary:
 - Font changed to system sans-serif stack
 - Reviews API now properly includes review data in booking responses for filtering
 - Lint passes with 0 errors
+
+---
+Task ID: password-features
+Agent: Main Agent
+Task: Add reset/change password features, change admin name to "Admin"
+
+Work Log:
+- Changed admin name from "Rajesh Kumar Sharma" to "Admin" in database
+- Created POST /api/auth/reset-password route (email + new password, no OTP for demo)
+- Created POST /api/auth/change-password route (userId + currentPassword + newPassword)
+- Updated LoginModal with 3-tab flow: Login, Register, Reset Password
+- Added "Forgot Password?" link below password field on login form
+- Reset form: email + new password + confirm password + back button
+- Success screen with green checkmark after reset
+- Added "Change Password" button in DashboardShell sidebar (below user info)
+- Added user avatar popover in header with Change Password + Logout options
+- Change Password dialog: current password + new password + confirm + validation
+
+Stage Summary:
+- Forgot Password flow works from login modal
+- Change Password works from dashboard (sidebar + header menu)
+- Admin name is now "Admin"
+- Lint passes, browser verified
