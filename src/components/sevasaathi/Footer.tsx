@@ -10,6 +10,7 @@ import {
   Instagram,
   Linkedin,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const footerLinks = {
   Platform: [
@@ -47,6 +48,8 @@ interface FooterProps {
 }
 
 export default function Footer({ onOpenLogin }: FooterProps) {
+  const { toast } = useToast();
+
   const handleLinkClick = (action?: string, href?: string) => {
     if (!action) return;
     switch (action) {
@@ -60,10 +63,16 @@ export default function Footer({ onOpenLogin }: FooterProps) {
         window.open("mailto:hello@sevasaathi.in?subject=Inquiry%20from%20SevaSaathi%20Website");
         break;
       case "privacy":
-        window.open("https://sevasaathi.in/privacy", "_blank");
+        toast({
+          title: "Privacy Policy — Coming Soon",
+          description: "We're preparing a detailed privacy policy. Contact hello@sevasaathi.in for any privacy concerns.",
+        });
         break;
       case "terms":
-        window.open("https://sevasaathi.in/terms", "_blank");
+        toast({
+          title: "Terms of Service — Coming Soon",
+          description: "We're preparing our terms of service. Contact hello@sevasaathi.in for any questions.",
+        });
         break;
       default:
         if (href) {

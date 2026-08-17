@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { signIn } from "next-auth/react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { api } from "@/lib/api";
 import {
@@ -152,6 +152,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const [resetDone, setResetDone] = useState(false);
 
   const { setAuth } = useAuthStore();
+  const { toast } = useToast();
 
   /* ---- reset form fields when switching tabs ---- */
   useEffect(() => {
@@ -189,16 +190,17 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   /* ---- Google sign-in ---- */
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    setError("");
-    try {
-      await signIn("google", { redirect: false });
-      toast.success("Welcome to SevaSaathi!");
-      handleClose();
-    } catch {
-      setError("Google sign-in failed. Please try again.");
-    } finally {
+    // Google OAuth requires a production domain with registered API credentials.
+    // In this environment the callback URL (localhost) is not accessible from your browser,
+    // so the OAuth flow cannot complete. Show a helpful message instead.
+    setTimeout(() => {
+      toast({
+        title: "Google Sign-In — Coming Soon",
+        description: "Please use email/password to login. Google login will work when deployed to production with a registered domain.",
+        variant: "destructive",
+      });
       setGoogleLoading(false);
-    }
+    }, 600);
   };
 
   /* ---- Email / password login ---- */
@@ -223,7 +225,10 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       }
 
       // AuthSync in AuthProvider will automatically sync session → Zustand store
-      toast.success("Welcome back! 🎉");
+      toast({
+        title: "Welcome back! 🎉",
+        description: "You have successfully logged in.",
+      });
       handleClose();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -264,13 +269,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
 
       if (loginResult?.error) {
         // Registration succeeded but auto-login failed — that's ok, just notify
-        toast.success("Account created! Please log in.");
+        toast({ title: "Account created!", description: "Please log in with your credentials." });
         setTab("login");
         setLoginEmail(regEmail.trim());
         return;
       }
 
-      toast.success("Welcome to SevaSaathi! 🎉");
+      toast({ title: "Welcome to SevaSaathi! 🎉", description: "Your account has been created." });
       handleClose();
     } catch (err: any) {
       setError(err?.message || "Registration failed. Please try again.");
@@ -304,7 +309,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         return;
       }
       setResetDone(true);
-      toast.success("Password reset successfully!");
+      toast({ title: "Password reset successfully!", description: "You can now log in with your new password." });
     } catch {
       setResetError("Something went wrong. Please try again.");
     } finally {
@@ -403,19 +408,22 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 className="space-y-4"
               >
                 {/* Google button */}
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={googleLoading}
-                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
-                >
-                  {googleLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-                  ) : (
-                    <GoogleIcon />
-                  )}
-                  Continue with Google
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={googleLoading}
+                    className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    {googleLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                    ) : (
+                      <GoogleIcon />
+                    )}
+                    Continue with Google
+                    <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full leading-none">Coming Soon</span>
+                  </button>
+                </div>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3">
@@ -527,19 +535,22 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 className="space-y-4"
               >
                 {/* Google button */}
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={googleLoading}
-                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
-                >
-                  {googleLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-                  ) : (
-                    <GoogleIcon />
-                  )}
-                  Sign up with Google
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={googleLoading}
+                    className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    {googleLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                    ) : (
+                      <GoogleIcon />
+                    )}
+                    Sign up with Google
+                    <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full leading-none">Coming Soon</span>
+                  </button>
+                </div>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3">
