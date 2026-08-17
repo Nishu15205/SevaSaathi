@@ -203,7 +203,7 @@ function OverviewTab() {
   }
 
   const statCards = [
-    { label: 'Total Patients', value: stats.patients, icon: <Users className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
+    { label: 'Total Members', value: stats.patients, icon: <Users className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
     { label: 'Active Bookings', value: stats.activeBookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'bg-blue-50 text-blue-700' },
     { label: 'Care Reports', value: stats.reports, icon: <FileText className="h-5 w-5" />, color: 'bg-amber-50 text-amber-700' },
     { label: 'Pending Reviews', value: stats.pendingReviews, icon: <Star className="h-5 w-5" />, color: 'bg-lime-50 text-lime-700' },
@@ -251,7 +251,7 @@ function OverviewTab() {
           <CardContent className="p-6 text-center">
             <Heart className="h-8 w-8 text-forest-400 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-gray-800 mb-1">Get started with SevaSaathi</h3>
-            <p className="text-sm text-gray-500">Add a patient profile from the Patients tab, then search and book a caregiver.</p>
+            <p className="text-sm text-gray-500">Add a member profile from the Members tab, then search and book a caregiver.</p>
           </CardContent>
         </Card>
       )}
@@ -277,7 +277,7 @@ function OverviewTab() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">
-                          {booking.patient?.name || 'Patient'}
+                          {booking.patient?.name || 'Member'}
                         </p>
                         <p className="text-xs text-gray-400">
                           {booking.caregiver?.user?.name || 'Caregiver'} &middot; {booking.shiftType?.replace(/_/g, ' ')}
@@ -362,7 +362,7 @@ function PatientsTab() {
         careRequirements: form.careRequirements,
         emergencyContact: JSON.stringify({ name: form.emergencyName, phone: form.emergencyPhone }),
       });
-      toast.success('Patient profile created successfully!');
+      toast.success('Member profile created successfully!');
       setModalOpen(false);
       setForm({
         name: '', age: '', gender: '', relationship: '', address: '', city: '',
@@ -371,7 +371,7 @@ function PatientsTab() {
       });
       fetchPatients();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to create patient');
+      toast.error(err.message || 'Failed to create member');
     } finally {
       setSubmitting(false);
     }
@@ -393,18 +393,18 @@ function PatientsTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Patient Profiles</h2>
+          <h2 className="text-xl font-bold text-gray-900">Member Profiles</h2>
           <p className="text-sm text-gray-400">Manage care recipients in your family.</p>
         </div>
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
           <DialogTrigger asChild>
             <Button className="btn-black text-sm gap-2">
-              <Plus className="h-4 w-4" /> Add Patient
+              <Plus className="h-4 w-4" /> Add Member
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Add New Patient</DialogTitle>
+              <DialogTitle>Add New Member</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-3">
@@ -414,7 +414,7 @@ function PatientsTab() {
                     required
                     value={form.name}
                     onChange={(e) => updateForm('name', e.target.value)}
-                    placeholder="Patient name"
+                    placeholder="Member name"
                     className="mt-1 rounded-xl"
                   />
                 </div>
@@ -551,7 +551,7 @@ function PatientsTab() {
                 </Button>
                 <Button type="submit" disabled={submitting} className="btn-black text-sm gap-2">
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add Patient
+                  Add Member
                 </Button>
               </div>
             </form>
@@ -562,8 +562,8 @@ function PatientsTab() {
       {patients.length === 0 ? (
         <EmptyState
           icon={<Users className="h-7 w-7" />}
-          title="No patients added yet"
-          description="Add a patient profile to start booking care services."
+          title="No members added yet"
+          description="Add a member profile to start booking care services."
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -753,7 +753,7 @@ function FindCaregiversTab() {
     if (!user?.id || !bookingCaregiver) return;
 
     if (!bookingForm.patientId) {
-      toast.error('Please select a patient first. Add a patient from the Patients tab.');
+      toast.error('Please select a member first. Add a member from the Members tab.');
       return;
     }
     if (!bookingForm.startDate) {
@@ -865,7 +865,7 @@ function FindCaregiversTab() {
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-gray-600">Patient Age</Label>
+                <Label className="text-xs font-medium text-gray-600">Member Age</Label>
                 <Input
                   type="number"
                   min={0}
@@ -978,16 +978,16 @@ function FindCaregiversTab() {
           <form onSubmit={handleBookSubmit} className="space-y-4 mt-2">
             {patients.length === 0 ? (
               <div>
-                <Label className="text-xs font-medium text-gray-600">Patient *</Label>
+                <Label className="text-xs font-medium text-gray-600">Member *</Label>
                 <div className="mt-1 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
-                  No patient profiles yet. Please add a patient from the <strong>Patients</strong> tab first.
+                  No member profiles yet. Please add a member from the <strong>Members</strong> tab first.
                 </div>
               </div>
             ) : (
               <div>
-                <Label className="text-xs font-medium text-gray-600">Patient *</Label>
+                <Label className="text-xs font-medium text-gray-600">Member *</Label>
                 <Select value={bookingForm.patientId} onValueChange={v => setBookingForm(p => ({...p, patientId: v}))}>
-                  <SelectTrigger className="mt-1 rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 rounded-xl"><SelectValue placeholder="Select member" /></SelectTrigger>
                   <SelectContent>
                     {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.age} yrs, {p.relationship})</SelectItem>)}
                   </SelectContent>
@@ -1125,7 +1125,7 @@ function BookingsTab() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-800">
-                          {booking.patient?.name || 'Patient'}
+                          {booking.patient?.name || 'Member'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           Caregiver: <span className="text-gray-600">{booking.caregiver?.user?.name || '--'}</span>
@@ -1404,23 +1404,35 @@ function ReportsTab() {
 function ReviewsTab() {
   const user = useAuthStore((s) => s.user);
   const [completedBookings, setCompletedBookings] = useState<any[]>([]);
+  const [submittedReviews, setSubmittedReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [ratings, setRatings] = useState<Record<string, { rating: number; communication: number; punctuality: number; careQuality: number; comment: string }>>({});
+  const [ratings, setRatings] = useState<Record<string, { rating: number; communication: number; punctuality: number; careQuality: number; comment: string; tags: string[] }>>({});
+  const [showSubmitted, setShowSubmitted] = useState(false);
+
+  const feedbackTags = [
+    'Very Caring', 'Punctual', 'Good Communication', 'Patient', 'Skilled',
+    'Friendly', 'Professional', 'Gentle', 'Well-trained', 'Respectful',
+  ];
 
   const fetchBookings = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     setError('');
     try {
-      const res = await api.bookings.list({ familyId: user.id });
-      const completed = (res.bookings || []).filter(
+      const [bookingsRes, reviewsRes] = await Promise.all([
+        api.bookings.list({ familyId: user.id }),
+        api.reviews.list({ familyId: user.id }),
+      ]);
+      const allBookings = bookingsRes.bookings || [];
+      const completed = allBookings.filter(
         (b: any) => b.status === 'COMPLETED' && (!b.reviews || b.reviews.length === 0)
       );
       setCompletedBookings(completed);
+      setSubmittedReviews(reviewsRes.reviews || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to load bookings');
+      setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -1439,10 +1451,19 @@ function ReviewsTab() {
         punctuality: 5,
         careQuality: 5,
         comment: '',
+        tags: [],
         ...prev[bookingId],
         [field]: value,
       },
     }));
+  };
+
+  const toggleTag = (bookingId: string, tag: string) => {
+    const current = ratings[bookingId]?.tags || [];
+    const updated = current.includes(tag)
+      ? current.filter((t: string) => t !== tag)
+      : [...current, tag];
+    updateRating(bookingId, 'tags', updated);
   };
 
   const handleSubmitReview = async (booking: any) => {
@@ -1461,9 +1482,11 @@ function ReviewsTab() {
         communicationRating: r.communication,
         punctualityRating: r.punctuality,
         careQualityRating: r.careQuality,
-        comment: r.comment || undefined,
+        comment: r.tags.length > 0
+          ? `${r.comment ? r.comment + ' | ' : ''}${r.tags.join(', ')}`
+          : r.comment || undefined,
       });
-      toast.success('Review submitted successfully!');
+      toast.success('Review submitted successfully! Thank you for your feedback.');
       fetchBookings();
     } catch (err: any) {
       toast.error(err.message || 'Failed to submit review');
@@ -1473,7 +1496,7 @@ function ReviewsTab() {
   };
 
   const StarRating = ({ value, onChange, size = 'md' }: { value: number; onChange: (v: number) => void; size?: 'sm' | 'md' }) => {
-    const sz = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
+    const sz = size === 'sm' ? 'h-4 w-4' : 'h-6 w-6';
     return (
       <div className="flex items-center gap-0.5">
         {[1, 2, 3, 4, 5].map((star) => (
@@ -1481,8 +1504,8 @@ function ReviewsTab() {
             key={star}
             type="button"
             onClick={() => onChange(star)}
-            className={`${sz} transition-colors ${
-              star <= value ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'
+            className={`${sz} transition-all ${
+              star <= value ? 'text-amber-400 scale-110' : 'text-gray-200 hover:text-amber-300'
             }`}
           >
             <Star className={`${sz} ${star <= value ? 'fill-amber-400' : ''}`} />
@@ -1490,6 +1513,25 @@ function ReviewsTab() {
         ))}
       </div>
     );
+  };
+
+  const StaticStars = ({ value }: { value: number }) => (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`h-4 w-4 ${star <= value ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}`}
+        />
+      ))}
+    </div>
+  );
+
+  const getRatingLabel = (rating: number) => {
+    if (rating >= 5) return 'Excellent';
+    if (rating >= 4) return 'Good';
+    if (rating >= 3) return 'Average';
+    if (rating >= 2) return 'Below Average';
+    return 'Poor';
   };
 
   if (loading) {
@@ -1502,106 +1544,207 @@ function ReviewsTab() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">Reviews</h2>
-        <p className="text-sm text-gray-400">Rate and review your completed care sessions.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Reviews</h2>
+          <p className="text-sm text-gray-400">Rate and review your completed care sessions.</p>
+        </div>
+        {submittedReviews.length > 0 && (
+          <button
+            onClick={() => setShowSubmitted(!showSubmitted)}
+            className="flex items-center gap-1.5 text-sm font-medium text-forest-800 hover:text-forest-600 transition-colors"
+          >
+            {showSubmitted ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {showSubmitted ? 'Write Review' : `My Reviews (${submittedReviews.length})`}
+          </button>
+        )}
       </div>
 
-      {completedBookings.length === 0 ? (
-        <EmptyState
-          icon={<Star className="h-7 w-7" />}
-          title="No pending reviews"
-          description="Once a care session is completed, you can leave a review for the caregiver."
-        />
-      ) : (
-        <div className="space-y-4">
-          {completedBookings.map((booking: any, i: number) => {
-            const r = ratings[booking.id];
-            return (
-              <motion.div
-                key={booking.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
-              >
-                <Card className="rounded-2xl border-gray-100">
-                  <CardContent className="p-4 sm:p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
-                          <UserRound className="h-5 w-5 text-forest-700" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {booking.caregiver?.user?.name || 'Caregiver'}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {booking.patient?.name} &middot; {new Date(booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+      <AnimatePresence mode="wait">
+        {!showSubmitted ? (
+          <motion.div key="write" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+            {completedBookings.length === 0 ? (
+              <EmptyState
+                icon={<Star className="h-7 w-7" />}
+                title="No pending reviews"
+                description="Once a care session is completed, you can leave a review for the caregiver."
+              />
+            ) : (
+              <div className="space-y-4">
+                {completedBookings.map((booking: any, i: number) => {
+                  const r = ratings[booking.id];
+                  return (
+                    <motion.div
+                      key={booking.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                    >
+                      <Card className="rounded-2xl border-gray-100">
+                        <CardContent className="p-4 sm:p-5 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+                                <UserRound className="h-5 w-5 text-forest-700" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {booking.caregiver?.user?.name || 'Caregiver'}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {booking.patient?.name} &middot; {new Date(booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
 
-                    <Separator />
+                          <Separator />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-gray-600">Overall Rating *</Label>
-                        <div className="mt-1.5">
-                          <StarRating value={r?.rating || 0} onChange={(v) => updateRating(booking.id, 'rating', v)} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-gray-600">Communication</Label>
-                        <div className="mt-1.5">
-                          <StarRating value={r?.communication || 0} onChange={(v) => updateRating(booking.id, 'communication', v)} size="sm" />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-gray-600">Punctuality</Label>
-                        <div className="mt-1.5">
-                          <StarRating value={r?.punctuality || 0} onChange={(v) => updateRating(booking.id, 'punctuality', v)} size="sm" />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-gray-600">Care Quality</Label>
-                        <div className="mt-1.5">
-                          <StarRating value={r?.careQuality || 0} onChange={(v) => updateRating(booking.id, 'careQuality', v)} size="sm" />
-                        </div>
-                      </div>
-                    </div>
+                          {/* Overall Rating - Prominent */}
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <Label className="text-xs font-medium text-gray-600">Overall Rating *</Label>
+                            <div className="mt-2 flex items-center gap-3">
+                              <StarRating value={r?.rating || 0} onChange={(v) => updateRating(booking.id, 'rating', v)} />
+                              {(r?.rating || 0) > 0 && (
+                                <span className="text-sm font-semibold text-gray-700">{r?.rating}/5 - {getRatingLabel(r?.rating)}</span>
+                              )}
+                            </div>
+                          </div>
 
-                    <div>
-                      <Label className="text-xs font-medium text-gray-600">Comment (optional)</Label>
-                      <Textarea
-                        value={r?.comment || ''}
-                        onChange={(e) => updateRating(booking.id, 'comment', e.target.value)}
-                        placeholder="Share your experience..."
-                        className="mt-1 rounded-xl min-h-[60px]"
-                      />
-                    </div>
+                          {/* Sub-ratings */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-xs font-medium text-gray-500 mb-1.5">Communication</p>
+                              <StarRating value={r?.communication || 0} onChange={(v) => updateRating(booking.id, 'communication', v)} size="sm" />
+                            </div>
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-xs font-medium text-gray-500 mb-1.5">Punctuality</p>
+                              <StarRating value={r?.punctuality || 0} onChange={(v) => updateRating(booking.id, 'punctuality', v)} size="sm" />
+                            </div>
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-xs font-medium text-gray-500 mb-1.5">Care Quality</p>
+                              <StarRating value={r?.careQuality || 0} onChange={(v) => updateRating(booking.id, 'careQuality', v)} size="sm" />
+                            </div>
+                          </div>
 
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={() => handleSubmitReview(booking)}
-                        disabled={submittingId === booking.id || !r?.rating}
-                        className="btn-black text-sm gap-2"
-                      >
-                        {submittingId === booking.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
+                          {/* Quick feedback tags */}
+                          <div>
+                            <Label className="text-xs font-medium text-gray-600">Quick Feedback Tags</Label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {feedbackTags.map((tag) => {
+                                const isSelected = (r?.tags || []).includes(tag);
+                                return (
+                                  <button
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => toggleTag(booking.id, tag)}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                                      isSelected
+                                        ? 'bg-forest-900 text-white border-forest-900'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300 hover:text-forest-700'
+                                    }`}
+                                  >
+                                    {tag}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Comment */}
+                          <div>
+                            <Label className="text-xs font-medium text-gray-600">Write a Detailed Review (optional)</Label>
+                            <Textarea
+                              value={r?.comment || ''}
+                              onChange={(e) => updateRating(booking.id, 'comment', e.target.value)}
+                              placeholder="How was your experience with the caregiver? What went well, what could be improved?"
+                              className="mt-1.5 rounded-xl min-h-[80px]"
+                            />
+                          </div>
+
+                          <div className="flex justify-end">
+                            <Button
+                              onClick={() => handleSubmitReview(booking)}
+                              disabled={submittingId === booking.id || !r?.rating}
+                              className="btn-black text-sm gap-2"
+                            >
+                              {submittingId === booking.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                              Submit Review
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div key="submitted" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+            {submittedReviews.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 className="h-7 w-7" />}
+                title="No reviews submitted yet"
+                description="Your submitted reviews will appear here."
+              />
+            ) : (
+              <div className="space-y-3">
+                {submittedReviews.map((review: any, i: number) => (
+                  <motion.div
+                    key={review.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                  >
+                    <Card className="rounded-2xl border-gray-100">
+                      <CardContent className="p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+                              <UserRound className="h-5 w-5 text-forest-700" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {review.caregiver?.user?.name || 'Caregiver'}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <StaticStars value={review.rating} />
+                                <span className="text-xs text-gray-400">{getRatingLabel(review.rating)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-gray-400">
+                              {new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+
+                        {review.comment && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
+                          </div>
                         )}
-                        Submit Review
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+
+                        <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+                          <span>Communication: <span className="font-medium text-gray-600">{review.communicationRating}/5</span></span>
+                          <span>Punctuality: <span className="font-medium text-gray-600">{review.punctualityRating}/5</span></span>
+                          <span>Care Quality: <span className="font-medium text-gray-600">{review.careQualityRating}/5</span></span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

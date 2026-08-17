@@ -47,7 +47,7 @@ type NavItem = {
 
 const familyNavItems: NavItem[] = [
   { label: 'Overview', key: 'overview', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: 'Patients', key: 'patients', icon: <Users className="h-4 w-4" /> },
+  { label: 'Members', key: 'patients', icon: <Users className="h-4 w-4" /> },
   { label: 'Find Caregivers', key: 'find-caregivers', icon: <Search className="h-4 w-4" /> },
   { label: 'My Bookings', key: 'bookings', icon: <CalendarCheck className="h-4 w-4" /> },
   { label: 'Care Reports', key: 'reports', icon: <FileText className="h-4 w-4" /> },

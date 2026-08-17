@@ -24,6 +24,16 @@ export const api = {
       }),
     me: (userId: string) =>
       request<{ user: import("@/stores/authStore").User }>(`/api/auth/me?userId=${userId}`),
+    sendOtp: (email: string, purpose: "REGISTER" | "RESET_PASSWORD") =>
+      request<{ message: string; otp: string; expiresIn: string }>("/api/auth/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ email, purpose }),
+      }),
+    verifyOtp: (email: string, otp: string, purpose: "REGISTER" | "RESET_PASSWORD") =>
+      request<{ message: string; verified: boolean }>("/api/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ email, otp, purpose }),
+      }),
   },
   patients: {
     list: (familyId: string) =>

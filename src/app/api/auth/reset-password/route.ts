@@ -6,6 +6,8 @@ import { z } from 'zod'
 const resetSchema = z.object({
   email: z.string().email('Invalid email address'),
   newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  // otpVerified must be true - frontend must call /api/auth/verify-otp first
+  otpVerified: z.literal(true, { message: 'Email OTP verification required. Please verify your email first.' }),
 })
 
 export async function POST(request: NextRequest) {

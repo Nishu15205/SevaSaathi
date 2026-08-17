@@ -570,3 +570,84 @@ Stage Summary:
 - Change Password works from dashboard (sidebar + header menu)
 - Admin name is now "Admin"
 - Lint passes, browser verified
+---
+Task ID: 1
+Agent: Main
+Task: Change 'Patient' to 'Member' in Find Caregiver dashboard + nav sidebar
+
+Work Log:
+- Changed 'Total Patients' stat card to 'Total Members' in OverviewTab
+- Changed quick action text from 'patient' to 'member'
+- Changed fallback text 'Patient' to 'Member' in booking cards
+- Changed 'Patient Profiles' heading to 'Member Profiles'
+- Changed 'Add Patient' button to 'Add Member'
+- Changed 'Add New Patient' dialog title to 'Add New Member'
+- Changed placeholder 'Patient name' to 'Member name'
+- Changed empty state text
+- Changed error messages about patients
+- Changed 'Patient Age' label to 'Member Age' in search form
+- Changed 'Patient *' labels to 'Member *' in booking dialog
+- Changed 'Select patient' placeholder to 'Select member'
+- Updated DashboardShell nav from 'Patients' to 'Members'
+
+Stage Summary:
+- All 'Patient' references in Family Dashboard Find Caregivers tab changed to 'Member'
+- Sidebar nav item changed from 'Patients' to 'Members'
+
+---
+Task ID: 2
+Agent: Main
+Task: Enhance Review section in Family Dashboard
+
+Work Log:
+- Added 'My Submitted Reviews' toggle section with animated transitions
+- Added feedback tags (Very Caring, Punctual, etc.) for quick review selection
+- Enhanced star rating with size increase and scale animation
+- Added rating labels (Excellent, Good, Average, etc.)
+- Added submitted reviews display with caregiver name, stars, date, comment, sub-ratings
+- Improved overall layout with bg-gray-50 sections for ratings
+
+Stage Summary:
+- ReviewsTab now has two views: 'Write Review' (pending) and 'My Reviews' (submitted)
+- Review form enhanced with quick feedback tags, rating labels, and better visual design
+
+---
+Task ID: 3-4
+Agent: Main
+Task: Implement OTP verification for registration and password reset
+
+Work Log:
+- Created /api/auth/send-otp/route.ts with in-memory OTP store
+- Created /api/auth/verify-otp/route.ts for OTP verification
+- Updated /api/auth/reset-password/route.ts to require otpVerified: true flag
+- Added sendOtp/verifyOtp methods to api.ts
+- Rewrote LoginModal.tsx with OTP flow:
+  - Registration: fills form -> creates account -> auto-sends OTP -> shows OTP input -> verifies -> logs in
+  - Reset: fills form -> clicks 'Send Verification OTP' -> shows OTP input -> verifies -> resets password
+  - Added OTP countdown timer (2 min resend cooldown)
+  - Added demo OTP display (amber box showing the OTP for testing)
+  - Used shadcn/ui InputOTP component for 6-digit entry
+
+Stage Summary:
+- Email OTP verification now required for both registration and password reset
+- Demo OTPs shown in UI for sandbox testing (would be sent via email in production)
+- Reset password no longer works directly - requires OTP first
+
+---
+Task ID: 7
+Agent: Main
+Task: Create README.md
+
+Work Log:
+- Created comprehensive README.md documenting:
+  - Tech stack (Next.js 16, TypeScript, Tailwind CSS 4, Prisma, etc.)
+  - Database: SQLite (SQL, NOT MongoDB) with Prisma ORM
+  - 11 database models
+  - Authentication flow (bcrypt, OTP verification, role-based)
+  - Project structure
+  - Getting started instructions
+  - Demo accounts
+
+Stage Summary:
+- README.md created at /home/z/my-project/README.md
+- Clearly documents SQLite as the database (not MongoDB)
