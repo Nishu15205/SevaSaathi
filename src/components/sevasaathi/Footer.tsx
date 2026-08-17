@@ -64,14 +64,14 @@ export default function Footer({ onOpenLogin }: FooterProps) {
         break;
       case "privacy":
         toast({
-          title: "Privacy Policy — Coming Soon",
-          description: "We're preparing a detailed privacy policy. Contact hello@sevasaathi.in for any privacy concerns.",
+          title: "Privacy Policy",
+          description: "Our privacy policy page is under preparation. For any privacy concerns, email hello@sevasaathi.in",
         });
         break;
       case "terms":
         toast({
-          title: "Terms of Service — Coming Soon",
-          description: "We're preparing our terms of service. Contact hello@sevasaathi.in for any questions.",
+          title: "Terms of Service",
+          description: "Our terms of service page is under preparation. For questions, email hello@sevasaathi.in",
         });
         break;
       default:
