@@ -78,7 +78,7 @@ const cardVariants = {
   },
 };
 
-export default function Pricing() {
+export default function Pricing({ onOpenLogin }: { onOpenLogin: (action?: string) => void }) {
   return (
     <section id="pricing" className="py-20 lg:py-28 bg-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -174,6 +174,13 @@ export default function Pricing() {
 
                 {/* CTA Button */}
                 <button
+                  onClick={() => {
+                    if (plan.name === 'Enterprise') {
+                      window.open("mailto:hello@sevasaathi.in?subject=Enterprise%20Plan%20Inquiry");
+                    } else {
+                      onOpenLogin(plan.name === 'Premium' ? 'register' : undefined);
+                    }
+                  }}
                   className={`w-full py-3 px-6 rounded-full font-semibold text-sm transition-all duration-200 mb-6 cursor-pointer ${
                     isHighlighted
                       ? "bg-white text-forest-900 hover:bg-lime-100"

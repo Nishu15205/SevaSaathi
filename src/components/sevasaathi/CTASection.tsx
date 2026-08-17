@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Phone } from "lucide-react";
 
-export default function CTASection() {
+export default function CTASection({ onOpenLogin }: { onOpenLogin: () => void }) {
   return (
     <section className="py-20 lg:py-28 green-gradient-bg relative overflow-hidden">
       {/* Decorative blobs */}
@@ -28,20 +28,18 @@ export default function CTASection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {/* White filled button */}
-            <motion.a
-              href="#"
+            <motion.button
+              onClick={onOpenLogin}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-forest-900 font-semibold px-8 py-3.5 text-base transition-colors hover:bg-lime-100"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-forest-900 font-semibold px-8 py-3.5 text-base transition-colors hover:bg-lime-100 cursor-pointer"
             >
               Get Started
               <ArrowRight className="h-4 w-4" />
-            </motion.a>
+            </motion.button>
 
-            {/* White outlined button */}
             <motion.a
-              href="#"
+              href="mailto:hello@sevasaathi.in?subject=Inquiry%20from%20SevaSaathi%20Website"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
               className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-white/40 text-white font-semibold px-8 py-3.5 text-base transition-all hover:bg-white/10 hover:border-white/70"

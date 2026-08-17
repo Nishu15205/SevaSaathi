@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultTab?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -123,9 +124,9 @@ const contentVariants = {
 /* ================================================================== */
 /*  MAIN COMPONENT                                                     */
 /* ================================================================== */
-export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalProps) {
   /* ---- state ---- */
-  const [tab, setTab] = useState<Tab>("login");
+  const [tab, setTab] = useState<Tab>(defaultTab === "register" ? "register" : "login");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -160,7 +161,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   /* ---- reset entire state when modal closes ---- */
   const handleClose = useCallback(() => {
-    setTab("login");
+    setTab(defaultTab === "register" ? "register" : "login");
     setError("");
     setShowPassword(false);
     setLoading(false);
@@ -179,7 +180,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setResetError("");
     setResetDone(false);
     onClose();
-  }, [onClose]);
+  }, [onClose, defaultTab]);
 
   /* ================================================================ */
   /*  HANDLERS                                                         */

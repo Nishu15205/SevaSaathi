@@ -10,7 +10,7 @@ const trustItems = [
   { icon: MapPin, value: "Delhi NCR", label: "Service Area" },
 ];
 
-export default function HeroSection() {
+export default function HeroSection({ onOpenLogin }: { onOpenLogin: () => void }) {
   return (
     <section
       id="hero"
@@ -71,13 +71,14 @@ export default function HeroSection() {
               transition={{ duration: 0.5, delay: 0.5 }}
               className="flex flex-col sm:flex-row gap-4 mt-4"
             >
-              <button className="btn-black inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base">
+              <button onClick={onOpenLogin} className="btn-black inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base">
                 Get Started
                 <ArrowRight className="h-4 w-4" />
               </button>
-              <button className="btn-outline-black border-white/60 text-white hover:bg-white hover:text-black inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base">
+              <a href="#how-it-works" className="btn-outline-black border-white/60 text-white hover:bg-white hover:text-black inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base">
                 Learn More
-              </button>
+                <ArrowRight className="h-4 w-4" />
+              </a>
             </motion.div>
           </div>
 

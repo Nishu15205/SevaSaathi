@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -13,29 +14,41 @@ import TrustSafety from "@/components/sevasaathi/TrustSafety";
 import Pricing from "@/components/sevasaathi/Pricing";
 import Testimonials from "@/components/sevasaathi/Testimonials";
 import CompetitivePositioning from "@/components/sevasaathi/CompetitivePositioning";
-import Roadmap from "@/components/sevasaathi/Roadmap";
 import CTASection from "@/components/sevasaathi/CTASection";
 import Footer from "@/components/sevasaathi/Footer";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import LoginModal from "@/components/sevasaathi/LoginModal";
 
 function LandingPage({ onGoDashboard }: { onGoDashboard: () => void }) {
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginTab, setLoginTab] = useState<string | undefined>(undefined);
+
+  const openLogin = (tab?: string) => {
+    setLoginTab(tab);
+    setLoginOpen(true);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar onGoDashboard={onGoDashboard} />
+      <Navbar onGoDashboard={onGoDashboard} loginOpen={loginOpen} setLoginOpen={setLoginOpen} />
       <main className="flex-1">
-        <HeroSection />
+        <HeroSection onOpenLogin={openLogin} />
         <HowItWorks />
         <Features />
-        <SmartMatching />
+        <SmartMatching onOpenLogin={openLogin} />
         <ForUsers />
         <TrustSafety />
         <CompetitivePositioning />
-        <Pricing />
+        <Pricing onOpenLogin={openLogin} />
         <Testimonials />
-        <Roadmap />
-        <CTASection />
+        <CTASection onOpenLogin={openLogin} />
       </main>
-      <Footer />
+      <Footer onOpenLogin={openLogin} />
+      <AnimatePresence>
+        {loginOpen && (
+          <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} defaultTab={loginTab} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -45,8 +58,6 @@ export default function Home() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
-  // Use a ref-based override so logout from dashboard goes to landing
-  // even though isAuthenticated just became false
   const showDashboard = isAuthenticated && !!user;
 
   return (

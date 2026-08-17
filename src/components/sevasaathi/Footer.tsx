@@ -20,29 +20,59 @@ const footerLinks = {
     { label: "Trust & Safety", href: "#trust" },
   ],
   "For Caregivers": [
-    { label: "Become a Caregiver", href: "#" },
+    { label: "Become a Caregiver", action: "register-caregiver" },
     { label: "Verification Process", href: "#trust" },
-    { label: "Caregiver Dashboard", href: "#" },
+    { label: "Caregiver Dashboard", action: "login-caregiver" },
     { label: "Earnings & Payments", href: "#pricing" },
   ],
   Company: [
-    { label: "About SevaSaathi", href: "#" },
-    { label: "Our Mission", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Contact Us", href: "#" },
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
+    { label: "About SevaSaathi", href: "#hero" },
+    { label: "Our Mission", href: "#features" },
+    { label: "Careers", action: "contact" },
+    { label: "Contact Us", action: "contact" },
+    { label: "Privacy Policy", action: "privacy" },
+    { label: "Terms of Service", action: "terms" },
   ],
 };
 
 const socialLinks = [
-  { icon: Facebook, href: "#", label: "Facebook" },
-  { icon: Twitter, href: "#", label: "Twitter" },
-  { icon: Instagram, href: "#", label: "Instagram" },
-  { icon: Linkedin, href: "#", label: "LinkedIn" },
+  { icon: Facebook, href: "https://facebook.com/sevasaathi", label: "Facebook" },
+  { icon: Twitter, href: "https://twitter.com/sevasaathi", label: "Twitter" },
+  { icon: Instagram, href: "https://instagram.com/sevasaathi", label: "Instagram" },
+  { icon: Linkedin, href: "https://linkedin.com/company/sevasaathi", label: "LinkedIn" },
 ];
 
-export default function Footer() {
+interface FooterProps {
+  onOpenLogin?: (tab?: string) => void;
+}
+
+export default function Footer({ onOpenLogin }: FooterProps) {
+  const handleLinkClick = (action?: string, href?: string) => {
+    if (!action) return;
+    switch (action) {
+      case "register-caregiver":
+        onOpenLogin?.("register");
+        break;
+      case "login-caregiver":
+        onOpenLogin?.("login");
+        break;
+      case "contact":
+        window.open("mailto:hello@sevasaathi.in?subject=Inquiry%20from%20SevaSaathi%20Website");
+        break;
+      case "privacy":
+        window.open("https://sevasaathi.in/privacy", "_blank");
+        break;
+      case "terms":
+        window.open("https://sevasaathi.in/terms", "_blank");
+        break;
+      default:
+        if (href) {
+          const el = document.querySelector(href);
+          el?.scrollIntoView({ behavior: "smooth" });
+        }
+    }
+  };
+
   return (
     <footer className="bg-[#111111] text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-8">
@@ -93,12 +123,21 @@ export default function Footer() {
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-gray-400 hover:text-lime-400 transition-colors"
-                    >
-                      {link.label}
-                    </a>
+                    {link.action ? (
+                      <button
+                        onClick={() => handleLinkClick(link.action, link.href)}
+                        className="text-sm text-gray-400 hover:text-lime-400 transition-colors cursor-pointer bg-transparent border-none p-0 text-left"
+                      >
+                        {link.label}
+                      </button>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-sm text-gray-400 hover:text-lime-400 transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -118,6 +157,8 @@ export default function Footer() {
               <a
                 key={social.label}
                 href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label={social.label}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-gray-400 hover:bg-white/10 hover:text-lime-400 transition-all"
               >

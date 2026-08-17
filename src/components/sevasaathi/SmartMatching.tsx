@@ -87,7 +87,7 @@ function ProgressBar({
   );
 }
 
-export default function SmartMatching() {
+export default function SmartMatching({ onOpenLogin }: { onOpenLogin: () => void }) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-100px" });
 
@@ -214,7 +214,7 @@ export default function SmartMatching() {
                 transition={{ delay: 0.7, duration: 0.4 }}
                 className="mt-2"
               >
-                <button className="btn-black inline-flex items-center gap-2 px-6 py-3 text-sm">
+                <button onClick={onOpenLogin} className="btn-black inline-flex items-center gap-2 px-6 py-3 text-sm">
                   Find a caregiver
                   <ArrowRight className="h-4 w-4" />
                 </button>
