@@ -92,7 +92,7 @@ export const api = {
       request<{ notifications: any[] }>(`/api/notifications?userId=${userId}`),
   },
   complaints: {
-    list: (params: { familyId?: string; caregiverId?: string }) => {
+    list: (params: { familyId?: string; caregiverId?: string } = {}) => {
       const sp = new URLSearchParams();
       if (params.familyId) sp.set("familyId", params.familyId);
       if (params.caregiverId) sp.set("caregiverId", params.caregiverId);
@@ -100,5 +100,22 @@ export const api = {
     },
     create: (data: any) =>
       request<{ complaint: any }>("/api/complaints", { method: "POST", body: JSON.stringify(data) }),
+  },
+  admin: {
+    dashboard: () =>
+      request<any>("/api/admin/dashboard"),
+    users: (params: { role?: string; page?: number; limit?: number } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.role) sp.set("role", params.role);
+      if (params.page) sp.set("page", String(params.page));
+      if (params.limit) sp.set("limit", String(params.limit));
+      return request<{ users: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(`/api/admin/users?${sp}`);
+    },
+    verifications: {
+      list: () =>
+        request<{ verifications: any[] }>("/api/admin/verifications"),
+      update: (id: string, data: { status: string; rejectionReason?: string }) =>
+        request<{ verification: any }>(`/api/admin/verifications/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    },
   },
 };

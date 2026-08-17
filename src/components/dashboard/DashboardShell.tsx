@@ -20,6 +20,7 @@ import {
   MessageSquare,
   ChevronRight,
   Bell,
+  ShieldCheck,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import { api } from '@/lib/api';
 import { useAuthStore, type User } from '@/stores/authStore';
 import { FamilyDashboard } from './FamilyDashboard';
 import { CaregiverDashboard } from './CaregiverDashboard';
+import { AdminDashboard } from './AdminDashboard';
 
 type NavItem = {
   label: string;
@@ -46,6 +48,14 @@ const familyNavItems: NavItem[] = [
   { label: 'My Bookings', key: 'bookings', icon: <CalendarCheck className="h-4 w-4" /> },
   { label: 'Care Reports', key: 'reports', icon: <FileText className="h-4 w-4" /> },
   { label: 'Reviews', key: 'reviews', icon: <Star className="h-4 w-4" /> },
+  { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
+];
+
+const adminNavItems: NavItem[] = [
+  { label: 'Overview', key: 'overview', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: 'Users', key: 'users', icon: <Users className="h-4 w-4" /> },
+  { label: 'Verifications', key: 'verifications', icon: <ShieldCheck className="h-4 w-4" /> },
+  { label: 'All Bookings', key: 'all-bookings', icon: <CalendarCheck className="h-4 w-4" /> },
   { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
 ];
 
@@ -80,7 +90,7 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
     finally { setNotifLoading(false); }
   }, [user?.id]);
 
-  const navItems = user?.role === 'CAREGIVER' ? caregiverNavItems : familyNavItems;
+  const navItems = user?.role === 'ADMIN' ? adminNavItems : user?.role === 'CAREGIVER' ? caregiverNavItems : familyNavItems;
 
   const pageTitle = navItems.find((n) => n.key === activeTab)?.label || 'Dashboard';
 
@@ -287,7 +297,9 @@ export default function DashboardShell({ onBack }: DashboardShellProps) {
 
         {/* Content Area */}
         <main className="flex-1 p-4 sm:p-6">
-          {user?.role === 'CAREGIVER' ? (
+          {user?.role === 'ADMIN' ? (
+            <AdminDashboard activeTab={activeTab} />
+          ) : user?.role === 'CAREGIVER' ? (
             <CaregiverDashboard activeTab={activeTab} user={user} />
           ) : (
             <FamilyDashboard activeTab={activeTab} />

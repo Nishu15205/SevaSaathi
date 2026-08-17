@@ -472,3 +472,27 @@ Stage Summary:
 - Booking API confirmed working via curl test
 - All caregivers visible in Find Caregivers tab
 
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Create Admin Dashboard with 5 tabs
+
+Work Log:
+- Added admin API methods to api.ts (dashboard, users, verifications)
+- Created AdminDashboard.tsx (575 lines) with 5 tabs: Overview, Users, Verifications, All Bookings, Complaints
+- Updated DashboardShell.tsx with adminNavItems, ADMIN role routing, ShieldCheck import
+- Fixed AllBookingsTab: used caregiverProfile.id instead of user id, mapped correct field names (startDate, totalAmount, patient.name)
+- Fixed VerificationsTab: used v.caregiver?.user?.name instead of v.caregiverName, v.docType instead of v.documentType, v.createdAt instead of v.submittedAt
+- Verified all 5 tabs work via Agent Browser:
+  - Overview: 16 users, 10 caregivers, 12 bookings, 7 completed, complaints by status bars
+  - Users: 16 users listed with role filter (All/Family/Caregiver), role badges, join dates
+  - Verifications: 3 pending docs (Mohan Pal - POLICE_VERIFICATION, Naveen Chauhan - AADHAAR & ADDRESS_PROOF) with Approve/Reject buttons
+  - All Bookings: 12 bookings showing patient→caregiver, date, amount (Rs), status badges
+  - Complaints: 3 complaints with OPEN/IN_PROGRESS/RESOLVED status, descriptions, priority badges
+
+Stage Summary:
+- Files changed: api.ts, AdminDashboard.tsx (new), DashboardShell.tsx
+- Admin login: admin@sevasaathi.in / password123
+- All 5 admin tabs fully functional
+
