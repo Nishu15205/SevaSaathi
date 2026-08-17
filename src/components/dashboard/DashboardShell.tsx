@@ -56,6 +56,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Users', key: 'users', icon: <Users className="h-4 w-4" /> },
   { label: 'Verifications', key: 'verifications', icon: <ShieldCheck className="h-4 w-4" /> },
   { label: 'All Bookings', key: 'all-bookings', icon: <CalendarCheck className="h-4 w-4" /> },
+  { label: 'Reviews', key: 'reviews', icon: <Star className="h-4 w-4" /> },
   { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
 ];
 
@@ -65,6 +66,7 @@ const caregiverNavItems: NavItem[] = [
   { label: 'My Bookings', key: 'bookings', icon: <CalendarCheck className="h-4 w-4" /> },
   { label: 'Submit Report', key: 'submit-report', icon: <ClipboardList className="h-4 w-4" /> },
   { label: 'My Reviews', key: 'reviews', icon: <MessageSquare className="h-4 w-4" /> },
+  { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
 ];
 
 interface DashboardShellProps {

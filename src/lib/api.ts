@@ -58,7 +58,7 @@ export const api = {
       request<{ caregiver: any }>(`/api/caregivers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   bookings: {
-    list: (params: { familyId?: string; caregiverId?: string; status?: string; page?: number }) => {
+    list: (params: { familyId?: string; caregiverId?: string; status?: string; page?: number } = {}) => {
       const sp = new URLSearchParams();
       if (params.familyId) sp.set("familyId", params.familyId);
       if (params.caregiverId) sp.set("caregiverId", params.caregiverId);
@@ -72,7 +72,7 @@ export const api = {
       request<{ booking: any }>(`/api/bookings/${id}/status`, { method: "PUT", body: JSON.stringify(data) }),
   },
   reports: {
-    list: (params: { bookingId?: string; caregiverId?: string }) => {
+    list: (params: { bookingId?: string; caregiverId?: string } = {}) => {
       const sp = new URLSearchParams();
       if (params.bookingId) sp.set("bookingId", params.bookingId);
       if (params.caregiverId) sp.set("caregiverId", params.caregiverId);
@@ -82,8 +82,14 @@ export const api = {
       request<{ report: any }>("/api/reports", { method: "POST", body: JSON.stringify(data) }),
   },
   reviews: {
-    list: (caregiverId: string) =>
-      request<{ reviews: any[] }>(`/api/reviews?caregiverId=${caregiverId}`),
+    list: (params: { caregiverId?: string; familyId?: string } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.caregiverId) sp.set("caregiverId", params.caregiverId);
+      if (params.familyId) sp.set("familyId", params.familyId);
+      return request<{ reviews: any[] }>(`/api/reviews?${sp}`);
+    },
+    listAll: () =>
+      request<{ reviews: any[] }>("/api/reviews"),
     create: (data: any) =>
       request<{ review: any }>("/api/reviews", { method: "POST", body: JSON.stringify(data) }),
   },
@@ -92,14 +98,19 @@ export const api = {
       request<{ notifications: any[] }>(`/api/notifications?userId=${userId}`),
   },
   complaints: {
-    list: (params: { familyId?: string; caregiverId?: string } = {}) => {
+    list: (params: { familyId?: string; caregiverId?: string; status?: string } = {}) => {
       const sp = new URLSearchParams();
       if (params.familyId) sp.set("familyId", params.familyId);
       if (params.caregiverId) sp.set("caregiverId", params.caregiverId);
+      if (params.status) sp.set("status", params.status);
       return request<{ complaints: any[] }>(`/api/complaints?${sp}`);
     },
+    listAll: () =>
+      request<{ complaints: any[] }>("/api/complaints"),
     create: (data: any) =>
       request<{ complaint: any }>("/api/complaints", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: { status: string; resolution?: string; assignedTo?: string }) =>
+      request<{ complaint: any }>(`/api/complaints/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
   admin: {
     dashboard: () =>
@@ -118,4 +129,6 @@ export const api = {
         request<{ verification: any }>(`/api/admin/verifications/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     },
   },
+  verifyAadhar: (imageBase64: string) =>
+    request<{ verified: boolean; aadharNumber?: string; name?: string; dob?: string; gender?: string; address?: string; error?: string }>("/api/verify-aadhar", { method: "POST", body: JSON.stringify({ image: imageBase64 }) }),
 };

@@ -496,3 +496,26 @@ Stage Summary:
 - Admin login: admin@sevasaathi.in / password123
 - All 5 admin tabs fully functional
 
+---
+Task ID: 1
+Agent: Main Agent
+Task: Multiple fixes - Caregiver booking approve/reject, reviews/complaints, Aadhar verification, font change
+
+Work Log:
+- Changed font from Geist to Inter (sans-serif) in layout.tsx and globals.css
+- Updated api.ts with new methods: complaints.update, reviews.listAll, reviews.list (with params), complaints.listAll, verifyAadhar
+- Updated /api/reviews/route.ts GET handler to support optional caregiverId and familyId params
+- Created /api/verify-aadhar/route.ts using VLM (z-ai-web-dev-sdk) for AI-powered Aadhar card verification
+- Updated CaregiverDashboard BookingsTab: added Accept/Decline buttons for PENDING, Start Care for CONFIRMED, Complete for IN_PROGRESS, status filters
+- Added ComplaintsTab to CaregiverDashboard with view-only complaint list
+- Added AadharVerificationSection to CaregiverDashboard ProfileTab with image upload and AI verification
+- Updated DashboardShell nav: added Complaints to caregiver nav, added Reviews to admin nav
+- Rewrote AdminDashboard with: ReviewsTab (all reviews with ratings), ComplaintsTab with resolve/dismiss/in-progress actions with resolution notes, status filters
+
+Stage Summary:
+- All dashboards now have working review and complaint functionality
+- Caregivers can accept/decline bookings and start/complete care
+- Admin can resolve/dismiss complaints with resolution messages
+- Admin can view all platform reviews
+- Aadhar verification available in caregiver profile using AI vision
+- Font changed to Inter (sans-serif)

@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Notify family to review
+    // Notify caregiver about new review
     await db.notification.create({
       data: {
-        userId: data.familyId,
+        userId: data.caregiverId,
         type: 'REVIEW_REQUEST',
-        title: 'Thank You for Your Review!',
-        message: 'Your feedback helps us improve care quality.',
+        title: 'New Review Received!',
+        message: `A family member left a ${data.rating}-star review for your service.`,
         data: JSON.stringify({ reviewId: review.id }),
       },
     })
@@ -88,18 +88,18 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const caregiverId = request.nextUrl.searchParams.get('caregiverId')
+    const familyId = request.nextUrl.searchParams.get('familyId')
 
-    if (!caregiverId) {
-      return NextResponse.json(
-        { error: 'caregiverId query parameter is required' },
-        { status: 400 }
-      )
-    }
+    const where: Record<string, unknown> = { isPublished: true }
+    if (caregiverId) where.caregiverId = caregiverId
+    if (familyId) where.familyId = familyId
 
     const reviews = await db.review.findMany({
-      where: { caregiverId, isPublished: true },
+      where,
       include: {
         family: { select: { name: true, avatarUrl: true } },
+        caregiver: { select: { user: { select: { name: true } } } },
+        booking: { select: { startDate: true, careRequirements: true } },
       },
       orderBy: { createdAt: 'desc' },
     })

@@ -6,7 +6,7 @@ import {
   Users, ShieldCheck, CalendarCheck, Star, AlertTriangle, IndianRupee,
   CheckCircle2, XCircle, Loader2, Eye, ChevronDown, ChevronUp, MapPin,
   Clock, BadgeCheck, Ban, FileText, TrendingUp, Activity, UserCog,
-  MessageSquare,
+  MessageSquare, Send,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,11 +43,28 @@ const docTypeBadge: Record<string, string> = {
   CERTIFICATE: 'bg-emerald-100 text-emerald-800',
 };
 
+const priorityColors: Record<string, string> = {
+  low: 'bg-green-100 text-green-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  high: 'bg-orange-100 text-orange-700',
+  urgent: 'bg-red-100 text-red-700',
+};
+
 const fadeVariants = {
   hidden: { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -12 },
 };
+
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star key={star} className={`h-3.5 w-3.5 ${star <= Math.round(rating) ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200'}`} />
+      ))}
+    </div>
+  );
+}
 
 /* ─────────── OVERVIEW TAB ─────────── */
 function OverviewTab() {
@@ -450,7 +467,7 @@ function AllBookingsTab() {
                       {b.amount != null && <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{Number(b.amount).toLocaleString('en-IN')}</span>}
                     </div>
                   </div>
-                  <Badge className={statusColors[b.status] ?? 'bg-gray-100 text-gray-700'}>{b.status?.replace('_', ' ')}</Badge>
+                  <Badge className={statusColors[b.status] ?? 'bg-gray-100 text-gray-700'}>{b.status?.replace(/_/g, ' ')}</Badge>
                 </CardContent>
               </Card>
             </motion.div>
@@ -461,43 +478,151 @@ function AllBookingsTab() {
   );
 }
 
-/* ─────────── COMPLAINTS TAB ─────────── */
-function ComplaintsTab() {
-  const [complaints, setComplaints] = useState<any[]>([]);
+/* ─────────── REVIEWS TAB ─────────── */
+function ReviewsTab() {
+  const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [cRes, dRes] = await Promise.allSettled([
-          api.complaints.list({}),
-          api.admin.dashboard(),
-        ]);
-        if (cRes.status === 'fulfilled') setComplaints(cRes.value.complaints ?? []);
-        else {
-          const res = await api.admin.users({ limit: 10 });
-          const all: any[] = [];
-          await Promise.all((res.users ?? []).map(async (u: any) => {
-            try {
-              const cr = await api.complaints.list({ familyId: u.id });
-              all.push(...(cr.complaints ?? []));
-            } catch { /* skip */ }
-          }));
-          setComplaints(all);
-        }
-        if (dRes.status === 'fulfilled') setDashboardStats(dRes.value);
+        const res = await api.reviews.listAll();
+        setReviews(res.reviews ?? []);
       } catch {
-        toast.error('Failed to load complaints');
+        toast.error('Failed to load reviews');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const totalComplaints = dashboardStats?.complaintsByStatus
-    ? Object.values(dashboardStats.complaintsByStatus).reduce((a: number, b: any) => a + Number(b), 0)
-    : complaints.length;
+  if (loading) {
+    return <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
+  }
+
+  if (reviews.length === 0) {
+    return <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><Star className="w-12 h-12 mx-auto text-amber-300 mb-3" /><p className="text-muted-foreground">No reviews found.</p></CardContent></Card>;
+  }
+
+  const avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-4 py-2">
+          <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+          <span className="text-lg font-bold">{avgRating.toFixed(1)}</span>
+          <span className="text-xs text-muted-foreground">({reviews.length} reviews)</span>
+        </div>
+      </div>
+      <div className="space-y-3 max-h-[600px] overflow-y-auto">
+        {reviews.map((r: any, i: number) => (
+          <motion.div key={r.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+            <Card className="rounded-2xl card-hover border-0 shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm">{r.family?.name || 'Family'}</span>
+                      <span className="text-xs text-muted-foreground">→</span>
+                      <span className="text-sm text-muted-foreground">{r.caregiver?.user?.name || 'Caregiver'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <StarRating rating={r.rating || 0} />
+                      <span className="text-xs text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
+                    </div>
+                    {r.comment && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{r.comment}</p>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-bold text-gray-900">{r.rating || 0}</div>
+                    <div className="flex flex-col gap-1 mt-1 text-[10px] text-muted-foreground">
+                      <span>Comm: {r.communicationRating || 0}/5</span>
+                      <span>Punct: {r.punctualityRating || 0}/5</span>
+                      <span>Care: {r.careQualityRating || 0}/5</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── COMPLAINTS TAB ─────────── */
+function ComplaintsTab() {
+  const [complaints, setComplaints] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [resolutions, setResolutions] = useState<Record<string, string>>({});
+  const [statusFilter, setStatusFilter] = useState<string>('');
+
+  const fetchComplaints = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: any = {};
+      if (statusFilter) params.status = statusFilter;
+      const res = await api.complaints.list(params);
+      setComplaints(res.complaints ?? []);
+    } catch {
+      toast.error('Failed to load complaints');
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
+
+  const handleResolve = async (id: string) => {
+    const resolution = resolutions[id]?.trim();
+    if (!resolution) { toast.error('Please enter a resolution message'); return; }
+    setActionId(id);
+    try {
+      await api.complaints.update(id, { status: 'RESOLVED', resolution });
+      toast.success('Complaint resolved');
+      setResolutions((prev) => { const n = { ...prev }; delete n[id]; return n; });
+      setExpandedId(null);
+      fetchComplaints();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resolve complaint');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    const resolution = resolutions[id]?.trim() || 'Complaint dismissed by admin.';
+    setActionId(id);
+    try {
+      await api.complaints.update(id, { status: 'DISMISSED', resolution });
+      toast.success('Complaint dismissed');
+      setResolutions((prev) => { const n = { ...prev }; delete n[id]; return n; });
+      setExpandedId(null);
+      fetchComplaints();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to dismiss complaint');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleInProgress = async (id: string) => {
+    setActionId(id);
+    try {
+      await api.complaints.update(id, { status: 'IN_PROGRESS' });
+      toast.success('Complaint marked as in progress');
+      fetchComplaints();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update complaint');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const openCount = complaints.filter(c => c.status === 'OPEN').length;
 
   if (loading) {
     return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
@@ -505,33 +630,117 @@ function ComplaintsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-[#14532d]/10 flex items-center justify-center">
-          <MessageSquare className="w-5 h-5 text-[#14532d]" />
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#14532d]/10 flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-[#14532d]" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">Complaints Management</p>
+            <p className="text-xs text-muted-foreground">{complaints.length} total · {openCount} open</p>
+          </div>
         </div>
-        <div>
-          <p className="font-semibold text-sm">Complaints Management</p>
-          <p className="text-xs text-muted-foreground">{totalComplaints} total complaint{totalComplaints !== 1 ? 's' : ''} on the platform</p>
-        </div>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'DISMISSED'].map((f) => (
+          <Button
+            key={f}
+            variant={statusFilter === f ? 'default' : 'outline'}
+            size="sm"
+            className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+            onClick={() => setStatusFilter(f)}
+          >
+            {f ? f.replace(/_/g, ' ') : 'All'}
+          </Button>
+        ))}
       </div>
 
       {complaints.length === 0 ? (
         <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><AlertTriangle className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No complaints found.</p></CardContent></Card>
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
-          {complaints.map((c) => (
-            <motion.div key={c.id} variants={fadeVariants} initial="hidden" animate="visible">
+          {complaints.map((c, i) => (
+            <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
               <Card className="rounded-2xl card-hover border-0 shadow-sm">
-                <CardContent className="p-4 space-y-2">
+                <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{c.subject ?? 'Complaint'}</span>
-                      <Badge className={statusColors[c.status] ?? 'bg-gray-100 text-gray-700'}>{c.status}</Badge>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-semibold text-sm truncate">{c.subject ?? 'Complaint'}</span>
+                      <Badge className={statusColors[c.status] ?? 'bg-gray-100 text-gray-700'}>{c.status?.replace(/_/g, ' ')}</Badge>
+                      {c.priority && <Badge className={`text-[10px] rounded-full ${priorityColors[c.priority] || ''}`}>{c.priority}</Badge>}
                     </div>
-                    <span className="text-xs text-muted-foreground">{c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                    </div>
                   </div>
+
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>From: {c.family?.name || 'Family'}</span>
+                    <span>Against: {c.caregiver?.user?.name || 'Caregiver'}</span>
+                    {c.booking && <span>Booking: {c.booking.startDate ? new Date(c.booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : c.booking.id.slice(0, 8)}</span>}
+                  </div>
+
                   {c.description && <p className="text-sm text-muted-foreground line-clamp-2">{c.description}</p>}
-                  {c.priority && <Badge variant="outline" className="text-xs rounded-full">{c.priority} priority</Badge>}
+
+                  {c.resolution && (
+                    <div className="bg-green-50 rounded-xl p-3 text-xs text-green-700">
+                      <p className="font-medium">Resolution:</p>
+                      <p className="mt-0.5">{c.resolution}</p>
+                    </div>
+                  )}
+
+                  {c.status === 'OPEN' && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[#14532d] border-[#14532d]/30 hover:bg-[#14532d]/10 rounded-full"
+                        disabled={actionId === c.id}
+                        onClick={() => handleInProgress(c.id)}
+                      >
+                        {actionId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />}
+                        In Progress
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full"
+                        disabled={actionId === c.id}
+                        onClick={() => { setExpandedId(expandedId === c.id ? null : c.id); }}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />Resolve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50 rounded-full"
+                        disabled={actionId === c.id}
+                        onClick={() => { setExpandedId(expandedId === c.id ? null : c.id); }}
+                      >
+                        <Ban className="w-3.5 h-3.5 mr-1" />Dismiss
+                      </Button>
+                    </div>
+                  )}
+                  {expandedId === c.id && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="space-y-2">
+                      <Textarea
+                        placeholder="Enter resolution message..."
+                        value={resolutions[c.id] || ''}
+                        onChange={(e) => setResolutions((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                        className="text-sm rounded-xl min-h-[80px] resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" className="btn-green rounded-full" disabled={actionId === c.id} onClick={() => handleResolve(c.id)}>
+                          {actionId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 mr-1" />Confirm Resolve</>}
+                        </Button>
+                        <Button size="sm" variant="destructive" className="rounded-full" disabled={actionId === c.id} onClick={() => handleDismiss(c.id)}>
+                          {actionId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Ban className="w-3.5 h-3.5 mr-1" />Confirm Dismiss</>}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setExpandedId(null)} className="rounded-full">Cancel</Button>
+                      </div>
+                    </motion.div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -565,6 +774,7 @@ export function AdminDashboard({ activeTab }: { activeTab: string }) {
             {activeTab === 'users' && <motion.div key="users" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><UsersTab /></motion.div>}
             {activeTab === 'verifications' && <motion.div key="verifications" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><VerificationsTab /></motion.div>}
             {activeTab === 'all-bookings' && <motion.div key="all-bookings" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><AllBookingsTab /></motion.div>}
+            {activeTab === 'reviews' && <motion.div key="reviews" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ReviewsTab /></motion.div>}
             {activeTab === 'complaints' && <motion.div key="complaints" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ComplaintsTab /></motion.div>}
           </AnimatePresence>
         </div>

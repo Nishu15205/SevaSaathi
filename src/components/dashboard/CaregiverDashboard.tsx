@@ -28,6 +28,12 @@ import {
   RefreshCw,
   Sparkles,
   Activity,
+  XCircle,
+  AlertTriangle,
+  Camera,
+  Upload,
+  Eye,
+  Play,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -754,7 +760,7 @@ function ProfileTab({ user }: { user: User }) {
 
             {/* Bio */}
             {profile.bio && (
-              <div>
+              <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-gray-400" />
                   <p className="text-sm font-semibold text-gray-700">About</p>
@@ -764,9 +770,153 @@ function ProfileTab({ user }: { user: User }) {
                 </p>
               </div>
             )}
+
+            {/* Aadhar Verification */}
+            <AadharVerificationSection caregiverId={profile.id} />
           </CardContent>
         </Card>
       </motion.div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/* AADHAR VERIFICATION SECTION                                    */
+/* ============================================================ */
+
+function AadharVerificationSection({ caregiverId }: { caregiverId: string }) {
+  const [aadharResult, setAadharResult] = useState<any>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setImagePreview(ev.target?.result as string);
+      setAadharResult(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVerify = async () => {
+    if (!imagePreview) {
+      toast.error('Please upload an Aadhar card image first');
+      return;
+    }
+    setVerifying(true);
+    try {
+      const result = await api.verifyAadhar(imagePreview);
+      setAadharResult(result);
+      if (result.verified) {
+        toast.success('Aadhar card verified successfully!');
+      } else {
+        toast.error(result.error || 'Aadhar verification failed');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Verification failed');
+      setAadharResult({ verified: false, error: err.message });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-center gap-2 mb-3">
+        <ShieldCheck className="h-4 w-4 text-forest-700" />
+        <p className="text-sm font-semibold text-gray-700">Aadhar Card Verification</p>
+      </div>
+      <div className="bg-gray-50 rounded-2xl p-5">
+        <p className="text-xs text-gray-500 mb-4">Upload your Aadhar card for AI-powered instant verification. Your data is processed securely and not stored.</p>
+        
+        <div className="space-y-4">
+          {/* Upload Area */}
+          {!imagePreview ? (
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-forest-400 hover:bg-forest-50/50 transition-colors">
+              <Camera className="h-10 w-10 text-gray-400 mb-3" />
+              <p className="text-sm font-medium text-gray-600">Upload Aadhar Card</p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG - Clear photo of your Aadhar card</p>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </label>
+          ) : (
+            <div className="space-y-3">
+              <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                <img src={imagePreview} alt="Aadhar preview" className="w-full max-h-48 object-contain bg-white" />
+                <button
+                  onClick={() => { setImagePreview(null); setAadharResult(null); }}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+                >
+                  <XCircle className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleVerify}
+                  disabled={verifying}
+                  className="btn-green text-sm gap-2"
+                >
+                  {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {verifying ? 'Verifying...' : 'Verify Aadhar'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setImagePreview(null); setAadharResult(null); }} className="rounded-full">
+                  Change Image
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Result */}
+          {aadharResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-xl p-4 ${
+                aadharResult.verified
+                  ? 'bg-green-50 border border-green-200'
+                  : 'bg-red-50 border border-red-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {aadharResult.verified ? (
+                  <><CheckCircle2 className="h-5 w-5 text-green-600" /><p className="text-sm font-semibold text-green-800">Verification Successful</p></>
+                ) : (
+                  <><XCircle className="h-5 w-5 text-red-600" /><p className="text-sm font-semibold text-red-800">Verification Failed</p></>
+                )}
+              </div>
+              {aadharResult.verified ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                  {aadharResult.name && (
+                    <div><p className="text-[10px] text-green-600 font-medium">Name</p><p className="text-sm font-semibold text-green-900">{aadharResult.name}</p></div>
+                  )}
+                  {aadharResult.aadharNumber && (
+                    <div><p className="text-[10px] text-green-600 font-medium">Aadhar Number</p><p className="text-sm font-semibold text-green-900 font-mono">{aadharResult.aadharNumber.replace(/(\d{4})/g, '$1 ').trim()}</p></div>
+                  )}
+                  {aadharResult.dob && (
+                    <div><p className="text-[10px] text-green-600 font-medium">Date of Birth</p><p className="text-sm font-semibold text-green-900">{aadharResult.dob}</p></div>
+                  )}
+                  {aadharResult.gender && (
+                    <div><p className="text-[10px] text-green-600 font-medium">Gender</p><p className="text-sm font-semibold text-green-900">{aadharResult.gender}</p></div>
+                  )}
+                  {aadharResult.address && (
+                    <div className="sm:col-span-2"><p className="text-[10px] text-green-600 font-medium">Address</p><p className="text-sm font-semibold text-green-900">{aadharResult.address}</p></div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-red-700">{aadharResult.error || 'Could not verify the uploaded document. Please ensure it is a clear image of an Aadhar card.'}</p>
+              )}
+            </motion.div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -781,13 +931,16 @@ function BookingsTab({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('');
 
   const fetchBookings = useCallback(async () => {
     if (!profile?.id) return;
     setLoading(true);
     setError('');
     try {
-      const res = await api.bookings.list({ caregiverId: profile.id });
+      const params: any = { caregiverId: profile.id };
+      if (statusFilter) params.status = statusFilter;
+      const res = await api.bookings.list(params);
       const mapped = (res.bookings || []).map((b: any) => ({
         ...b,
         date: b.startDate,
@@ -801,20 +954,26 @@ function BookingsTab({ user }: { user: User }) {
     } finally {
       setLoading(false);
     }
-  }, [profile?.id]);
+  }, [profile?.id, statusFilter]);
 
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
 
-  const handleComplete = async (bookingId: string) => {
+  const handleStatusChange = async (bookingId: string, status: string, reason?: string) => {
     setCompletingId(bookingId);
     try {
-      await api.bookings.updateStatus(bookingId, { status: 'COMPLETED' });
-      toast.success('Booking marked as completed!');
+      await api.bookings.updateStatus(bookingId, { status, cancellationReason: reason });
+      const labels: Record<string, string> = {
+        CONFIRMED: 'Booking accepted!',
+        IN_PROGRESS: 'Care started!',
+        COMPLETED: 'Booking completed!',
+        CANCELLED: 'Booking declined.',
+      };
+      toast.success(labels[status] || `Booking updated`);
       fetchBookings();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to complete booking');
+      toast.error(err.message || 'Failed to update booking');
     } finally {
       setCompletingId(null);
     }
@@ -855,10 +1014,10 @@ function BookingsTab({ user }: { user: User }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
-          <p className="text-sm text-gray-400 mt-1">Manage all your care bookings.</p>
+          <p className="text-sm text-gray-400 mt-1">Manage and respond to care booking requests.</p>
         </div>
         <Button
           variant="outline"
@@ -868,6 +1027,20 @@ function BookingsTab({ user }: { user: User }) {
         >
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </Button>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {['', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
+          <Button
+            key={f}
+            variant={statusFilter === f ? 'default' : 'outline'}
+            size="sm"
+            className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+            onClick={() => setStatusFilter(f)}
+          >
+            {f || 'All'}
+          </Button>
+        ))}
       </div>
 
       <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
@@ -913,23 +1086,62 @@ function BookingsTab({ user }: { user: User }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 sm:shrink-0">
+                  <div className="flex items-center gap-2 sm:shrink-0 flex-wrap">
                     {booking.totalAmount && (
-                      <span className="text-sm font-semibold text-gray-700">₹{booking.totalAmount}</span>
+                      <span className="text-sm font-semibold text-gray-700">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+                    )}
+                    {booking.status === 'PENDING' && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
+                          disabled={completingId === booking.id}
+                          className="btn-green text-xs px-3 h-8"
+                        >
+                          {completingId === booking.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Accept</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusChange(booking.id, 'CANCELLED', 'Caregiver declined the booking')}
+                          disabled={completingId === booking.id}
+                          className="text-red-600 border-red-200 hover:bg-red-50 text-xs px-3 h-8 rounded-full"
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Decline
+                        </Button>
+                      </>
+                    )}
+                    {booking.status === 'CONFIRMED' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleStatusChange(booking.id, 'IN_PROGRESS')}
+                        disabled={completingId === booking.id}
+                        className="btn-black text-xs px-3 h-8"
+                      >
+                        {completingId === booking.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <><Play className="h-3.5 w-3.5 mr-1" />Start Care</>
+                        )}
+                      </Button>
                     )}
                     {booking.status === 'IN_PROGRESS' && (
                       <Button
                         size="sm"
-                        onClick={() => handleComplete(booking.id)}
+                        onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
                         disabled={completingId === booking.id}
                         className="btn-green text-xs px-4 h-8"
                       >
                         {completingId === booking.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Complete</>
                         )}
-                        Complete
                       </Button>
                     )}
                   </div>
@@ -1288,6 +1500,97 @@ function SubmitReportTab({ user }: { user: User }) {
 }
 
 /* ============================================================ */
+/* COMPLAINTS TAB                                                */
+/* ============================================================ */
+
+const complaintStatusColors: Record<string, string> = {
+  OPEN: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  IN_PROGRESS: 'bg-blue-100 text-blue-800 border-blue-200',
+  RESOLVED: 'bg-green-100 text-green-800 border-green-200',
+  DISMISSED: 'bg-gray-100 text-gray-700 border-gray-200',
+};
+
+const priorityColors: Record<string, string> = {
+  low: 'bg-green-100 text-green-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  high: 'bg-orange-100 text-orange-700',
+  urgent: 'bg-red-100 text-red-700',
+};
+
+function ComplaintsTab({ user }: { user: User }) {
+  const profile = user.caregiverProfile;
+  const [complaints, setComplaints] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const fetchComplaints = useCallback(async () => {
+    if (!profile?.id) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.complaints.list({ caregiverId: profile.id });
+      setComplaints(res.complaints || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load complaints');
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.id]);
+
+  useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
+
+  if (loading) return <LoadingCards count={3} />;
+  if (error) return <ErrorState message={error} onRetry={fetchComplaints} />;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Complaints</h2>
+        <p className="text-sm text-gray-400 mt-1">View complaints filed against your services.</p>
+      </div>
+
+      {complaints.length === 0 ? (
+        <EmptyState
+          icon={<MessageCircle className="h-7 w-7" />}
+          title="No complaints"
+          description="You have no complaints filed against your services."
+        />
+      ) : (
+        <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
+          {complaints.map((c: any, i: number) => (
+            <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+              <Card className="rounded-2xl border-gray-100">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{c.subject}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        From: {c.family?.name || 'Family'} · {formatDate(c.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {c.priority && <Badge className={`text-[10px] rounded-full ${priorityColors[c.priority] || ''}`}>{c.priority}</Badge>}
+                      <Badge variant="outline" className={`text-[10px] rounded-full ${complaintStatusColors[c.status] || ''}`}>{c.status?.replace(/_/g, ' ')}</Badge>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 line-clamp-3">{c.description}</p>
+                  {c.resolution && (
+                    <div className="mt-3 bg-green-50 rounded-xl p-3 text-xs text-green-700">
+                      <p className="font-medium">Resolution:</p>
+                      <p className="mt-0.5">{c.resolution}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================ */
 /* REVIEWS TAB                                                   */
 /* ============================================================ */
 
@@ -1302,7 +1605,7 @@ function ReviewsTab({ user }: { user: User }) {
     setLoading(true);
     setError('');
     try {
-      const res = await api.reviews.list(profile.id);
+      const res = await api.reviews.list({ caregiverId: profile.id });
       const mapped = (res.reviews || []).map((r: any) => ({
         ...r,
         overallRating: r.rating,
@@ -1500,6 +1803,7 @@ export function CaregiverDashboard({ activeTab, user }: CaregiverDashboardProps)
       {activeTab === 'bookings' && <BookingsTab user={user} />}
       {activeTab === 'submit-report' && <SubmitReportTab user={user} />}
       {activeTab === 'reviews' && <ReviewsTab user={user} />}
+      {activeTab === 'complaints' && <ComplaintsTab user={user} />}
     </>
   );
 }
