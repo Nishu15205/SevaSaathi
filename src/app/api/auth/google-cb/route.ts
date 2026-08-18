@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
     return popupCloseResponse("Invalid state parameter. Please try again.");
   }
 
-  // Build the correct redirect_uri from proxy headers
+  // Build the correct redirect_uri from the incoming request's own URL
+  // This is the most reliable — Google redirected here, so the URL is correct
   const proto = req.headers.get("x-forwarded-proto") || "https";
   const host = req.headers.get("host") || "localhost:3000";
   const redirectUri = `${proto}://${host}/api/auth/google-cb`;

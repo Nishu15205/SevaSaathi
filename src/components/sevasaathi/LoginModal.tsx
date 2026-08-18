@@ -210,7 +210,9 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
 
       if (configured) {
         // Real Google OAuth — use custom API to get correct redirect_uri
-        const goRes = await fetch("/api/auth/google-go");
+        // Pass window.location.origin so the server uses the browser's actual URL
+        const origin = window.location.origin;
+        const goRes = await fetch(`/api/auth/google-go?origin=${encodeURIComponent(origin)}`);
         const goData = await goRes.json();
 
         if (!goData.url) {

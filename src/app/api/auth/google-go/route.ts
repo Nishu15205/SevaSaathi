@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Generates the real Google OAuth URL with the correct redirect_uri
- * based on proxy headers (x-forwarded-host, x-forwarded-proto).
- * This avoids NextAuth’s cached NEXTAUTH_URL issue.
+ * Generates the real Google OAuth URL with the correct redirect_uri.
+ * Accepts an optional `origin` query param from the client (most reliable).
+ * Falls back to proxy headers (x-forwarded-host, x-forwarded-proto).
  */
 export async function GET(req: NextRequest) {
-  const proto = req.headers.get("x-forwarded-proto") || "https";
-  const host = req.headers.get("host") || "localhost:3000";
-  const baseUrl = `${proto}://${host}`;
+  // Priority 1: Use origin passed from the client (browser's window.location.origin)
+  // This is the most reliable because the browser always knows its actual URL
+  let baseUrl = req.nextUrl.searchParams.get("origin");
+
+  if (!baseUrl) {
+    // Priority 2: Use proxy headers
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const host = req.headers.get("host") || "localhost:3000";
+    baseUrl = `${proto}://${host}`;
+  }
+
+  // Remove trailing slash if present
+  baseUrl = baseUrl.replace(/\/+$/, "");
+
   const redirectUri = `${baseUrl}/api/auth/google-cb`;
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
