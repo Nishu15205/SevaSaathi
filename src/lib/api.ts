@@ -125,16 +125,32 @@ export const api = {
   admin: {
     dashboard: () =>
       request<any>("/api/admin/dashboard"),
-    users: (params: { role?: string; page?: number; limit?: number } = {}) => {
+    users: (params?: { role?: string; page?: number; limit?: number; search?: string }) => {
       const sp = new URLSearchParams();
-      if (params.role) sp.set("role", params.role);
-      if (params.page) sp.set("page", String(params.page));
-      if (params.limit) sp.set("limit", String(params.limit));
+      if (params?.role) sp.set("role", params.role);
+      if (params?.page) sp.set("page", String(params.page));
+      if (params?.limit) sp.set("limit", String(params.limit));
+      if (params?.search) sp.set("search", params.search);
       return request<{ users: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(`/api/admin/users?${sp}`);
     },
+    getUser: (userId: string) =>
+      request<any>(`/api/admin/users/${userId}`),
+    deleteUser: (userId: string) =>
+      request<any>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
+    bookings: (params?: { search?: string; page?: number; limit?: number }) => {
+      const sp = new URLSearchParams();
+      if (params?.search) sp.set('search', params.search);
+      if (params?.page) sp.set('page', String(params.page));
+      if (params?.limit) sp.set('limit', String(params.limit));
+      return request<any>(`/api/admin/bookings?${sp.toString()}`);
+    },
     verifications: {
-      list: () =>
-        request<{ verifications: any[] }>("/api/admin/verifications"),
+      list: (params?: { search?: string; status?: string }) => {
+        const sp = new URLSearchParams();
+        if (params?.search) sp.set('search', params.search);
+        if (params?.status) sp.set('status', params.status);
+        return request<{ verifications: any[] }>(`/api/admin/verifications?${sp.toString()}`);
+      },
       update: (id: string, data: { status: string; rejectionReason?: string }) =>
         request<{ verification: any }>(`/api/admin/verifications/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     },

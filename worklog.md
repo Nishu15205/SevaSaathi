@@ -888,3 +888,36 @@ Stage Summary:
 - Session persists correctly, logout works, re-login works
 - No console errors, lint passes clean
 - Key files changed: LoginModal.tsx, [..nextauth]/route.ts, middleware.ts (new), google-simulate/route.ts (new), .env
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Admin Dashboard - Search bars, clickable user profiles, delete user
+
+Work Log:
+- Created backend APIs:
+  - GET/DELETE /api/admin/users/[id] - User detail with all relations + cascade delete
+  - GET /api/admin/bookings - Proper admin bookings API with pagination (replaces hacky loop)
+  - Updated /api/admin/users to support search query param (name, email, phone)
+  - Updated /api/admin/verifications to support search + status query params
+  - Updated /api/reviews and /api/complaints to include user IDs for profile navigation
+- Created UserProfileDialog component:
+  - Full user info: avatar, name, role, status, contact info, subscription, stats
+  - Caregiver profile section (city, experience, rating, skills, languages, bio, hourly rate, verified)
+  - Patient profiles section for FAMILY users
+  - Recent bookings, reviews, complaints sections (last 5 each)
+- Rewrote AdminDashboard with:
+  - Search bars on ALL 5 tabs (Users, Verifications, All Bookings, Reviews, Complaints)
+  - Clickable user names throughout all sections → opens UserProfileDialog
+  - Delete user button (Trash2 icon) on each user card with confirmation
+  - Debounced search (300ms) for all search inputs
+  - AllBookingsTab now uses proper api.admin.bookings() with pagination
+  - Reviews and Complaints use client-side filtering
+
+Stage Summary:
+- All 5 admin tabs have working search bars
+- Clicking any user name opens a comprehensive profile dialog
+- Users tab has delete button with confirmation dialog
+- AllBookingsTab replaced hacky multi-fetch with proper paginated API
+- Zero console errors, lint passes clean
+- Key files: AdminDashboard.tsx (rewritten), UserProfileDialog.tsx (new), api.ts (updated), 4 API routes created/updated

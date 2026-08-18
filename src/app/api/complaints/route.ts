@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
     const complaints = await db.complaint.findMany({
       where,
       include: {
-        family: { select: { name: true, phone: true } },
-        caregiver: { select: { user: { select: { name: true } } } },
+        family: { select: { id: true, name: true, phone: true } },
+        caregiver: { select: { userId: true, user: { select: { id: true, name: true } } } },
         assignee: { select: { name: true } },
         booking: { select: { id: true, startDate: true } },
       },

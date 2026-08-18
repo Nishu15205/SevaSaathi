@@ -1,10 +1,28 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = request.nextUrl
+    const search = searchParams.get('search')
+    const status = searchParams.get('status')
+
+    const where: Record<string, unknown> = {}
+
+    if (status) {
+      where.status = status
+    }
+
+    if (search) {
+      where.OR = [
+        { caregiver: { user: { name: { contains: search } } } },
+        { docNumber: { contains: search } },
+        { docType: { contains: search } },
+      ]
+    }
+
     const verifications = await db.verification.findMany({
-      where: { status: 'PENDING' },
+      where,
       include: {
         caregiver: {
           select: {
@@ -12,7 +30,7 @@ export async function GET() {
             city: true,
             yearsExperience: true,
             isVerified: true,
-            user: { select: { name: true, phone: true, email: true } },
+            user: { select: { id: true, name: true, phone: true, email: true } },
           },
         },
       },
@@ -21,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ verifications })
   } catch (error) {
-    console.error('List pending verifications error:', error)
+    console.error('List verifications error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

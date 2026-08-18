@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
     const reviews = await db.review.findMany({
       where,
       include: {
-        family: { select: { name: true, avatarUrl: true } },
-        caregiver: { select: { user: { select: { name: true } } } },
+        family: { select: { id: true, name: true, avatarUrl: true } },
+        caregiver: { select: { userId: true, user: { select: { id: true, name: true } } } },
         booking: { select: { startDate: true, careRequirements: true } },
       },
       orderBy: { createdAt: 'desc' },

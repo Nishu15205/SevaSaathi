@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, ShieldCheck, CalendarCheck, Star, AlertTriangle, IndianRupee,
   CheckCircle2, XCircle, Loader2, Eye, ChevronDown, ChevronUp, MapPin,
   Clock, BadgeCheck, Ban, FileText, TrendingUp, Activity, UserCog,
-  MessageSquare, Send,
+  MessageSquare, Send, Search, Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
+import { UserProfileDialog } from './UserProfileDialog';
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -63,6 +64,42 @@ function StarRating({ rating }: { rating: number }) {
         <Star key={star} className={`h-3.5 w-3.5 ${star <= Math.round(rating) ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200'}`} />
       ))}
     </div>
+  );
+}
+
+function SearchBar({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pl-9 h-9 rounded-full border-0 bg-muted/60 focus-visible:ring-1 focus-visible:ring-[#14532d]/30"
+      />
+    </div>
+  );
+}
+
+function useDebounce(value: string, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
+/* ─────────── CLICKABLE USER NAME ─────────── */
+function UserNameButton({ id, name, onClick }: { id: string; name: string; onClick: (id: string, name: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(id, name)}
+      className="font-semibold text-sm text-[#14532d] hover:underline cursor-pointer bg-transparent border-0 p-0 h-auto font-inherit"
+    >
+      {name}
+    </button>
   );
 }
 
@@ -190,17 +227,25 @@ function OverviewTab() {
 }
 
 /* ─────────── USERS TAB ─────────── */
-function UsersTab() {
+function UsersTab({ onViewUser }: { onViewUser: (userId: string, userName: string) => void }) {
   const [role, setRole] = useState<string>('');
+  const [search, setSearch] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, role]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.admin.users({ role: role || undefined, page, limit: 20 });
+      const res = await api.admin.users({ role: role || undefined, page, limit: 20, search: debouncedSearch || undefined });
       setUsers(res.users ?? []);
       setTotalPages(res.pagination?.totalPages ?? 1);
     } catch {
@@ -208,9 +253,23 @@ function UsersTab() {
     } finally {
       setLoading(false);
     }
-  }, [role, page]);
+  }, [role, page, debouncedSearch]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const handleDelete = async (userId: string, userName: string) => {
+    if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) return;
+    setDeleting(userId);
+    try {
+      await api.admin.deleteUser(userId);
+      toast.success(`User "${userName}" deleted successfully`);
+      fetchUsers();
+    } catch {
+      toast.error('Failed to delete user');
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const roleFilters = [
     { label: 'All', value: '' },
@@ -220,18 +279,21 @@ function UsersTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        {roleFilters.map((f) => (
-          <Button
-            key={f.value}
-            variant={role === f.value ? 'default' : 'outline'}
-            size="sm"
-            className={role === f.value ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
-            onClick={() => { setRole(f.value); setPage(1); }}
-          >
-            {f.label}
-          </Button>
-        ))}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search users by name, email, phone..." />
+        <div className="flex gap-2">
+          {roleFilters.map((f) => (
+            <Button
+              key={f.value}
+              variant={role === f.value ? 'default' : 'outline'}
+              size="sm"
+              className={role === f.value ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+              onClick={() => { setRole(f.value); setPage(1); }}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -246,7 +308,7 @@ function UsersTab() {
                 <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm truncate">{u.name}</span>
+                      <UserNameButton id={u.id} name={u.name} onClick={onViewUser} />
                       <Badge className={statusColors[u.role] ?? 'bg-gray-100 text-gray-700'}>{u.role}</Badge>
                       {u.role === 'CAREGIVER' && u.isVerified && <BadgeCheck className="w-4 h-4 text-[#14532d]" />}
                     </div>
@@ -265,6 +327,15 @@ function UsersTab() {
                       <div className="mt-1 text-xs text-muted-foreground"><Users className="w-3 h-3 inline mr-1" />{u.patientCount} patient{u.patientCount !== 1 ? 's' : ''}</div>
                     )}
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200 shrink-0"
+                    disabled={deleting === u.id}
+                    onClick={() => handleDelete(u.id, u.name)}
+                  >
+                    {deleting === u.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
@@ -284,24 +355,27 @@ function UsersTab() {
 }
 
 /* ─────────── VERIFICATIONS TAB ─────────── */
-function VerificationsTab() {
+function VerificationsTab({ onViewUser }: { onViewUser: (userId: string, userName: string) => void }) {
+  const [search, setSearch] = useState('');
   const [verifications, setVerifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const fetchVerifications = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.admin.verifications.list();
+      const res = await api.admin.verifications.list({ search: debouncedSearch || undefined });
       setVerifications(res.verifications ?? []);
     } catch {
       toast.error('Failed to load verifications');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch]);
 
   useEffect(() => { fetchVerifications(); }, [fetchVerifications]);
 
@@ -339,18 +413,28 @@ function VerificationsTab() {
   }
 
   if (verifications.length === 0) {
-    return <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><ShieldCheck className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No pending verifications.</p></CardContent></Card>;
+    return (
+      <div className="space-y-4">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search verifications..." />
+        <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><ShieldCheck className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No pending verifications.</p></CardContent></Card>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <SearchBar value={search} onChange={setSearch} placeholder="Search verifications..." />
       {verifications.map((v) => (
         <motion.div key={v.id} variants={fadeVariants} initial="hidden" animate="visible">
           <Card className="rounded-2xl card-hover border-0 shadow-sm">
             <CardContent className="p-4 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm">{v.caregiver?.user?.name ?? 'Caregiver'}</span>
+                  {v.caregiver?.user?.id ? (
+                    <UserNameButton id={v.caregiver.user.id} name={v.caregiver?.user?.name ?? 'Caregiver'} onClick={onViewUser} />
+                  ) : (
+                    <span className="font-semibold text-sm">{v.caregiver?.user?.name ?? 'Caregiver'}</span>
+                  )}
                   <Badge className={docTypeBadge[v.docType] ?? 'bg-gray-100 text-gray-700'}>{v.docType ?? 'DOC'}</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -405,41 +489,31 @@ function VerificationsTab() {
 }
 
 /* ─────────── ALL BOOKINGS TAB ─────────── */
-function AllBookingsTab() {
+function AllBookingsTab({ onViewUser }: { onViewUser: (userId: string, userName: string) => void }) {
+  const [search, setSearch] = useState('');
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.admin.users({ role: 'CAREGIVER', limit: 10 });
-        const caregivers = res.users ?? [];
-        const allBookings: any[] = [];
-        await Promise.all(
-          caregivers.map(async (c: any) => {
-            try {
-              const caregiverId = c.caregiverProfile?.id;
-              if (!caregiverId) return;
-              const bRes = await api.bookings.list({ caregiverId });
-              allBookings.push(...(bRes.bookings ?? []).map((b: any) => ({
-                ...b,
-                caregiverName: b.caregiver?.user?.name ?? c.name,
-                patientName: b.patient?.name ?? 'Patient',
-                date: b.startDate,
-                amount: b.totalAmount,
-              })));
-            } catch { /* skip */ }
-          })
-        );
-        allBookings.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
-        setBookings(allBookings);
-      } catch {
-        toast.error('Failed to load bookings');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
+
+  const fetchBookings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.admin.bookings({ search: debouncedSearch || undefined, page, limit: 20 });
+      setBookings(res.bookings ?? []);
+      setTotalPages(res.pagination?.totalPages ?? 1);
+    } catch {
+      toast.error('Failed to load bookings');
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, page]);
+
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
   if (loading) {
     return <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>;
@@ -447,7 +521,10 @@ function AllBookingsTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Showing recent platform bookings across caregivers.</p>
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search bookings by patient or caregiver name..." />
+        <p className="text-sm text-muted-foreground">Showing platform bookings.</p>
+      </div>
       {bookings.length === 0 ? (
         <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><CalendarCheck className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No bookings found.</p></CardContent></Card>
       ) : (
@@ -458,13 +535,22 @@ function AllBookingsTab() {
                 <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">{b.patientName ?? 'Patient'}</span>
+                      {b.family?.id ? (
+                        <UserNameButton id={b.family.id} name={b.family?.name ?? 'Family'} onClick={onViewUser} />
+                      ) : (
+                        <span className="font-semibold text-sm">{b.family?.name ?? 'Family'}</span>
+                      )}
                       <span className="text-muted-foreground text-xs">→</span>
-                      <span className="text-sm text-muted-foreground">{b.caregiverName ?? 'Caregiver'}</span>
+                      {b.caregiver?.user?.id ? (
+                        <UserNameButton id={b.caregiver.user.id} name={b.caregiver?.user?.name ?? 'Caregiver'} onClick={onViewUser} />
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{b.caregiver?.user?.name ?? 'Caregiver'}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      {b.date && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
-                      {b.amount != null && <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{Number(b.amount).toLocaleString('en-IN')}</span>}
+                      {b.patient?.name && <span className="flex items-center gap-1"><UserCog className="w-3 h-3" />{b.patient.name}</span>}
+                      {b.startDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(b.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+                      {b.totalAmount != null && <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{Number(b.totalAmount).toLocaleString('en-IN')}</span>}
                     </div>
                   </div>
                   <Badge className={statusColors[b.status] ?? 'bg-gray-100 text-gray-700'}>{b.status?.replace(/_/g, ' ')}</Badge>
@@ -474,12 +560,21 @@ function AllBookingsTab() {
           ))}
         </div>
       )}
+
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 pt-2">
+          <Button variant="outline" size="sm" className="rounded-full" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+          <span className="flex items-center text-sm text-muted-foreground px-3">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" className="rounded-full" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─────────── REVIEWS TAB ─────────── */
-function ReviewsTab() {
+function ReviewsTab({ onViewUser }: { onViewUser: (userId: string, userName: string) => void }) {
+  const [search, setSearch] = useState('');
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -501,8 +596,22 @@ function ReviewsTab() {
   }
 
   if (reviews.length === 0) {
-    return <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><Star className="w-12 h-12 mx-auto text-amber-300 mb-3" /><p className="text-muted-foreground">No reviews found.</p></CardContent></Card>;
+    return (
+      <div className="space-y-4">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search reviews..." />
+        <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><Star className="w-12 h-12 mx-auto text-amber-300 mb-3" /><p className="text-muted-foreground">No reviews found.</p></CardContent></Card>
+      </div>
+    );
   }
+
+  const filtered = reviews.filter((r) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (r.family?.name || '').toLowerCase().includes(q) ||
+      (r.caregiver?.user?.name || '').toLowerCase().includes(q)
+    );
+  });
 
   const avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length : 0;
 
@@ -515,17 +624,26 @@ function ReviewsTab() {
           <span className="text-xs text-muted-foreground">({reviews.length} reviews)</span>
         </div>
       </div>
+      <SearchBar value={search} onChange={setSearch} placeholder="Search by family or caregiver name..." />
       <div className="space-y-3 max-h-[600px] overflow-y-auto">
-        {reviews.map((r: any, i: number) => (
+        {filtered.map((r: any, i: number) => (
           <motion.div key={r.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
             <Card className="rounded-2xl card-hover border-0 shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">{r.family?.name || 'Family'}</span>
+                      {r.family?.id ? (
+                        <UserNameButton id={r.family.id} name={r.family?.name || 'Family'} onClick={onViewUser} />
+                      ) : (
+                        <span className="font-semibold text-sm">{r.family?.name || 'Family'}</span>
+                      )}
                       <span className="text-xs text-muted-foreground">→</span>
-                      <span className="text-sm text-muted-foreground">{r.caregiver?.user?.name || 'Caregiver'}</span>
+                      {r.caregiver?.user?.id ? (
+                        <UserNameButton id={r.caregiver.user.id} name={r.caregiver?.user?.name || 'Caregiver'} onClick={onViewUser} />
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{r.caregiver?.user?.name || 'Caregiver'}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5">
                       <StarRating rating={r.rating || 0} />
@@ -546,13 +664,17 @@ function ReviewsTab() {
             </Card>
           </motion.div>
         ))}
+        {filtered.length === 0 && reviews.length > 0 && (
+          <p className="text-sm text-muted-foreground text-center py-6">No reviews match your search.</p>
+        )}
       </div>
     </div>
   );
 }
 
 /* ─────────── COMPLAINTS TAB ─────────── */
-function ComplaintsTab() {
+function ComplaintsTab({ onViewUser }: { onViewUser: (userId: string, userName: string) => void }) {
+  const [search, setSearch] = useState('');
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -622,6 +744,16 @@ function ComplaintsTab() {
     }
   };
 
+  const filtered = complaints.filter((c) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (c.subject || '').toLowerCase().includes(q) ||
+      (c.family?.name || '').toLowerCase().includes(q) ||
+      (c.caregiver?.user?.name || '').toLowerCase().includes(q)
+    );
+  });
+
   const openCount = complaints.filter(c => c.status === 'OPEN').length;
 
   if (loading) {
@@ -642,25 +774,28 @@ function ComplaintsTab() {
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'DISMISSED'].map((f) => (
-          <Button
-            key={f}
-            variant={statusFilter === f ? 'default' : 'outline'}
-            size="sm"
-            className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
-            onClick={() => setStatusFilter(f)}
-          >
-            {f ? f.replace(/_/g, ' ') : 'All'}
-          </Button>
-        ))}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search complaints..." />
+        <div className="flex gap-2 flex-wrap">
+          {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'DISMISSED'].map((f) => (
+            <Button
+              key={f}
+              variant={statusFilter === f ? 'default' : 'outline'}
+              size="sm"
+              className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+              onClick={() => setStatusFilter(f)}
+            >
+              {f ? f.replace(/_/g, ' ') : 'All'}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {complaints.length === 0 ? (
+      {filtered.length === 0 ? (
         <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><AlertTriangle className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No complaints found.</p></CardContent></Card>
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
-          {complaints.map((c, i) => (
+          {filtered.map((c, i) => (
             <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
               <Card className="rounded-2xl card-hover border-0 shadow-sm">
                 <CardContent className="p-4 space-y-3">
@@ -677,8 +812,12 @@ function ComplaintsTab() {
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>From: {c.family?.name || 'Family'}</span>
-                    <span>Against: {c.caregiver?.user?.name || 'Caregiver'}</span>
+                    <span>From: {c.family?.id ? (
+                      <button type="button" onClick={() => onViewUser(c.family.id, c.family.name)} className="font-semibold text-sm text-[#14532d] hover:underline cursor-pointer bg-transparent border-0 p-0 h-auto font-inherit">{c.family.name || 'Family'}</button>
+                    ) : (c.family?.name || 'Family')}</span>
+                    <span>Against: {c.caregiver?.user?.id ? (
+                      <button type="button" onClick={() => onViewUser(c.caregiver.user.id, c.caregiver.user.name)} className="font-semibold text-sm text-[#14532d] hover:underline cursor-pointer bg-transparent border-0 p-0 h-auto font-inherit">{c.caregiver.user.name || 'Caregiver'}</button>
+                    ) : (c.caregiver?.user?.name || 'Caregiver')}</span>
                     {c.booking && <span>Booking: {c.booking.startDate ? new Date(c.booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : c.booking.id.slice(0, 8)}</span>}
                   </div>
 
@@ -745,6 +884,9 @@ function ComplaintsTab() {
               </Card>
             </motion.div>
           ))}
+          {filtered.length === 0 && complaints.length > 0 && (
+            <p className="text-sm text-muted-foreground text-center py-6">No complaints match your search.</p>
+          )}
         </div>
       )}
     </div>
@@ -754,6 +896,13 @@ function ComplaintsTab() {
 /* ─────────── MAIN COMPONENT ─────────── */
 export function AdminDashboard({ activeTab }: { activeTab: string }) {
   const user = useAuthStore((s) => s.user);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileUserName, setProfileUserName] = useState<string | null>(null);
+
+  const handleViewUser = useCallback((userId: string, userName: string) => {
+    setProfileUserId(userId);
+    setProfileUserName(userName);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -771,14 +920,21 @@ export function AdminDashboard({ activeTab }: { activeTab: string }) {
 
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && <motion.div key="overview" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><OverviewTab /></motion.div>}
-            {activeTab === 'users' && <motion.div key="users" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><UsersTab /></motion.div>}
-            {activeTab === 'verifications' && <motion.div key="verifications" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><VerificationsTab /></motion.div>}
-            {activeTab === 'all-bookings' && <motion.div key="all-bookings" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><AllBookingsTab /></motion.div>}
-            {activeTab === 'reviews' && <motion.div key="reviews" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ReviewsTab /></motion.div>}
-            {activeTab === 'complaints' && <motion.div key="complaints" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ComplaintsTab /></motion.div>}
+            {activeTab === 'users' && <motion.div key="users" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><UsersTab onViewUser={handleViewUser} /></motion.div>}
+            {activeTab === 'verifications' && <motion.div key="verifications" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><VerificationsTab onViewUser={handleViewUser} /></motion.div>}
+            {activeTab === 'all-bookings' && <motion.div key="all-bookings" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><AllBookingsTab onViewUser={handleViewUser} /></motion.div>}
+            {activeTab === 'reviews' && <motion.div key="reviews" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ReviewsTab onViewUser={handleViewUser} /></motion.div>}
+            {activeTab === 'complaints' && <motion.div key="complaints" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ComplaintsTab onViewUser={handleViewUser} /></motion.div>}
           </AnimatePresence>
         </div>
       </ScrollArea>
+
+      <UserProfileDialog
+        userId={profileUserId}
+        userName={profileUserName}
+        open={!!profileUserId}
+        onClose={() => { setProfileUserId(null); setProfileUserName(null); }}
+      />
     </div>
   );
 }
