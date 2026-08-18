@@ -403,7 +403,28 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         return;
       }
 
-      // AuthSync in AuthProvider will automatically sync session → Zustand store
+      // Fetch session to get user data, then set auth explicitly
+      try {
+        const sessionRes = await fetch("/api/auth/session");
+        const sessionData = await sessionRes.json();
+        if (sessionData?.user) {
+          const u = sessionData.user as any;
+          setAuth({
+            id: u.id || "",
+            email: u.email || "",
+            name: u.name || "",
+            phone: "",
+            role: u.role || "FAMILY",
+            avatarUrl: u.image || null,
+            subscription: "NONE",
+            patientProfiles: [],
+            caregiverProfile: null,
+          });
+        }
+      } catch {
+        // AuthSync will pick it up as fallback
+      }
+
       toast({
         title: "Welcome back! 🎉",
         description: "You have successfully logged in.",
@@ -452,6 +473,28 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         setTab("login");
         setLoginEmail(regEmail.trim());
         return;
+      }
+
+      // Fetch session to get user data, then set auth explicitly
+      try {
+        const sessionRes = await fetch("/api/auth/session");
+        const sessionData = await sessionRes.json();
+        if (sessionData?.user) {
+          const u = sessionData.user as any;
+          setAuth({
+            id: u.id || "",
+            email: u.email || "",
+            name: u.name || "",
+            phone: regPhone.trim(),
+            role: u.role || regRole,
+            avatarUrl: u.image || null,
+            subscription: "NONE",
+            patientProfiles: [],
+            caregiverProfile: null,
+          });
+        }
+      } catch {
+        // AuthSync will pick it up as fallback
       }
 
       toast({ title: "Welcome to SevaSaathi! 🎉", description: "Your account has been created." });
@@ -906,7 +949,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       {/*  FORGOT PASSWORD DIALOG                                      */}
       {/* ============================================================ */}
       <Dialog open={resetOpen} onOpenChange={(open) => !open && setResetOpen(false)}>
-        <DialogContent className="sm:max-w-sm p-0 overflow-hidden border-forest-200/40">
+        <DialogContent showCloseButton={false} className="sm:max-w-sm p-0 overflow-hidden border-forest-200/40">
           <div className="px-6 pt-6 pb-2">
             <DialogHeader>
               <div className="flex items-center justify-center mb-2">
@@ -1025,6 +1068,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                     "Reset Password"
                   )}
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => setResetOpen(false)}
+                  className="w-full text-center text-sm text-forest-700 hover:text-forest-900 font-medium py-1"
+                >
+                  Cancel
+                </button>
               </form>
             </div>
           )}
@@ -1126,9 +1176,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
           </div>
 
           <div className="px-10 pb-6 pt-2 border-t border-gray-100">
-            <p className="text-center text-[11px] text-gray-400 leading-relaxed">
-              Simulated sign-in · To enable real Google login, configure Google OAuth credentials in the environment
-            </p>
+            <button
+              type="button"
+              onClick={() => setGoogleOpen(false)}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Cancel
+            </button>
           </div>
         </DialogContent>
       </Dialog>

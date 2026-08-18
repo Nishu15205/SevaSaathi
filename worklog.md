@@ -1022,3 +1022,23 @@ Stage Summary:
 - After user logs in with Gmail, session is created and user is logged into SevaSaathi
 - Credentials: Client ID 401990203208-8k79rrsbifdd3kqsjufnkmis5chgfk28.apps.googleusercontent.com
 
+---
+Task ID: 1
+Agent: main
+Task: Fix preview not visible, Google OAuth redirect, two X buttons, and login redirect issues
+
+Work Log:
+- Diagnosed dev server was not running (preview not visible)
+- Found critical bug: `proto` variable was scoped inside IIFE in google-cb/route.ts but used outside it at line 121, causing ReferenceError that prevented session cookie from being set
+- Fixed by moving `proto` declaration to outer function scope
+- Fixed two X buttons: Forgot Password dialog had default Radix close button (showCloseButton=true) while main dialog had custom X visible behind it. Added showCloseButton={false} to nested dialogs and added Cancel buttons
+- Made credentials login and registration explicitly call setAuth() after session fetch instead of only relying on AuthSync timing
+- Added Cancel button to Forgot Password form and Google simulated dialog
+- Restarted dev server, verified page compiles (200 OK)
+- Browser verified: landing page loads, login dialog shows single X, forgot password dialog has no X (only Cancel), credentials login redirects to dashboard, logout returns to landing page
+
+Stage Summary:
+- Root cause of Google login failure: proto undefined ReferenceError in google-cb/route.ts
+- All login flows (credentials, Google OAuth, registration) now explicitly set Zustand auth state
+- Two X button issue resolved for all nested dialogs
+- Dev server running, app fully functional

@@ -31,10 +31,12 @@ export async function GET(req: NextRequest) {
     return popupCloseResponse("Invalid state parameter. Please try again.");
   }
 
+  // Determine protocol for cookie secure flag
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+
   // Use the EXACT redirect_uri that was stored during the auth request
   // This avoids mismatch when proxy headers differ between requests
   const redirectUri = req.cookies.get("google_redirect_uri")?.value || (() => {
-    const proto = req.headers.get("x-forwarded-proto") || "https";
     const host = req.headers.get("host") || "localhost:3000";
     return `${proto}://${host}/api/auth/google-cb`;
   })();
@@ -121,6 +123,8 @@ export async function GET(req: NextRequest) {
       secure: proto === "https",
       maxAge: 30 * 24 * 60 * 60,
     });
+
+    console.log("[google-cb] Session cookie set for user:", user.email, "role:", user.role);
 
     // Clear the state and redirect_uri cookies
     response.cookies.set("google_oauth_state", "", {
