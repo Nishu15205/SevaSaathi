@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Generates the real Google OAuth URL with the correct redirect_uri.
- * Accepts an optional `origin` query param from the client (most reliable).
- * Falls back to proxy headers (x-forwarded-host, x-forwarded-proto).
+ * Stores the redirect_uri in a cookie so the callback can reuse it exactly.
  */
 export async function GET(req: NextRequest) {
   // Priority 1: Use origin passed from the client (browser's window.location.origin)
-  // This is the most reliable because the browser always knows its actual URL
   let baseUrl = req.nextUrl.searchParams.get("origin");
 
   if (!baseUrl) {
@@ -44,6 +42,13 @@ export async function GET(req: NextRequest) {
 
   const response = NextResponse.json({ url: googleUrl });
   response.cookies.set("google_oauth_state", state, {
+    path: "/api/auth/google-cb",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 600,
+  });
+  // Store the redirect_uri so the callback uses the EXACT same value
+  response.cookies.set("google_redirect_uri", redirectUri, {
     path: "/api/auth/google-cb",
     httpOnly: true,
     sameSite: "lax",

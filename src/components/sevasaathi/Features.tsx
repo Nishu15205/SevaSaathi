@@ -23,7 +23,7 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
 };
 
-export default function Features() {
+export default function Features({ onOpenLogin }: { onOpenLogin: (tab?: string) => void }) {
   return (
     <section id="features" className="py-20 lg:py-28 bg-[#f9fafb]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -54,7 +54,11 @@ export default function Features() {
             <motion.div
               key={card.name}
               variants={cardVariants}
-              className="group relative rounded-2xl overflow-hidden cursor-pointer bg-white border border-gray-100 transition-transform duration-300 hover:scale-[1.03]"
+              onClick={() => onOpenLogin()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && onOpenLogin()}
+              className="group relative rounded-2xl overflow-hidden cursor-pointer bg-white border border-gray-100 transition-transform duration-300 hover:scale-[1.03] active:scale-[0.98]"
             >
               <div className="relative w-full aspect-[4/3] overflow-hidden">
                 <Image

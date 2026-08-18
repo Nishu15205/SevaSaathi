@@ -31,11 +31,13 @@ export async function GET(req: NextRequest) {
     return popupCloseResponse("Invalid state parameter. Please try again.");
   }
 
-  // Build the correct redirect_uri from the incoming request's own URL
-  // This is the most reliable — Google redirected here, so the URL is correct
-  const proto = req.headers.get("x-forwarded-proto") || "https";
-  const host = req.headers.get("host") || "localhost:3000";
-  const redirectUri = `${proto}://${host}/api/auth/google-cb`;
+  // Use the EXACT redirect_uri that was stored during the auth request
+  // This avoids mismatch when proxy headers differ between requests
+  const redirectUri = req.cookies.get("google_redirect_uri")?.value || (() => {
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const host = req.headers.get("host") || "localhost:3000";
+    return `${proto}://${host}/api/auth/google-cb`;
+  })();
 
   try {
     // Step 1: Exchange code for tokens
@@ -120,8 +122,12 @@ export async function GET(req: NextRequest) {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    // Clear the state cookie
+    // Clear the state and redirect_uri cookies
     response.cookies.set("google_oauth_state", "", {
+      path: "/api/auth/google-cb",
+      maxAge: 0,
+    });
+    response.cookies.set("google_redirect_uri", "", {
       path: "/api/auth/google-cb",
       maxAge: 0,
     });

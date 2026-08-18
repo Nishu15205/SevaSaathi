@@ -501,8 +501,8 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   /* ================================================================ */
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-forest-200/40">
-        {/* Custom X button to override default position */}
+      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-forest-200/40">
+        {/* Single custom close button */}
         <button
           onClick={handleClose}
           className="absolute top-3 right-3 z-50 rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -1035,7 +1035,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       {/*  GOOGLE SIGN-IN (real OAuth or simulated fallback)            */}
       {/* ============================================================ */}
       <Dialog open={googleOpen} onOpenChange={(open) => !open && setGoogleOpen(false)}>
-        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-gray-200">
+        <DialogContent showCloseButton={false} className="sm:max-w-[420px] p-0 overflow-hidden border-gray-200">
           {/* Google-style header */}
           <div className="flex items-center justify-center pt-8 pb-2">
             <GoogleIcon className="w-12 h-12" />

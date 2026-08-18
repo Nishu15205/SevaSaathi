@@ -34,7 +34,7 @@ function LandingPage({ onGoDashboard }: { onGoDashboard: () => void }) {
       <main className="flex-1">
         <HeroSection onOpenLogin={openLogin} />
         <HowItWorks />
-        <Features />
+        <Features onOpenLogin={openLogin} />
         <SmartMatching onOpenLogin={openLogin} />
         <ForUsers />
         <TrustSafety />
