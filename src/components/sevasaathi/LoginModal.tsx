@@ -199,7 +199,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   /*  HANDLERS                                                         */
   /* ================================================================ */
 
-  /* ---- Google sign-in — try real OAuth first, fallback to simulated ---- */
+  /* ---- Google sign-in — real OAuth popup, fallback to simulated ---- */
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     setGoogleError("");
@@ -209,11 +209,75 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       const { configured } = await checkRes.json();
 
       if (configured) {
-        // Real Google OAuth — redirects to Google's login page
-        signIn("google", {
-          callbackUrl: window.location.origin,
-        });
-        return; // Browser navigates away
+        // Real Google OAuth — open in popup so Gmail page opens in a new window
+        const result = await signIn("google", { redirect: false });
+
+        if (result?.url) {
+          const width = 500;
+          const height = 650;
+          const left = (window.screen.width - width) / 2;
+          const top = (window.screen.height - height) / 2;
+
+          const popup = window.open(
+            result.url,
+            "google-auth",
+            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+          );
+
+          if (!popup) {
+            setGoogleError(
+              "Popup blocked! Please allow popups for this site and try again."
+            );
+            setGoogleLoading(false);
+            return;
+          }
+
+          // Poll for session every 1.5 seconds
+          const checkInterval = setInterval(async () => {
+            if (popup.closed) {
+              clearInterval(checkInterval);
+              setGoogleLoading(false);
+              return;
+            }
+            try {
+              const res = await fetch("/api/auth/session");
+              const session = await res.json();
+              if (session?.user) {
+                clearInterval(checkInterval);
+                popup.close();
+                // Update Zustand store directly — no page reload
+                setAuth({
+                  id: session.user.id || "",
+                  email: session.user.email || "",
+                  name: session.user.name || "",
+                  phone: "",
+                  role: (session.user as any).role || "FAMILY",
+                  avatarUrl: session.user.image || null,
+                  subscription: "NONE",
+                  patientProfiles: [],
+                  caregiverProfile: null,
+                });
+                toast({
+                  title: "Welcome! 🎉",
+                  description:
+                    "Signed in with Google as " + session.user.email,
+                });
+                setGoogleLoading(false);
+                handleClose();
+              }
+            } catch {
+              // Keep polling
+            }
+          }, 1500);
+
+          // Safety timeout — stop polling after 5 minutes
+          setTimeout(() => clearInterval(checkInterval), 5 * 60 * 1000);
+          return;
+        } else {
+          setGoogleError("Failed to start Google sign-in. Please try again.");
+          setGoogleLoading(false);
+          return;
+        }
       }
     } catch {
       // If check fails, fall through to simulated flow
@@ -1028,7 +1092,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
 
           <div className="px-10 pb-6 pt-2 border-t border-gray-100">
             <p className="text-center text-[11px] text-gray-400 leading-relaxed">
-              Quick sign-in · To enable real Google login, ask your admin to configure Google OAuth credentials
+              Simulated sign-in · To enable real Google login, configure Google OAuth credentials in the environment
             </p>
           </div>
         </DialogContent>

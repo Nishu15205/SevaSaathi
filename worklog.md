@@ -979,3 +979,25 @@ Stage Summary:
 - When admin adds GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, real Google login will automatically activate
 - Popup redesigned to match Google's actual sign-in UI
 - Key files: LoginModal.tsx (handler + UI), google-configured/route.ts (new)
+
+---
+Task ID: google-oauth-real
+Agent: Main Agent
+Task: Implement real Google OAuth popup flow in LoginModal
+
+Work Log:
+- Read current auth config, LoginModal.tsx, middleware, and .env files
+- Confirmed NextAuth already has Google provider configured in auth.ts
+- Confirmed /api/auth/google-configured route already exists and checks env vars
+- Rewrote handleGoogleSignIn to use popup flow: signIn("google", { redirect: false }) → window.open() → poll /api/auth/session every 1.5s
+- Added popup blocked error handling and 5-minute safety timeout
+- Added GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL placeholders to .env
+- Kept simulated Google popup as fallback when credentials are not configured
+- Passed lint check, dev server reloaded .env successfully
+
+Stage Summary:
+- Real Google OAuth code is fully implemented and ready
+- User needs to provide Google Client ID and Google Client Secret
+- Once credentials are added to .env, clicking "Continue with Google" will open real Gmail login in a popup window
+- Simulated flow remains as fallback when credentials are missing
+
