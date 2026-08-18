@@ -219,6 +219,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setGoogleSubmitting(true);
     setGoogleError("");
     try {
+      // 1. Call the simulate endpoint (sets the session cookie)
       const res = await fetch("/api/auth/google-simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -229,15 +230,34 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         setGoogleError(data.error || "Google sign-in failed.");
         return;
       }
-      // Close modal and reload page so NextAuth picks up the new session cookie
-      setGoogleOpen(false);
-      toast({
-        title: "Welcome" + (data.user.isNewUser ? " to SevaSaathi!" : " back!") + " \ud83c\udf89",
-        description: "Signed in as " + data.user.email,
-      });
-      // Use router.push to trigger a full navigation which re-fetches the session
-      window.location.href = window.location.origin;
-      return;
+
+      // 2. Fetch the NextAuth session (cookie is already set by step 1)
+      const sessionRes = await fetch("/api/auth/session");
+      const sessionData = await sessionRes.json();
+
+      if (sessionData?.user) {
+        // 3. Directly update the Zustand store — no page reload needed
+        setAuth({
+          id: sessionData.user.id,
+          email: sessionData.user.email,
+          name: sessionData.user.name,
+          phone: "",
+          role: sessionData.user.role,
+          avatarUrl: sessionData.user.image || null,
+          subscription: "NONE" as any,
+          patientProfiles: [],
+          caregiverProfile: null,
+        });
+        setGoogleOpen(false);
+        toast({
+          title: "Welcome" + (data.user.isNewUser ? " to SevaSaathi!" : " back!") + " \ud83c\udf89",
+          description: "Signed in as " + data.user.email,
+        });
+        handleClose();
+      } else {
+        // Fallback: reload the page so NextAuth picks up the cookie
+        window.location.href = window.location.origin;
+      }
     } catch {
       setGoogleError("Something went wrong. Please try again.");
     } finally {

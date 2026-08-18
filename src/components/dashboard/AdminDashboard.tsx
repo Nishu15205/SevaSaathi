@@ -18,8 +18,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { toast } from 'sonner';
+import { toast as shadcnToast } from '@/hooks/use-toast';
 import { UserProfileDialog } from './UserProfileDialog';
+
+/* Bridge sonner-style API to shadcn/ui toast */
+const toast = {
+  error: (msg: string) => shadcnToast({ title: 'Error', description: msg, variant: 'destructive' }),
+  success: (msg: string) => shadcnToast({ title: 'Success', description: msg }),
+};
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',

@@ -921,3 +921,35 @@ Stage Summary:
 - AllBookingsTab replaced hacky multi-fetch with proper paginated API
 - Zero console errors, lint passes clean
 - Key files: AdminDashboard.tsx (rewritten), UserProfileDialog.tsx (new), api.ts (updated), 4 API routes created/updated
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Fix Google OAuth seamless login + Fix admin dashboard toast system
+
+Work Log:
+- Tested Google OAuth end-to-end through both direct (port 3000) and proxy (port 81) access
+- Confirmed google-simulate API correctly sets session cookie and /api/auth/session decodes it
+- Identified UX issue: Google login used window.location.href reload causing landing page flash
+- Rewrote handleGoogleSubmit in LoginModal.tsx to:
+  1. Call /api/auth/google-simulate (sets cookie)
+  2. Fetch /api/auth/session (reads cookie, gets user data)
+  3. Directly update Zustand auth store via setAuth() — no page reload
+  4. Fallback to window.location.href only if session fetch fails
+- Fixed AdminDashboard.tsx toast system: replaced `import { toast } from 'sonner'` with shadcn/ui bridge
+  Created toast wrapper object that maps sonner-style API (toast.error/success) to shadcn/ui toast format
+  This fixed ~20 toast calls across OverviewTab, UsersTab, VerificationsTab, AllBookingsTab, ReviewsTab, ComplaintsTab
+- Verified all admin dashboard features via browser testing:
+  Users: search bar, role filters, clickable names → profile dialog, delete button
+  Verifications: search bar, clickable caregiver names, approve/reject buttons
+  All Bookings: search bar, clickable family + caregiver names, pagination
+  Reviews: average rating display, search bar, clickable family + caregiver names, detailed review cards
+  Complaints: search bar, status filters, clickable from/against names, resolve/dismiss actions
+  UserProfileDialog: full user info, contact, plan, stats, caregiver profile, patient profiles, recent bookings/reviews/complaints
+
+Stage Summary:
+- Google OAuth: Now seamless — no page reload, instant dashboard transition
+- Admin toast: All toast notifications now use shadcn/ui (visible to user)
+- All 5 admin tabs fully functional with search, clickable users, and proper actions
+- Zero console errors, clean lint
+- Key files: LoginModal.tsx (Google flow rewrite), AdminDashboard.tsx (toast bridge)
