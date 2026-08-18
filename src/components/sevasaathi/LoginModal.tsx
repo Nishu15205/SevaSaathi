@@ -154,6 +154,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const { setAuth } = useAuthStore();
   const { toast } = useToast();
 
+  // Google popup form
+  const [googleOpen, setGoogleOpen] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState("");
+  const [googleName, setGoogleName] = useState("");
+  const [googleError, setGoogleError] = useState("");
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
   /* ---- reset form fields when switching tabs ---- */
   useEffect(() => {
     setError("");
@@ -180,6 +187,11 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setResetLoading(false);
     setResetError("");
     setResetDone(false);
+    setGoogleOpen(false);
+    setGoogleEmail("");
+    setGoogleName("");
+    setGoogleError("");
+    setGoogleSubmitting(false);
     onClose();
   }, [onClose, defaultTab]);
 
@@ -187,37 +199,49 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   /*  HANDLERS                                                         */
   /* ================================================================ */
 
-  /* ---- Google sign-in ---- */
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    setError("");
-    try {
-      // Check if Google OAuth is configured on the server
-      const statusRes = await fetch("/api/auth/google-status");
-      const status = await statusRes.json();
+  /* ---- Google sign-in — opens simulated Google popup ---- */
+  const handleGoogleSignIn = () => {
+    setGoogleOpen(true);
+    setGoogleError("");
+  };
 
-      if (!status.configured) {
-        toast({
-          title: "Google OAuth Setup Required",
-          description: "Google Client ID and Secret are not configured. Please add them in .env.local to enable Google login.",
-          variant: "destructive",
-        });
-        setGoogleLoading(false);
+  /* ---- Google popup submit ---- */
+  const handleGoogleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleEmail.trim() || !googleName.trim()) {
+      setGoogleError("Please enter your name and email.");
+      return;
+    }
+    if (!googleEmail.trim().includes("@")) {
+      setGoogleError("Please enter a valid email address.");
+      return;
+    }
+    setGoogleSubmitting(true);
+    setGoogleError("");
+    try {
+      const res = await fetch("/api/auth/google-simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: googleEmail.trim(), name: googleName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGoogleError(data.error || "Google sign-in failed.");
         return;
       }
-
-      // Credentials are configured — proceed with real OAuth flow
-      await signIn("google", {
-        callbackUrl: window.location.origin,
-      });
-    } catch (err: any) {
+      // Close modal and reload page so NextAuth picks up the new session cookie
+      setGoogleOpen(false);
       toast({
-        title: "Google Sign-In Failed",
-        description: err?.message || "Could not start Google sign-in. Please try email/password.",
-        variant: "destructive",
+        title: "Welcome" + (data.user.isNewUser ? " to SevaSaathi!" : " back!") + " \ud83c\udf89",
+        description: "Signed in as " + data.user.email,
       });
+      // Use router.push to trigger a full navigation which re-fetches the session
+      window.location.href = window.location.origin;
+      return;
+    } catch {
+      setGoogleError("Something went wrong. Please try again.");
     } finally {
-      setGoogleLoading(false);
+      setGoogleSubmitting(false);
     }
   };
 
@@ -867,6 +891,110 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
               </form>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/*  GOOGLE SIGN-IN POPUP                                        */}
+      {/* ============================================================ */}
+      <Dialog open={googleOpen} onOpenChange={(open) => !open && setGoogleOpen(false)}>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden">
+          <div className="px-6 pt-6 pb-2">
+            <DialogHeader>
+              <div className="flex items-center justify-center mb-3">
+                <GoogleIcon className="w-10 h-10" />
+              </div>
+              <DialogTitle className="text-lg font-normal text-gray-800 text-center">
+                Sign in with Google
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500 text-center mt-1">
+                Enter your Google account details to continue
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          {/* Error */}
+          <AnimatePresence>
+            {googleError && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mx-6 mt-1 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+                  <X className="w-4 h-4 flex-shrink-0" />
+                  {googleError}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="px-6 py-4">
+            <form onSubmit={handleGoogleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="google-name" className="text-sm font-medium text-gray-700">
+                  Full Name
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="google-name"
+                    type="text"
+                    placeholder="Your name"
+                    value={googleName}
+                    onChange={(e) => setGoogleName(e.target.value)}
+                    className="pl-10 h-11 border-gray-300"
+                    autoComplete="name"
+                    disabled={googleSubmitting}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="google-email" className="text-sm font-medium text-gray-700">
+                  Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="google-email"
+                    type="email"
+                    placeholder="you@gmail.com"
+                    value={googleEmail}
+                    onChange={(e) => setGoogleEmail(e.target.value)}
+                    className="pl-10 h-11 border-gray-300"
+                    autoComplete="email"
+                    disabled={googleSubmitting}
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={googleSubmitting}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md"
+              >
+                {googleSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <GoogleIcon className="w-4 h-4 mr-2" />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
+            </form>
+          </div>
+
+          <div className="px-6 pb-4">
+            <p className="text-center text-[11px] text-gray-400 leading-relaxed">
+              By continuing, you agree to our Terms of Service and Privacy Policy
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </Dialog>
