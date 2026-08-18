@@ -209,75 +209,108 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       const { configured } = await checkRes.json();
 
       if (configured) {
-        // Real Google OAuth — open in popup so Gmail page opens in a new window
-        const result = await signIn("google", { redirect: false });
+        // Real Google OAuth — use custom API to get correct redirect_uri
+        const goRes = await fetch("/api/auth/google-go");
+        const goData = await goRes.json();
 
-        if (result?.url) {
-          const width = 500;
-          const height = 650;
-          const left = (window.screen.width - width) / 2;
-          const top = (window.screen.height - height) / 2;
-
-          const popup = window.open(
-            result.url,
-            "google-auth",
-            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-          );
-
-          if (!popup) {
-            setGoogleError(
-              "Popup blocked! Please allow popups for this site and try again."
-            );
-            setGoogleLoading(false);
-            return;
-          }
-
-          // Poll for session every 1.5 seconds
-          const checkInterval = setInterval(async () => {
-            if (popup.closed) {
-              clearInterval(checkInterval);
-              setGoogleLoading(false);
-              return;
-            }
-            try {
-              const res = await fetch("/api/auth/session");
-              const session = await res.json();
-              if (session?.user) {
-                clearInterval(checkInterval);
-                popup.close();
-                // Update Zustand store directly — no page reload
-                setAuth({
-                  id: session.user.id || "",
-                  email: session.user.email || "",
-                  name: session.user.name || "",
-                  phone: "",
-                  role: (session.user as any).role || "FAMILY",
-                  avatarUrl: session.user.image || null,
-                  subscription: "NONE",
-                  patientProfiles: [],
-                  caregiverProfile: null,
-                });
-                toast({
-                  title: "Welcome! 🎉",
-                  description:
-                    "Signed in with Google as " + session.user.email,
-                });
-                setGoogleLoading(false);
-                handleClose();
-              }
-            } catch {
-              // Keep polling
-            }
-          }, 1500);
-
-          // Safety timeout — stop polling after 5 minutes
-          setTimeout(() => clearInterval(checkInterval), 5 * 60 * 1000);
-          return;
-        } else {
+        if (!goData.url) {
           setGoogleError("Failed to start Google sign-in. Please try again.");
           setGoogleLoading(false);
           return;
         }
+
+        const width = 500;
+        const height = 650;
+        const left = (window.screen.width - width) / 2;
+        const top = (window.screen.height - height) / 2;
+
+        const popup = window.open(
+          goData.url,
+          "google-auth",
+          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+
+        if (!popup) {
+          setGoogleError(
+            "Popup blocked! Please allow popups for this site and try again."
+          );
+          setGoogleLoading(false);
+          return;
+        }
+
+        // Listen for postMessage from popup callback
+        let settled = false;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          window.removeEventListener("message", handleMessage);
+          clearInterval(checkInterval);
+        };
+
+        const completeLogin = async () => {
+          cleanup();
+          const sessionRes = await fetch("/api/auth/session");
+          const session = await sessionRes.json();
+          if (session?.user) {
+            setAuth({
+              id: session.user.id || "",
+              email: session.user.email || "",
+              name: session.user.name || "",
+              phone: "",
+              role: (session.user as any).role || "FAMILY",
+              avatarUrl: session.user.image || null,
+              subscription: "NONE",
+              patientProfiles: [],
+              caregiverProfile: null,
+            });
+            toast({
+              title: "Welcome! 🎉",
+              description: "Signed in with Google as " + session.user.email,
+            });
+            setGoogleLoading(false);
+            handleClose();
+          } else {
+            setGoogleLoading(false);
+          }
+        };
+
+        const handleMessage = async (event: MessageEvent) => {
+          if (event.data?.type === "google-oauth-callback") {
+            cleanup();
+            if (event.data.success) {
+              await completeLogin();
+            } else {
+              setGoogleError("Google sign-in was cancelled or failed.");
+              setGoogleLoading(false);
+            }
+          }
+        };
+        window.addEventListener("message", handleMessage);
+
+        // Fallback: poll for session if postMessage doesn't fire
+        const checkInterval = setInterval(async () => {
+          if (popup.closed) {
+            cleanup();
+            setGoogleLoading(false);
+            return;
+          }
+          try {
+            const res = await fetch("/api/auth/session");
+            const session = await res.json();
+            if (session?.user) {
+              await completeLogin();
+            }
+          } catch {
+            // keep polling
+          }
+        }, 2000);
+
+        // Safety timeout — 5 minutes
+        setTimeout(() => {
+          cleanup();
+          setGoogleLoading(false);
+        }, 5 * 60 * 1000);
+        return;
       }
     } catch {
       // If check fails, fall through to simulated flow
