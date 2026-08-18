@@ -199,10 +199,28 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   /*  HANDLERS                                                         */
   /* ================================================================ */
 
-  /* ---- Google sign-in — opens simulated Google popup ---- */
-  const handleGoogleSignIn = () => {
-    setGoogleOpen(true);
+  /* ---- Google sign-in — try real OAuth first, fallback to simulated ---- */
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
     setGoogleError("");
+    try {
+      // Check if real Google OAuth is configured
+      const checkRes = await fetch("/api/auth/google-configured");
+      const { configured } = await checkRes.json();
+
+      if (configured) {
+        // Real Google OAuth — redirects to Google's login page
+        signIn("google", {
+          callbackUrl: window.location.origin,
+        });
+        return; // Browser navigates away
+      }
+    } catch {
+      // If check fails, fall through to simulated flow
+    }
+    setGoogleLoading(false);
+    // Google OAuth not configured — open simulated sign-in
+    setGoogleOpen(true);
   };
 
   /* ---- Google popup submit ---- */
@@ -915,20 +933,21 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       </Dialog>
 
       {/* ============================================================ */}
-      {/*  GOOGLE SIGN-IN POPUP                                        */}
+      {/*  GOOGLE SIGN-IN (real OAuth or simulated fallback)            */}
       {/* ============================================================ */}
       <Dialog open={googleOpen} onOpenChange={(open) => !open && setGoogleOpen(false)}>
-        <DialogContent className="sm:max-w-sm p-0 overflow-hidden">
-          <div className="px-6 pt-6 pb-2">
+        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-gray-200">
+          {/* Google-style header */}
+          <div className="flex items-center justify-center pt-8 pb-2">
+            <GoogleIcon className="w-12 h-12" />
+          </div>
+          <div className="px-10 pb-1">
             <DialogHeader>
-              <div className="flex items-center justify-center mb-3">
-                <GoogleIcon className="w-10 h-10" />
-              </div>
-              <DialogTitle className="text-lg font-normal text-gray-800 text-center">
-                Sign in with Google
+              <DialogTitle className="text-xl text-gray-800 text-center font-normal">
+                Sign in
               </DialogTitle>
               <DialogDescription className="text-sm text-gray-500 text-center mt-1">
-                Enter your Google account details to continue
+                Use your Google Account
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -942,7 +961,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="mx-6 mt-1 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+                <div className="mx-10 mt-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
                   <X className="w-4 h-4 flex-shrink-0" />
                   {googleError}
                 </div>
@@ -950,69 +969,66 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
             )}
           </AnimatePresence>
 
-          <div className="px-6 py-4">
-            <form onSubmit={handleGoogleSubmit} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="google-name" className="text-sm font-medium text-gray-700">
-                  Full Name
-                </Label>
+          <div className="px-10 pt-5 pb-4">
+            <form onSubmit={handleGoogleSubmit} className="space-y-4">
+              <div>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="google-name"
                     type="text"
-                    placeholder="Your name"
+                    placeholder="Full name"
                     value={googleName}
                     onChange={(e) => setGoogleName(e.target.value)}
-                    className="pl-10 h-11 border-gray-300"
+                    className="pl-10 h-12 border-gray-300 rounded-sm text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     autoComplete="name"
                     disabled={googleSubmitting}
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="google-email" className="text-sm font-medium text-gray-700">
-                  Email
-                </Label>
+              <div>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="google-email"
                     type="email"
-                    placeholder="you@gmail.com"
+                    placeholder="Email or phone"
                     value={googleEmail}
                     onChange={(e) => setGoogleEmail(e.target.value)}
-                    className="pl-10 h-11 border-gray-300"
+                    className="pl-10 h-12 border-gray-300 rounded-sm text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     autoComplete="email"
                     disabled={googleSubmitting}
                   />
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                disabled={googleSubmitting}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md"
-              >
-                {googleSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <GoogleIcon className="w-4 h-4 mr-2" />
-                    Continue with Google
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setGoogleOpen(false)}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium px-4 py-2"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="submit"
+                  disabled={googleSubmitting}
+                  className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-sm"
+                >
+                  {googleSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Next"
+                  )}
+                </Button>
+              </div>
             </form>
           </div>
 
-          <div className="px-6 pb-4">
+          <div className="px-10 pb-6 pt-2 border-t border-gray-100">
             <p className="text-center text-[11px] text-gray-400 leading-relaxed">
-              By continuing, you agree to our Terms of Service and Privacy Policy
+              Quick sign-in · To enable real Google login, ask your admin to configure Google OAuth credentials
             </p>
           </div>
         </DialogContent>

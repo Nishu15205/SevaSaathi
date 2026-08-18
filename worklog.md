@@ -953,3 +953,29 @@ Stage Summary:
 - All 5 admin tabs fully functional with search, clickable users, and proper actions
 - Zero console errors, clean lint
 - Key files: LoginModal.tsx (Google flow rewrite), AdminDashboard.tsx (toast bridge)
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Real Google OAuth with automatic fallback + Google-style UI
+
+Work Log:
+- Created /api/auth/google-configured endpoint that checks if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set
+- Rewrote handleGoogleSignIn in LoginModal.tsx:
+  1. Shows loading spinner on the Google button
+  2. Calls /api/auth/google-configured to check if real OAuth is available
+  3. If configured → calls signIn('google') which opens real Google login page
+  4. If not configured → falls back to simulated popup (seamless, no error shown)
+- Redesigned Google sign-in popup to look like real Google's sign-in page:
+  - Larger Google logo at top
+  - "Sign in" / "Use your Google Account" headings (exact Google copy)
+  - Taller inputs (h-12) with blue focus rings, "Full name" and "Email or phone" placeholders
+  - Right-aligned "Cancel" and "Next" buttons (Google-style)
+  - Footer note: "Quick sign-in · To enable real Google login, ask your admin to configure Google OAuth credentials"
+- Verified end-to-end: click Google button → loading → popup opens → fill form → Next → instant dashboard transition
+
+Stage Summary:
+- Google button now tries REAL Google OAuth first; falls back to simulated only when credentials aren't configured
+- When admin adds GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, real Google login will automatically activate
+- Popup redesigned to match Google's actual sign-in UI
+- Key files: LoginModal.tsx (handler + UI), google-configured/route.ts (new)
