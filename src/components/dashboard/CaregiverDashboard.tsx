@@ -288,19 +288,6 @@ function OverviewTab({ user }: { user: User }) {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <LoadingGrid count={4} />
-        <div>
-          <Skeleton className="h-6 w-48 mb-3" />
-          <LoadingCards count={3} />
-        </div>
-        <Skeleton className="h-40 rounded-2xl" />
-      </div>
-    );
-  }
-
   if (error) {
     return <ErrorState message={error} onRetry={fetchData} />;
   }
@@ -980,15 +967,6 @@ function BookingsTab({ user }: { user: User }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <LoadingCards count={4} />
-      </div>
-    );
-  }
-
   if (error) {
     return <ErrorState message={error} onRetry={fetchBookings} />;
   }
@@ -1281,20 +1259,6 @@ function SubmitReportTab({ user }: { user: User }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-64 rounded-2xl" />
-          <Skeleton className="h-64 rounded-2xl" />
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return <ErrorState message={error} onRetry={fetchBookings} />;
   }
@@ -1540,7 +1504,6 @@ function ComplaintsTab({ user }: { user: User }) {
 
   useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
 
-  if (loading) return <LoadingCards count={3} />;
   if (error) return <ErrorState message={error} onRetry={fetchComplaints} />;
 
   return (
@@ -1623,20 +1586,6 @@ function ReviewsTab({ user }: { user: User }) {
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-48 rounded-2xl" />
-          <div className="lg:col-span-2">
-            <LoadingCards count={3} />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return <ErrorState message={error} onRetry={fetchReviews} />;
@@ -1855,24 +1804,6 @@ function EarningsTab({ user }: { user: User }) {
       color: 'bg-lime-50 text-lime-700',
     },
   ];
-
-  if (loading) {
-    return (
-      <div className='space-y-6'>
-        <Skeleton className='h-8 w-48' />
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className='h-28 rounded-2xl' />
-          ))}
-        </div>
-        <div className='space-y-3'>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className='h-24 rounded-2xl' />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

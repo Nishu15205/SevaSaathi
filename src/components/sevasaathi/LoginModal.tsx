@@ -208,7 +208,8 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       if (configured) {
         // Real Google OAuth — full-page redirect to /api/auth/google-go
         const origin = window.location.origin;
-        window.location.href = `/api/auth/google-go?origin=${encodeURIComponent(origin)}`;
+        const role = tab === "register" ? regRole : "";
+        window.location.href = `/api/auth/google-go?origin=${encodeURIComponent(origin)}&role=${encodeURIComponent(role)}`;
         return;
       }
     } catch {
@@ -236,7 +237,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       const res = await fetch("/api/auth/google-simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: googleEmail.trim(), name: googleName.trim() }),
+        body: JSON.stringify({ email: googleEmail.trim(), name: googleName.trim(), role: tab === "register" ? regRole : undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -644,6 +645,61 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 exit="exit"
                 className="space-y-4"
               >
+                {/* Role selector - FIRST and most prominent */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-800">
+                    How would you like to use SevaSaathi?
+                  </Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRegRole("FAMILY")}
+                      className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all duration-150 ${
+                        regRole === "FAMILY"
+                          ? "border-forest-500 bg-forest-50"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        regRole === "FAMILY" ? "bg-forest-100" : "bg-gray-100"
+                      }`}>
+                        <Heart className={`w-4.5 h-4.5 ${regRole === "FAMILY" ? "text-forest-700" : "text-gray-400"}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-semibold ${regRole === "FAMILY" ? "text-forest-900" : "text-gray-700"}`}>
+                          I need care for my family
+                        </p>
+                        <p className={`text-xs mt-0.5 ${regRole === "FAMILY" ? "text-forest-600/80" : "text-gray-400"}`}>
+                          Find trusted caregivers for parents, elders, or family members at home
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRegRole("CAREGIVER")}
+                      className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all duration-150 ${
+                        regRole === "CAREGIVER"
+                          ? "border-forest-500 bg-forest-50"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        regRole === "CAREGIVER" ? "bg-forest-100" : "bg-gray-100"
+                      }`}>
+                        <ShieldCheck className={`w-4.5 h-4.5 ${regRole === "CAREGIVER" ? "text-forest-700" : "text-gray-400"}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-semibold ${regRole === "CAREGIVER" ? "text-forest-900" : "text-gray-700"}`}>
+                          I want to provide care services
+                        </p>
+                        <p className={`text-xs mt-0.5 ${regRole === "CAREGIVER" ? "text-forest-600/80" : "text-gray-400"}`}>
+                          Join as a caregiver, get bookings, and earn money
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Google button */}
                 <button
                   type="button"
@@ -651,7 +707,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                   className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 shadow-sm"
                 >
                   <GoogleIcon />
-                  Sign up with Google
+                  Sign up with Google as {regRole === "CAREGIVER" ? "Caregiver" : "Family Member"}
                 </button>
 
                 {/* Divider */}
@@ -725,39 +781,6 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                     </div>
                   </div>
 
-                  {/* Role selector */}
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium text-gray-700">
-                      I am a
-                    </Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRegRole("FAMILY")}
-                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-150 ${
-                          regRole === "FAMILY"
-                            ? "border-forest-500 bg-forest-50 text-forest-900"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                        }`}
-                      >
-                        <Heart className={`w-4 h-4 ${regRole === "FAMILY" ? "text-forest-600" : "text-gray-400"}`} />
-                        Family
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRegRole("CAREGIVER")}
-                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-150 ${
-                          regRole === "CAREGIVER"
-                            ? "border-forest-500 bg-forest-50 text-forest-900"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                        }`}
-                      >
-                        <ShieldCheck className={`w-4 h-4 ${regRole === "CAREGIVER" ? "text-forest-600" : "text-gray-400"}`} />
-                        Caregiver
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Password */}
                   <div className="space-y-1.5">
                     <Label htmlFor="reg-password" className="text-sm font-medium text-gray-700">
@@ -798,7 +821,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                       </>
                     ) : (
                       <>
-                        Create Account
+                        Create {regRole === "CAREGIVER" ? "Caregiver" : "Family"} Account
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </>
                     )}

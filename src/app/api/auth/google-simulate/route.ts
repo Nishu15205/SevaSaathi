@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, name } = body;
+    const { email, name, role } = body;
 
     if (!email || !name) {
       return NextResponse.json(
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
 
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedName = name.trim();
+    const userRole = (role === "CAREGIVER" || role === "FAMILY") ? role : "FAMILY";
 
     if (!trimmedEmail.includes("@")) {
       return NextResponse.json(
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
           email: trimmedEmail,
           name: trimmedName || "Google User",
           avatarUrl: null,
-          role: "FAMILY",
+          role: userRole,
           phone: "",
           passwordHash: "",
           subscription: "NONE",

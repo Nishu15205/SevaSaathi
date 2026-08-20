@@ -94,6 +94,10 @@ export async function GET(req: NextRequest) {
     // Step 3: Upsert user in database
     const existing = await db.user.findUnique({ where: { email: googleUser.email } });
 
+    // Read the role from cookie (set during google-go)
+    const requestedRole = req.cookies.get("google_oauth_role")?.value;
+    const userRole = (requestedRole === "CAREGIVER" || requestedRole === "FAMILY") ? requestedRole : "FAMILY";
+
     let user;
     if (existing) {
       user = await db.user.update({
@@ -106,7 +110,7 @@ export async function GET(req: NextRequest) {
           email: googleUser.email,
           name: googleUser.name || "Google User",
           avatarUrl: googleUser.picture,
-          role: "FAMILY",
+          role: userRole,
           phone: "",
           passwordHash: "",
           subscription: "NONE",
@@ -139,6 +143,7 @@ export async function GET(req: NextRequest) {
     // Clear state cookies
     response.cookies.set("google_oauth_state", "", { path: "/api/auth/google-cb", maxAge: 0 });
     response.cookies.set("google_redirect_uri", "", { path: "/api/auth/google-cb", maxAge: 0 });
+    response.cookies.set("google_oauth_role", "", { path: "/api/auth/google-cb", maxAge: 0 });
 
     return response;
   } catch (err) {

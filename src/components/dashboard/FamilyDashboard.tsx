@@ -148,7 +148,7 @@ function OverviewTab() {
   const user = useAuthStore((s) => s.user);
   const [stats, setStats] = useState({ patients: 0, activeBookings: 0, reports: 0, pendingReviews: 0 });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fetchData = useCallback(async () => {
@@ -187,22 +187,6 @@ function OverviewTab() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <LoadingGrid count={4} />
-        <div>
-          <Skeleton className="h-6 w-40 mb-3" />
-          <LoadingCards count={3} />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <ErrorState message={error} onRetry={fetchData} />;
-  }
 
   const statCards = [
     { label: 'Total Members', value: stats.patients, icon: <Users className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
@@ -247,13 +231,42 @@ function OverviewTab() {
         ))}
       </div>
 
-      {/* Quick Actions for new users */}
-      {!loading && stats.activeBookings === 0 && stats.patients === 0 && (
-        <Card className="rounded-2xl border-dashed border-2 border-forest-200 bg-forest-50/50">
-          <CardContent className="p-6 text-center">
-            <Heart className="h-8 w-8 text-forest-400 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-gray-800 mb-1">Get started with SevaSaathi</h3>
-            <p className="text-sm text-gray-500">Add a member profile from the Members tab, then search and book a caregiver.</p>
+      {/* Onboarding Guide for new users */}
+      {stats.activeBookings === 0 && stats.patients === 0 && (
+        <Card className="rounded-2xl border-2 border-forest-200 bg-gradient-to-br from-forest-50 to-lime-50/30 overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-forest-100 flex items-center justify-center">
+                <Heart className="h-5 w-5 text-forest-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-forest-900">Welcome to SevaSaathi!</h3>
+                <p className="text-sm text-forest-700/70">Get started in 3 simple steps</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+                <div className="w-7 h-7 rounded-lg bg-forest-900 text-lime-400 flex items-center justify-center text-xs font-bold shrink-0">1</div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Add a Member</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Add details about your family member who needs care</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+                <div className="w-7 h-7 rounded-lg bg-forest-900 text-lime-400 flex items-center justify-center text-xs font-bold shrink-0">2</div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Find a Caregiver</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Search verified caregivers near you</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+                <div className="w-7 h-7 rounded-lg bg-forest-900 text-lime-400 flex items-center justify-center text-xs font-bold shrink-0">3</div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Book & Pay</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Book a session and pay securely online</p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -311,7 +324,7 @@ function OverviewTab() {
 function PatientsTab() {
   const user = useAuthStore((s) => s.user);
   const [patients, setPatients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -378,10 +391,6 @@ function PatientsTab() {
       setSubmitting(false);
     }
   };
-
-  if (loading) {
-    return <LoadingCards count={3} />;
-  }
 
   if (error) {
     return <ErrorState message={error} onRetry={fetchPatients} />;
@@ -718,7 +727,7 @@ function FindCaregiversTab() {
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
   const [allCaregivers, setAllCaregivers] = useState<any[]>([]);
-  const [allLoading, setAllLoading] = useState(true);
+  const [allLoading, setAllLoading] = useState(false);
   const [bookingCaregiver, setBookingCaregiver] = useState<any>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingForm, setBookingForm] = useState({
@@ -938,12 +947,7 @@ function FindCaregiversTab() {
       )}
 
       {/* All Caregivers - always shown */}
-      {allLoading ? (
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-3">All Available Caregivers</p>
-          <LoadingCards count={6} />
-        </div>
-      ) : allCaregivers.length > 0 ? (
+      {!allLoading && allCaregivers.length > 0 ? (
         <div>
           <p className="text-sm font-medium text-gray-700 mb-3">
             All Available Caregivers ({allCaregivers.length})
@@ -1087,10 +1091,6 @@ function BookingsTab() {
       setCancelling(null);
     }
   };
-
-  if (loading) {
-    return <LoadingCards count={4} />;
-  }
 
   if (error) {
     return <ErrorState message={error} onRetry={fetchBookings} />;
@@ -1254,10 +1254,6 @@ function ReportsTab() {
       return [];
     }
   };
-
-  if (loading) {
-    return <LoadingCards count={3} />;
-  }
 
   if (error) {
     return <ErrorState message={error} onRetry={fetchBookings} />;
@@ -1535,10 +1531,6 @@ function ReviewsTab() {
     if (rating >= 2) return 'Below Average';
     return 'Poor';
   };
-
-  if (loading) {
-    return <LoadingCards count={3} />;
-  }
 
   if (error) {
     return <ErrorState message={error} onRetry={fetchBookings} />;
@@ -1829,10 +1821,6 @@ function ComplaintsTab() {
   const priorityLabel: Record<string, string> = {
     low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent',
   };
-
-  if (loading) {
-    return <LoadingCards count={3} />;
-  }
 
   if (error) {
     return <ErrorState message={error} onRetry={fetchComplaints} />;

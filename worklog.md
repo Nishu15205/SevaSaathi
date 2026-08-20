@@ -1184,3 +1184,40 @@ Stage Summary:
 - Credentials login works → Admin Dashboard renders with all sidebar items
 - All API endpoints (auth, admin/dashboard) returning 200
 
+
+---
+Task ID: dashboard-role-fix
+Agent: Main Agent
+Task: Fix new user dashboard (remove loading skeletons) and clarify caregiver vs family role selection in registration
+
+Work Log:
+- Analyzed uploaded screenshot showing Reviews tab stuck on loading skeletons
+- Identified all loading skeleton blocks in FamilyDashboard (6 tabs), CaregiverDashboard (6 tabs)
+- Changed all `useState(true)` for loading to `useState(false)` so content renders immediately
+- Removed all `if (loading) { return <LoadingCards /> }` blocks from FamilyDashboard and CaregiverDashboard
+- Redesigned OverviewTab onboarding for new users with 3-step welcome card (Add Member → Find Caregiver → Book & Pay)
+- Redesigned registration form role selection:
+  - Moved role selector to TOP of form with clear question: "How would you like to use SevaSaathi?"
+  - "I need care for my family" with description: "Find trusted caregivers for parents, elders, or family members at home"
+  - "I want to provide care services" with description: "Join as a caregiver, get bookings, and earn money"
+  - Google button dynamically shows: "Sign up with Google as Family Member" or "Sign up with Google as Caregiver"
+  - Submit button dynamically shows: "Create Family Account" or "Create Caregiver Account"
+- Updated backend to pass role through Google OAuth flow:
+  - google-go: stores role in `google_oauth_role` cookie
+  - google-cb: reads role cookie and uses it when creating new users
+  - google-simulate: accepts role parameter in request body
+  - LoginModal: passes `regRole` to both real and simulated Google flows
+- Verified with agent-browser:
+  - Landing page renders correctly
+  - Registration form shows clear role selection at top with descriptions
+  - Google button and submit button text change dynamically based on role
+  - Dashboard Overview tab shows actual content (stat cards, welcome message)
+  - Dashboard Reviews tab shows empty state (not loading skeletons)
+  - All tabs render immediately without loading skeletons
+
+Stage Summary:
+- No more loading skeletons on any dashboard tab
+- New users see welcome content immediately with onboarding steps
+- Registration form clearly distinguishes Family Member vs Caregiver with descriptions
+- Google OAuth flow now respects selected role (FAMILY or CAREGIVER)
+

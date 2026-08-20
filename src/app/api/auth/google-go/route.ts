@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Generates the real Google OAuth URL with the correct redirect_uri.
- * Stores the redirect_uri in a cookie so the callback can reuse it exactly.
+ * Stores the redirect_uri and role in cookies so the callback can reuse them.
  */
 export async function GET(req: NextRequest) {
   // Priority 1: Use origin passed from the client (browser's window.location.origin)
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   baseUrl = baseUrl.replace(/\/+$/, "");
 
   const redirectUri = `${baseUrl}/api/auth/google-cb`;
+  const role = req.nextUrl.searchParams.get("role") || "";
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-  // Store state + redirect_uri in cookies, then REDIRECT to Google
+  // Store state + redirect_uri + role in cookies, then REDIRECT to Google
   const response = NextResponse.redirect(googleUrl);
   response.cookies.set("google_oauth_state", state, {
     path: "/api/auth/google-cb",
@@ -50,6 +51,13 @@ export async function GET(req: NextRequest) {
   });
   // Store the redirect_uri so the callback uses the EXACT same value
   response.cookies.set("google_redirect_uri", redirectUri, {
+    path: "/api/auth/google-cb",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 600,
+  });
+  // Store the role so the callback knows whether to create FAMILY or CAREGIVER
+  response.cookies.set("google_oauth_role", role, {
     path: "/api/auth/google-cb",
     httpOnly: true,
     sameSite: "lax",
