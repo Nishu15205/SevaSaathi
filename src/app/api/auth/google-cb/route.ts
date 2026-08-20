@@ -9,7 +9,7 @@ import { encode } from "next-auth/jwt";
  * 3. Fetches the user profile from Google
  * 4. Upserts the user in the database
  * 5. Creates a NextAuth-compatible JWT session cookie
- * 6. Closes the popup window
+ * 6. Redirects to /?auth=success
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -18,17 +18,23 @@ export async function GET(req: NextRequest) {
   const error = searchParams.get("error");
 
   if (error) {
-    return popupCloseResponse(`Google sign-in failed: ${error}`);
+    return NextResponse.redirect(
+      new URL(`/?auth=error&message=${encodeURIComponent(error)}`, req.url)
+    );
   }
 
   if (!code || !state) {
-    return popupCloseResponse("Missing authorization code or state.");
+    return NextResponse.redirect(
+      new URL(`/?auth=error&message=${encodeURIComponent("Missing authorization code or state.")}`, req.url)
+    );
   }
 
   // Verify state (CSRF)
   const savedState = req.cookies.get("google_oauth_state")?.value;
   if (!savedState || savedState !== state) {
-    return popupCloseResponse("Invalid state parameter. Please try again.");
+    return NextResponse.redirect(
+      new URL(`/?auth=error&message=${encodeURIComponent("Invalid state parameter. Please try again.")}`, req.url)
+    );
   }
 
   // Determine protocol for cookie secure flag
@@ -58,7 +64,9 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error("Token exchange failed:", tokenData);
-      return popupCloseResponse("Failed to exchange authorization code.");
+      return NextResponse.redirect(
+        new URL(`/?auth=error&message=${encodeURIComponent("Failed to exchange authorization code.")}`, req.url)
+      );
     }
 
     // Step 2: Get user info from Google
@@ -70,7 +78,9 @@ export async function GET(req: NextRequest) {
     );
     const googleUser = await userRes.json();
     if (!googleUser.email) {
-      return popupCloseResponse("Could not get user info from Google.");
+      return NextResponse.redirect(
+        new URL(`/?auth=error&message=${encodeURIComponent("Could not get user info from Google.")}`, req.url)
+      );
     }
 
     // Step 3: Upsert user in database
@@ -114,8 +124,8 @@ export async function GET(req: NextRequest) {
       secret: process.env.NEXTAUTH_SECRET!,
     });
 
-    // Step 5: Set session cookie and close popup
-    const response = popupCloseResponse("success");
+    // Step 5: Set session cookie and redirect to /
+    const response = NextResponse.redirect(new URL("/?auth=success", req.url));
     response.cookies.set("next-auth.session-token", jwtToken, {
       path: "/",
       httpOnly: true,
@@ -139,36 +149,8 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("Google OAuth callback error:", err);
-    return popupCloseResponse("An error occurred during Google sign-in.");
+    return NextResponse.redirect(
+      new URL(`/?auth=error&message=${encodeURIComponent("An error occurred during Google sign-in.")}`, req.url)
+    );
   }
-}
-
-/**
- * Returns an HTML page that closes the popup and notifies the parent window.
- */
-function popupCloseResponse(message: string) {
-  const html = `<!DOCTYPE html>
-<html><head><title>Google Sign In</title></head>
-<body>
-<script>
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(
-        { type: 'google-oauth-callback', success: ${message === "success"} },
-        window.location.origin
-      );
-    }
-  } catch(e) {}
-  window.close();
-  // If window.close() doesn't work (some browsers block it), show a message
-  setTimeout(function() {
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;text-align:center;padding:20px;">' +
-      '<div><h2 style="color:#16a34a;">✓ Signed in successfully!</h2>' +
-      '<p style="color:#666;">You can close this window and return to SevaSaathi.</p></div></div>';
-  }, 1000);
-</script>
-</body></html>`;
-  return new NextResponse(html, {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
 }

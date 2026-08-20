@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
 
   const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-  const response = NextResponse.json({ url: googleUrl });
+  // Store state + redirect_uri in cookies, then REDIRECT to Google
+  const response = NextResponse.redirect(googleUrl);
   response.cookies.set("google_oauth_state", state, {
     path: "/api/auth/google-cb",
     httpOnly: true,

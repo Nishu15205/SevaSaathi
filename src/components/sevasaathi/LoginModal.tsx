@@ -129,7 +129,6 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const [tab, setTab] = useState<Tab>(defaultTab === "register" ? "register" : "login");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
 
@@ -173,7 +172,6 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setError("");
     setShowPassword(false);
     setLoading(false);
-    setGoogleLoading(false);
     setLoginEmail("");
     setLoginPassword("");
     setRegName("");
@@ -199,9 +197,8 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   /*  HANDLERS                                                         */
   /* ================================================================ */
 
-  /* ---- Google sign-in — real OAuth popup, fallback to simulated ---- */
+  /* ---- Google sign-in — redirect flow, fallback to simulated ---- */
   const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
     setGoogleError("");
     try {
       // Check if real Google OAuth is configured
@@ -209,115 +206,14 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       const { configured } = await checkRes.json();
 
       if (configured) {
-        // Real Google OAuth — use custom API to get correct redirect_uri
-        // Pass window.location.origin so the server uses the browser's actual URL
+        // Real Google OAuth — full-page redirect to /api/auth/google-go
         const origin = window.location.origin;
-        const goRes = await fetch(`/api/auth/google-go?origin=${encodeURIComponent(origin)}`);
-        const goData = await goRes.json();
-
-        if (!goData.url) {
-          setGoogleError("Failed to start Google sign-in. Please try again.");
-          setGoogleLoading(false);
-          return;
-        }
-
-        const width = 500;
-        const height = 650;
-        const left = (window.screen.width - width) / 2;
-        const top = (window.screen.height - height) / 2;
-
-        const popup = window.open(
-          goData.url,
-          "google-auth",
-          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-        );
-
-        if (!popup) {
-          setGoogleError(
-            "Popup blocked! Please allow popups for this site and try again."
-          );
-          setGoogleLoading(false);
-          return;
-        }
-
-        // Listen for postMessage from popup callback
-        let settled = false;
-        const cleanup = () => {
-          if (settled) return;
-          settled = true;
-          window.removeEventListener("message", handleMessage);
-          clearInterval(checkInterval);
-        };
-
-        const completeLogin = async () => {
-          cleanup();
-          const sessionRes = await fetch("/api/auth/session");
-          const session = await sessionRes.json();
-          if (session?.user) {
-            setAuth({
-              id: session.user.id || "",
-              email: session.user.email || "",
-              name: session.user.name || "",
-              phone: "",
-              role: (session.user as any).role || "FAMILY",
-              avatarUrl: session.user.image || null,
-              subscription: "NONE",
-              patientProfiles: [],
-              caregiverProfile: null,
-            });
-            toast({
-              title: "Welcome! 🎉",
-              description: "Signed in with Google as " + session.user.email,
-            });
-            setGoogleLoading(false);
-            handleClose();
-          } else {
-            setGoogleLoading(false);
-          }
-        };
-
-        const handleMessage = async (event: MessageEvent) => {
-          if (event.data?.type === "google-oauth-callback") {
-            cleanup();
-            if (event.data.success) {
-              await completeLogin();
-            } else {
-              setGoogleError("Google sign-in was cancelled or failed.");
-              setGoogleLoading(false);
-            }
-          }
-        };
-        window.addEventListener("message", handleMessage);
-
-        // Fallback: poll for session if postMessage doesn't fire
-        const checkInterval = setInterval(async () => {
-          if (popup.closed) {
-            cleanup();
-            setGoogleLoading(false);
-            return;
-          }
-          try {
-            const res = await fetch("/api/auth/session");
-            const session = await res.json();
-            if (session?.user) {
-              await completeLogin();
-            }
-          } catch {
-            // keep polling
-          }
-        }, 2000);
-
-        // Safety timeout — 5 minutes
-        setTimeout(() => {
-          cleanup();
-          setGoogleLoading(false);
-        }, 5 * 60 * 1000);
+        window.location.href = `/api/auth/google-go?origin=${encodeURIComponent(origin)}`;
         return;
       }
     } catch {
       // If check fails, fall through to simulated flow
     }
-    setGoogleLoading(false);
     // Google OAuth not configured — open simulated sign-in
     setGoogleOpen(true);
   };
@@ -633,14 +529,9 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  disabled={googleLoading}
-                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 shadow-sm"
                 >
-                  {googleLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-                  ) : (
-                    <GoogleIcon />
-                  )}
+                  <GoogleIcon />
                   Continue with Google
                 </button>
 
@@ -757,14 +648,9 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  disabled={googleLoading}
-                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 shadow-sm"
                 >
-                  {googleLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-                  ) : (
-                    <GoogleIcon />
-                  )}
+                  <GoogleIcon />
                   Sign up with Google
                 </button>
 

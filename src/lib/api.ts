@@ -164,6 +164,16 @@ export const api = {
       request<{ payment: any }>('/api/payments', { method: 'POST', body: JSON.stringify(data) }),
     complete: (id: string) =>
       request<{ payment: any }>(`/api/payments/${id}`, { method: 'POST' }),
+    createOrder: (bookingId: string, amount: number) =>
+      request<{ orderId: string; amount: number; currency: string; key: string; bookingId: string; name: string; description: string }>('/api/payments/create-order', {
+        method: 'POST',
+        body: JSON.stringify({ bookingId, amount }),
+      }),
+    verify: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; bookingId: string }) =>
+      request<{ success: boolean; message: string }>('/api/payments/verify', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
   verifyAadhar: (imageBase64: string) =>
     request<{ verified: boolean; aadharNumber?: string; name?: string; dob?: string; gender?: string; address?: string; error?: string }>('/api/verify-aadhar', { method: 'POST', body: JSON.stringify({ image: imageBase64 }) }),

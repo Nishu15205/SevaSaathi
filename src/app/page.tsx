@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { AnimatePresence, motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 
 import Navbar from "@/components/sevasaathi/Navbar";
 import HeroSection from "@/components/sevasaathi/HeroSection";
@@ -18,6 +20,35 @@ import CTASection from "@/components/sevasaathi/CTASection";
 import Footer from "@/components/sevasaathi/Footer";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import LoginModal from "@/components/sevasaathi/LoginModal";
+
+function AuthCallbackHandler() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const authStatus = searchParams.get("auth");
+    const message = searchParams.get("message");
+
+    if (authStatus === "success") {
+      toast({
+        title: "Welcome! 🎉",
+        description: "Signed in with Google successfully.",
+      });
+      // Clean URL without re-render
+      router.replace("/", { scroll: false });
+    } else if (authStatus === "error") {
+      toast({
+        title: "Sign-in failed",
+        description: message || "Google sign-in was cancelled or failed. Please try again.",
+        variant: "destructive",
+      });
+      router.replace("/", { scroll: false });
+    }
+  }, [searchParams, router, toast]);
+
+  return null;
+}
 
 function LandingPage({ onGoDashboard }: { onGoDashboard: () => void }) {
   const [loginOpen, setLoginOpen] = useState(false);
@@ -61,29 +92,32 @@ export default function Home() {
   const showDashboard = isAuthenticated && !!user;
 
   return (
-    <AnimatePresence mode="wait">
-      {showDashboard ? (
-        <motion.div
-          key="dashboard"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="min-h-screen bg-gray-50"
-        >
-          <DashboardShell onBack={clearAuth} />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="landing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <LandingPage onGoDashboard={() => {}} />
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <>
+      <AuthCallbackHandler />
+      <AnimatePresence mode="wait">
+        {showDashboard ? (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="min-h-screen bg-gray-50"
+          >
+            <DashboardShell onBack={clearAuth} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="landing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <LandingPage onGoDashboard={() => {}} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
