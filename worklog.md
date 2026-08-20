@@ -1164,3 +1164,23 @@ Stage Summary:
 - PaymentDialog now uses real Razorpay checkout SDK
 - Google OAuth redirect callback shows success/error toast and cleans URL
 - Everything browser-verified
+---
+Task ID: 1
+Agent: Main
+Task: Fix dev server, verify Google OAuth, verify app works
+
+Work Log:
+- Found deprecated middleware.ts in Next.js 16 causing server crash - removed it
+- Restarted dev server with correct process management (no nohup, proper backgrounding)
+- Verified .env has correct Google OAuth credentials
+- Verified google-configured endpoint returns { configured: true }
+- Tested Google OAuth flow via Agent Browser - correctly redirects to real accounts.google.com with proxy URL as redirect_uri
+- Tested credentials login (admin@sevasaathi.in) - successfully logs in and shows Admin Dashboard
+- Verified no runtime errors in dev.log
+
+Stage Summary:
+- Dev server is stable and responding (HTTP 200)
+- Google OAuth uses proxy URL (https://preview-chat-...space-z.ai/api/auth/google-cb) NOT localhost
+- Credentials login works → Admin Dashboard renders with all sidebar items
+- All API endpoints (auth, admin/dashboard) returning 200
+
