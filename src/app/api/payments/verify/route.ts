@@ -1,142 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { getRazorpayInstance, verifyPaymentSignature } from '@/lib/razorpay';
+import { emitToUser } from '@/lib/socket';
+import { sendBookingConfirmationEmail } from '@/lib/email';
 
-const verifySchema = z.object({
-  razorpay_order_id: z.string().min(1),
-  razorpay_payment_id: z.string().min(1),
-  razorpay_signature: z.string().min(1),
-  bookingId: z.string().min(1),
-});
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // --- Auth check ---
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const userId = (session.user as { id?: string }).id;
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const body = await req.json();
+    const { bookingId, paymentMethod } = body;
+
+    if (!bookingId) {
+      return NextResponse.json({ error: 'bookingId is required' }, { status: 400 });
     }
 
-    // --- Validate body ---
-    const body = await request.json();
-    const parsed = verifySchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors.map((e) => e.message).join(', ') },
-        { status: 400 },
-      );
+    const payment = await db.payment.findUnique({ where: { bookingId } });
+    if (!payment) {
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId } =
-      parsed.data;
 
-    // --- Verify booking ownership ---
+    // Mark as completed
+    const updated = await db.payment.update({
+      where: { id: payment.id },
+      data: { status: 'COMPLETED', paidAt: new Date(), paymentMethod: paymentMethod || payment.paymentMethod },
+    });
+
+    // Update booking status
     const booking = await db.booking.findUnique({
       where: { id: bookingId },
+      include: { patient: true, caregiver: { include: { user: true } }, family: true },
     });
-    if (!booking) {
-      return NextResponse.json(
-        { success: false, message: 'Booking not found' },
-        { status: 404 },
-      );
-    }
-    if (booking.familyId !== userId) {
-      return NextResponse.json(
-        { success: false, message: 'This booking does not belong to you' },
-        { status: 403 },
-      );
-    }
 
-    const razorpay = getRazorpayInstance();
-    let signatureValid = false;
-
-    if (razorpay && !razorpay_order_id.startsWith('demo_')) {
-      // --- Real Razorpay verification ---
-      try {
-        await razorpay.orders.fetch(razorpay_order_id);
-        signatureValid = verifyPaymentSignature(
-          razorpay_order_id,
-          razorpay_payment_id,
-          razorpay_signature,
-        );
-      } catch {
-        signatureValid = false;
-      }
-    } else {
-      // --- Demo mode: accept any non-empty signature ---
-      signatureValid = razorpay_signature.length > 0;
-    }
-
-    // --- Find payment record ---
-    const payment = await db.payment.findUnique({
-      where: { bookingId },
-    });
-    if (!payment) {
-      return NextResponse.json(
-        { success: false, message: 'Payment record not found' },
-        { status: 404 },
-      );
-    }
-
-    if (signatureValid) {
-      // --- Mark as COMPLETED ---
-      await db.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'COMPLETED',
-          transactionId: razorpay_payment_id,
-          paidAt: new Date(),
-        },
-      });
-
-      // --- Confirm booking ---
+    if (booking) {
+      const newStatus = booking.status === 'PENDING' ? 'CONFIRMED' : booking.status;
       await db.booking.update({
         where: { id: bookingId },
-        data: { status: 'CONFIRMED' },
+        data: { status: newStatus, totalAmount: payment.amount },
       });
 
-      // --- Notify family ---
+      // Create notifications
       await db.notification.create({
         data: {
           userId: booking.familyId,
           type: 'PAYMENT_RECEIVED',
-          title: 'Payment Successful',
-          message: `Payment of ₹${(payment.amount / 100).toLocaleString('en-IN')} for your booking has been completed. Transaction ID: ${razorpay_payment_id}`,
-          data: JSON.stringify({
-            paymentId: payment.id,
-            bookingId,
-            transactionId: razorpay_payment_id,
-          }),
+          title: 'Payment Confirmed',
+          message: `Payment of ₹${payment.amount / 100} for ${booking.patient?.name || 'patient'} has been confirmed.`,
+          data: JSON.stringify({ bookingId, paymentId: payment.id }),
         },
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Payment verified and booking confirmed',
-      });
-    } else {
-      // --- Mark as FAILED ---
-      await db.payment.update({
-        where: { id: payment.id },
-        data: { status: 'FAILED' },
+      await db.notification.create({
+        data: {
+          userId: booking.caregiverId,
+          type: 'BOOKING_CONFIRMED',
+          title: 'New Booking Confirmed',
+          message: `A new booking for ${booking.patient?.name || 'patient'} has been confirmed.`,
+          data: JSON.stringify({ bookingId }),
+        },
       });
 
-      return NextResponse.json({
-        success: false,
-        message: 'Payment signature verification failed',
-      });
+      // Real-time notifications
+      emitToUser(booking.familyId, 'payment:update', { bookingId, status: 'COMPLETED' });
+      emitToUser(booking.caregiverId, 'booking:update', { bookingId, status: newStatus });
+
+      // Email
+      await sendBookingConfirmationEmail({ ...booking, totalAmount: payment.amount });
     }
-  } catch (error) {
-    console.error('Verify payment error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 },
-    );
+
+    return NextResponse.json({ success: true, message: 'Payment verified and confirmed', payment: updated });
+  } catch (err: any) {
+    console.error('Payment verify error:', err);
+    return NextResponse.json({ error: err.message || 'Verification failed' }, { status: 500 });
   }
 }

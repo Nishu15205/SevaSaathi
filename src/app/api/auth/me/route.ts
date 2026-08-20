@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         role: true,
         avatarUrl: true,
         subscription: true,
+        phoneVerified: true,
         isActive: true,
         lastLoginAt: true,
         createdAt: true,

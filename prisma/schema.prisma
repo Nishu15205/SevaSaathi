@@ -126,6 +126,8 @@ model User {
   avatarUrl      String?          @map("avatar_url")
   subscription   SubscriptionPlan @default(NONE)
   isActive       Boolean          @default(true) @map("is_active")
+  phoneVerified  Boolean          @default(false) @map("phone_verified")
+  otpSecret      String?          @map("otp_secret")
   lastLoginAt    DateTime?        @map("last_login_at")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
@@ -140,6 +142,7 @@ model User {
   notifications    Notification[]
   reviewedVerifications Verification[] @relation("VerificationReviewer")
   assignedComplaints    Complaint[] @relation("ComplaintAssignee")
+  withdrawals           Withdrawal[]
 
   @@map("users")
 }
@@ -214,6 +217,7 @@ model Caregiver {
   reviews       Review[]
   payments      Payment[]
   complaints    Complaint[]
+  withdrawals   Withdrawal[]
 
   @@index([city])
   @@index([isVerified])
@@ -302,8 +306,9 @@ model Payment {
   platformFee     Int           @default(0) @map("platform_fee")
   caregiverPayout Int           @default(0) @map("caregiver_payout") // amount - platformFee
   status          PaymentStatus @default(PENDING)
-  paymentMethod   String?       @map("payment_method") // "razorpay", "upi", etc.
+  paymentMethod   String?       @map("payment_method") // "stripe", "upi", "bank_transfer", "cash"
   transactionId   String?       @map("transaction_id")
+  upiId           String?       @map("upi_id")
   paidAt          DateTime?     @map("paid_at")
   refundedAt      DateTime?     @map("refunded_at")
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -427,4 +432,61 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@map("notifications")
+}
+
+// ============================================================
+// WITHDRAWALS (caregiver payout requests)
+// ============================================================
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+model Withdrawal {
+  id              String            @id @default(cuid())
+  caregiverId     String            @map("caregiver_id")
+  userId          String            @map("user_id")
+  amount          Int               // in paise
+  method          String            @default("bank_transfer") // "bank_transfer", "upi"
+  upiId           String?           @map("upi_id")
+  bankName        String?          @map("bank_name")
+  accountNumber   String?           @map("account_number")
+  ifscCode        String?           @map("ifsc_code")
+  accountHolder   String?           @map("account_holder")
+  status          WithdrawalStatus  @default(PENDING)
+  processedAt     DateTime?         @map("processed_at")
+  rejectionReason String?           @map("rejection_reason")
+  approvedBy      String?           @map("approved_by")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  caregiver Caregiver @relation(fields: [caregiverId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([caregiverId])
+  @@index([userId])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+// ============================================================
+// EMAIL LOG (for tracking sent emails)
+// ============================================================
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  body      String
+  status    String   @default("sent") // sent, failed
+  userId    String?  @map("user_id")
+ type      String?  // booking_confirmation, care_report, etc.
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("email_logs")
 }

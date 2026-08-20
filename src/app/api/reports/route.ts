@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
+import { emitToUser } from '@/lib/socket'
+import { sendCareReportEmail } from '@/lib/email'
 
 const createReportSchema = z.object({
   bookingId: z.string().min(1),
@@ -65,6 +67,12 @@ export async function POST(request: NextRequest) {
         data: JSON.stringify({ bookingId: data.bookingId, reportId: report.id }),
       },
     })
+
+    // Real-time notification
+    emitToUser(report.booking.family.id, 'report:new', { reportId: report.id, bookingId: data.bookingId })
+
+    // Email notification
+    sendCareReportEmail(report, report.booking as any).catch(() => {})
 
     return NextResponse.json({ report }, { status: 201 })
   } catch (error) {

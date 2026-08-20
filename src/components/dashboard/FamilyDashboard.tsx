@@ -188,6 +188,9 @@ function OverviewTab() {
     fetchData();
   }, [fetchData]);
 
+  const firstName = user?.name?.split(' ')[0] || 'there';
+  const isNewUser = stats.patients === 0 && stats.activeBookings === 0;
+
   const statCards = [
     { label: 'Total Members', value: stats.patients, icon: <Users className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
     { label: 'Active Bookings', value: stats.activeBookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'bg-blue-50 text-blue-700' },
@@ -200,9 +203,9 @@ function OverviewTab() {
       {/* Welcome */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900">
-          Welcome back, {user?.name?.split(' ')[0]}!
+          Welcome{isNewUser ? '' : ' back'}, {firstName}!
         </h2>
-        <p className="text-sm text-gray-400 mt-1">Here's what's happening with your care requests.</p>
+        <p className="text-sm text-gray-400 mt-1">{isNewUser ? "Get started with your care journey." : "Here's what's happening with your care requests."}</p>
       </div>
 
       {/* Stat Cards */}
@@ -232,7 +235,7 @@ function OverviewTab() {
       </div>
 
       {/* Onboarding Guide for new users */}
-      {stats.activeBookings === 0 && stats.patients === 0 && (
+      {isNewUser && (
         <Card className="rounded-2xl border-2 border-forest-200 bg-gradient-to-br from-forest-50 to-lime-50/30 overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-4">

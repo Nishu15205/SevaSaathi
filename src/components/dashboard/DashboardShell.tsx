@@ -64,6 +64,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Users', key: 'users', icon: <Users className="h-4 w-4" /> },
   { label: 'Verifications', key: 'verifications', icon: <ShieldCheck className="h-4 w-4" /> },
   { label: 'All Bookings', key: 'all-bookings', icon: <CalendarCheck className="h-4 w-4" /> },
+  { label: 'Withdrawals', key: 'withdrawals', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Reviews', key: 'reviews', icon: <Star className="h-4 w-4" /> },
   { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
 ];

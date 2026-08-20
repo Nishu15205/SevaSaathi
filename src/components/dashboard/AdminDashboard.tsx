@@ -6,7 +6,7 @@ import {
   Users, ShieldCheck, CalendarCheck, Star, AlertTriangle, IndianRupee,
   CheckCircle2, XCircle, Loader2, Eye, ChevronDown, ChevronUp, MapPin,
   Clock, BadgeCheck, Ban, FileText, TrendingUp, Activity, UserCog,
-  MessageSquare, Send, Search, Trash2,
+  MessageSquare, Send, Search, Trash2, Wallet,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -139,11 +139,11 @@ function OverviewTab() {
 
   const statCards = [
     { label: 'Total Users', value: stats?.totalUsers ?? 0, icon: Users },
-    { label: 'Total Caregivers', value: stats?.totalCaregivers ?? 0, icon: UserCog },
+    { label: 'Caregivers', value: stats?.totalCaregivers ?? 0, icon: UserCog },
     { label: 'Active Bookings', value: stats?.activeBookings ?? 0, icon: CalendarCheck },
-    { label: 'Completed Bookings', value: stats?.completedBookings ?? 0, icon: CheckCircle2 },
-    { label: 'Avg Rating', value: stats?.avgRating ?? '—', icon: Star, suffix: '' },
-    { label: 'Platform Revenue', value: stats?.platformRevenue ?? 0, icon: IndianRupee, prefix: '₹' },
+    { label: 'Completed', value: stats?.completedBookings ?? 0, icon: CheckCircle2 },
+    { label: 'Avg Rating', value: stats?.averageRating ?? 0, icon: Star, suffix: '/5' },
+    { label: 'Platform Revenue', value: Math.round((stats?.totalPlatformFee ?? 0) / 100), icon: IndianRupee, prefix: '₹' },
   ];
 
   const bookingsByStatus = stats?.bookingsByStatus ?? {};
@@ -899,6 +899,88 @@ function ComplaintsTab({ onViewUser }: { onViewUser: (userId: string, userName: 
   );
 }
 
+/* ─────────── WITHDRAWALS TAB ─────────── */
+function WithdrawalsTab() {
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('ALL');
+
+  const fetchWithdrawals = async () => {
+    setLoading(true);
+    try {
+      const params: any = {};
+      if (filter !== 'ALL') params.status = filter;
+      const res = await api.withdrawals.list(params);
+      setWithdrawals(res.withdrawals || []);
+    } catch { toast.error('Failed to load withdrawals'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchWithdrawals(); }, [filter]);
+
+  const handleAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    try {
+      await fetch(`/api/withdrawals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: action === 'APPROVE' ? 'PROCESSING' : 'REJECTED' }),
+      });
+      toast.success(`Withdrawal ${action === 'APPROVE' ? 'approved' : 'rejected'}`);
+      fetchWithdrawals();
+    } catch { toast.error('Action failed'); }
+  };
+
+  const wStatusColors: Record<string, string> = {
+    PENDING: 'bg-yellow-100 text-yellow-800', PROCESSING: 'bg-blue-100 text-blue-800',
+    COMPLETED: 'bg-green-100 text-green-800', REJECTED: 'bg-red-100 text-red-800', APPROVED: 'bg-emerald-100 text-emerald-800',
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Caregiver Withdrawals</h3>
+        <div className="flex gap-2">
+          {['ALL', 'PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED'].map((s) => (
+            <button key={s} onClick={() => setFilter(s)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${filter === s ? 'bg-[#14532d] text-white border-[#14532d]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>{s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}</button>
+          ))}
+        </div>
+      </div>
+      {loading ? <div className="space-y-3">{Array.from({length:3}).map((_,i)=><Skeleton key={i} className="h-20 rounded-2xl" />)}</div> : withdrawals.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground"><Wallet className="h-10 w-10 mx-auto mb-3 opacity-40" /><p className="text-sm">No withdrawal requests found</p></div>
+      ) : (
+        <div className="space-y-3">
+          {withdrawals.map((w: any) => (
+            <Card key={w.id} className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><Wallet className="h-5 w-5 text-amber-600" /></div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{w.user?.name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">{w.method === 'upi' ? `UPI: ${w.upiId}` : `${w.bankName || 'Bank'} ****${(w.accountNumber || '').slice(-4)}`}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm font-bold">₹{(w.amount / 100).toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(w.createdAt).toLocaleDateString('en-IN')}</p>
+                  </div>
+                  <Badge className={`rounded-full text-xs ${wStatusColors[w.status] || ''}`}>{w.status}</Badge>
+                  {w.status === 'PENDING' && (
+                    <div className="flex gap-1">
+                      <Button size="sm" className="rounded-lg h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleAction(w.id, 'APPROVE')}>Approve</Button>
+                      <Button size="sm" variant="outline" className="rounded-lg h-7 text-xs text-red-600 border-red-200" onClick={() => handleAction(w.id, 'REJECT')}>Reject</Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────── MAIN COMPONENT ─────────── */
 export function AdminDashboard({ activeTab }: { activeTab: string }) {
   const user = useAuthStore((s) => s.user);
@@ -929,6 +1011,7 @@ export function AdminDashboard({ activeTab }: { activeTab: string }) {
             {activeTab === 'users' && <motion.div key="users" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><UsersTab onViewUser={handleViewUser} /></motion.div>}
             {activeTab === 'verifications' && <motion.div key="verifications" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><VerificationsTab onViewUser={handleViewUser} /></motion.div>}
             {activeTab === 'all-bookings' && <motion.div key="all-bookings" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><AllBookingsTab onViewUser={handleViewUser} /></motion.div>}
+            {activeTab === 'withdrawals' && <motion.div key="withdrawals" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><WithdrawalsTab /></motion.div>}
             {activeTab === 'reviews' && <motion.div key="reviews" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ReviewsTab onViewUser={handleViewUser} /></motion.div>}
             {activeTab === 'complaints' && <motion.div key="complaints" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ComplaintsTab onViewUser={handleViewUser} /></motion.div>}
           </AnimatePresence>

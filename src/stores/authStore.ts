@@ -10,6 +10,7 @@ export interface User {
   role: "FAMILY" | "CAREGIVER" | "ADMIN";
   avatarUrl?: string | null;
   subscription?: string;
+  phoneVerified?: boolean;
   patientProfiles?: { id: string; name: string; age: number; gender: string; relationship: string; city: string; mobilityStatus: string; isActive: boolean }[];
   caregiverProfile?: {
     id: string;
