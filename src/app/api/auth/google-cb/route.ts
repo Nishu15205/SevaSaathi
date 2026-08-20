@@ -3,13 +3,37 @@ import { db } from "@/lib/db";
 import { encode } from "next-auth/jwt";
 
 /**
- * Handles the Google OAuth callback manually.
- * 1. Verifies the state token (CSRF)
- * 2. Exchanges the authorization code for access/refresh tokens
- * 3. Fetches the user profile from Google
- * 4. Upserts the user in the database
- * 5. Creates a NextAuth-compatible JWT session cookie
- * 6. Redirects to /?auth=success
+ * Get the correct external base URL from the google_redirect_uri cookie.
+ * This was stored during google-go from window.location.origin.
+ * Falls back to X-Forwarded headers, then req.url.
+ */
+function getExternalOrigin(req: NextRequest): string {
+  // Priority 1: Use the redirect_uri cookie (set from window.location.origin)
+  const redirectUri = req.cookies.get("google_redirect_uri")?.value;
+  if (redirectUri) {
+    try {
+      return new URL(redirectUri).origin;
+    } catch {}
+  }
+
+  // Priority 2: X-Forwarded headers
+  const proto = req.headers.get("x-forwarded-proto");
+  const host = req.headers.get("x-forwarded-host");
+  if (proto && host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
+    return `${proto}://${host}`;
+  }
+
+  // Priority 3: req.url (direct access only)
+  return new URL(req.url).origin;
+}
+
+/** Redirect to a path using the correct external URL */
+function redirectTo(req: NextRequest, path: string): NextResponse {
+  return NextResponse.redirect(`${getExternalOrigin(req)}${path}`);
+}
+
+/**
+ * Handles the Google OAuth callback.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -18,34 +42,25 @@ export async function GET(req: NextRequest) {
   const error = searchParams.get("error");
 
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/?auth=error&message=${encodeURIComponent(error)}`, req.url)
-    );
+    return redirectTo(req, `/?auth=error&message=${encodeURIComponent(error)}`);
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(
-      new URL(`/?auth=error&message=${encodeURIComponent("Missing authorization code or state.")}`, req.url)
-    );
+    return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Missing authorization code or state.")}`);
   }
 
   // Verify state (CSRF)
   const savedState = req.cookies.get("google_oauth_state")?.value;
   if (!savedState || savedState !== state) {
-    return NextResponse.redirect(
-      new URL(`/?auth=error&message=${encodeURIComponent("Invalid state parameter. Please try again.")}`, req.url)
-    );
+    return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Invalid state parameter. Please try again.")}`);
   }
 
-  // Determine protocol for cookie secure flag
-  const proto = req.headers.get("x-forwarded-proto") || "https";
+  // Use the EXACT redirect_uri stored during google-go
+  const redirectUri = req.cookies.get("google_redirect_uri")?.value || `${getExternalOrigin(req)}/api/auth/google-cb`;
 
-  // Use the EXACT redirect_uri that was stored during the auth request
-  // This avoids mismatch when proxy headers differ between requests
-  const redirectUri = req.cookies.get("google_redirect_uri")?.value || (() => {
-    const host = req.headers.get("host") || "localhost:3000";
-    return `${proto}://${host}/api/auth/google-cb`;
-  })();
+  // Cookie secure flag
+  const proto = req.headers.get("x-forwarded-proto");
+  const isSecure = proto === "https" || redirectUri.startsWith("https");
 
   try {
     // Step 1: Exchange code for tokens
@@ -64,38 +79,26 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error("Token exchange failed:", tokenData);
-      return NextResponse.redirect(
-        new URL(`/?auth=error&message=${encodeURIComponent("Failed to exchange authorization code.")}`, req.url)
-      );
+      return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Failed to exchange authorization code.")}`);
     }
 
     // Step 2: Get user info from Google
-    const userRes = await fetch(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      }
-    );
+    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
     const googleUser = await userRes.json();
     if (!googleUser.email) {
-      return NextResponse.redirect(
-        new URL(`/?auth=error&message=${encodeURIComponent("Could not get user info from Google.")}`, req.url)
-      );
+      return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Could not get user info from Google.")}`);
     }
 
     // Step 3: Upsert user in database
-    const existing = await db.user.findUnique({
-      where: { email: googleUser.email },
-    });
+    const existing = await db.user.findUnique({ where: { email: googleUser.email } });
 
     let user;
     if (existing) {
       user = await db.user.update({
         where: { email: googleUser.email },
-        data: {
-          lastLoginAt: new Date(),
-          avatarUrl: googleUser.picture || existing.avatarUrl,
-        },
+        data: { lastLoginAt: new Date(), avatarUrl: googleUser.picture || existing.avatarUrl },
       });
     } else {
       user = await db.user.create({
@@ -114,43 +117,32 @@ export async function GET(req: NextRequest) {
     // Step 4: Create a NextAuth-compatible JWT
     const jwtToken = await encode({
       token: {
-        sub: user.id,
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.avatarUrl,
-        role: user.role,
+        sub: user.id, id: user.id, email: user.email,
+        name: user.name, picture: user.avatarUrl, role: user.role,
       },
       secret: process.env.NEXTAUTH_SECRET!,
     });
 
-    // Step 5: Set session cookie and redirect to /
-    const response = NextResponse.redirect(new URL("/?auth=success", req.url));
+    // Step 5: Redirect using CORRECT external URL
+    const origin = getExternalOrigin(req);
+    const response = NextResponse.redirect(`${origin}/?auth=success`);
     response.cookies.set("next-auth.session-token", jwtToken, {
       path: "/",
       httpOnly: true,
       sameSite: "lax",
-      secure: proto === "https",
+      secure: isSecure,
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    console.log("[google-cb] Session cookie set for user:", user.email, "role:", user.role);
+    console.log(`[google-cb] Session set for: ${googleUser.email}, redirect → ${origin}`);
 
-    // Clear the state and redirect_uri cookies
-    response.cookies.set("google_oauth_state", "", {
-      path: "/api/auth/google-cb",
-      maxAge: 0,
-    });
-    response.cookies.set("google_redirect_uri", "", {
-      path: "/api/auth/google-cb",
-      maxAge: 0,
-    });
+    // Clear state cookies
+    response.cookies.set("google_oauth_state", "", { path: "/api/auth/google-cb", maxAge: 0 });
+    response.cookies.set("google_redirect_uri", "", { path: "/api/auth/google-cb", maxAge: 0 });
 
     return response;
   } catch (err) {
     console.error("Google OAuth callback error:", err);
-    return NextResponse.redirect(
-      new URL(`/?auth=error&message=${encodeURIComponent("An error occurred during Google sign-in.")}`, req.url)
-    );
+    return redirectTo(req, `/?auth=error&message=${encodeURIComponent("An error occurred during Google sign-in.")}`);
   }
 }
