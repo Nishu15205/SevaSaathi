@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=720">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+@page {
+    size: 720px 1020px;
+    margin: 0;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 720px;
+    background: #052e16;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+@media screen {
+    html {
+        height: auto;
+        display: flex;
+        justify-content: center;
+        background: #052e16;
+    }
+    body {
+        margin: 20px auto;
+    }
+}
+
+/* ===== COVER PAGE ===== */
+.cover {
+    width: 720px;
+    height: 1020px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    break-after: page;
+    overflow: hidden;
+    background: #052e16;
+}
+
+.cover-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        linear-gradient(rgba(163, 230, 53, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(163, 230, 53, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+.cover-circle-1 {
+    position: absolute;
+    top: -100px;
+    right: 0px;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(163, 230, 53, 0.08) 0%, transparent 70%);
+}
+
+.cover-circle-2 {
+    position: absolute;
+    bottom: 60px;
+    left: 0px;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    border: 1px solid rgba(163, 230, 53, 0.1);
+}
+
+.cover-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #a3e635;
+    margin-bottom: 42px;
+    position: relative;
+}
+
+.cover-tag::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 4px;
+    background: #a3e635;
+    border-radius: 2px;
+    margin: 14px auto 0 auto;
+}
+
+.cover-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 88px;
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 0.95;
+    margin: 0 0 42px 0;
+    text-align: center;
+    letter-spacing: -1px;
+}
+
+.cover-tagline {
+    font-size: 17px;
+    font-weight: 400;
+    color: #d1d5db;
+    margin: 0 0 42px 0;
+    text-align: center;
+    max-width: 500px;
+}
+
+.cover-subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: #9ca3af;
+    margin: 0;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.cover-bottom {
+    position: absolute;
+    bottom: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.cover-date {
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 1px;
+}
+
+.cover-version {
+    font-size: 10px;
+    color: #4b5563;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* ===== MAIN CONTENT ===== */
+.main-content {
+    padding: 55px 60px 50px 60px;
+}
+
+/* Chapter headers */
+.chapter-header {
+    break-after: avoid;
+    break-inside: avoid;
+    margin-top: 28px;
+}
+
+.section-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #a3e635;
+    margin-bottom: 8px;
+}
+
+.section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    margin: 0 0 16px 0;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 3px;
+    background: #a3e635;
+    border-radius: 2px;
+    margin-top: 12px;
+}
+
+.section-title-sm {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.3;
+    margin: 0 0 8px 0;
+}
+
+/* Divider removed - using ::after pseudo-element on .section-title */
+
+.body-text {
+    font-size: 14.5px;
+    font-weight: 400;
+    color: #d1d5db;
+    line-height: 1.7;
+    margin: 0 0 14px 0;
+}
+
+.body-text:last-child {
+    margin-bottom: 0;
+}
+
+.body-text strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.highlight {
+    color: #a3e635;
+    font-weight: 600;
+}
+
+/* Cards */
+.card {
+    background: rgba(20, 83, 45, 0.5);
+    border: 1px solid rgba(163, 230, 53, 0.12);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    break-inside: avoid;
+}
+
+.card-accent {
+    border-left: 3px solid #a3e635;
+}
+
+.card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 8px 0;
+}
+
+.card-text {
+    font-size: 13.5px;
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.card-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #a3e635;
+    background: rgba(163, 230, 53, 0.1);
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+/* Feature cards grid */
+.feature-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 4px;
+}
+
+.feature-card {
+    flex: 1 1 290px;
+    max-width: 100%;
+    background: rgba(20, 83, 45, 0.4);
+    border: 1px solid rgba(163, 230, 53, 0.1);
+    border-radius: 12px;
+    padding: 18px 20px;
+    break-inside: avoid;
+}
+
+.feature-card .card-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    margin-bottom: 8px;
+}
+
+.feature-card .card-title {
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.feature-card .card-text {
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+/* Steps flow */
+.step-flow {
+    margin-top: 4px;
+}
+
+.step-item {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    break-inside: avoid;
+}
+
+.step-num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: #a3e635;
+    color: #052e16;
+    font-size: 14px;
+    font-weight: 900;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 4px 0;
+}
+
+.step-text {
+    font-size: 12.5px;
+    color: #9ca3af;
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* Tech stack grid */
+.tech-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.tech-card {
+    flex: 1 1 190px;
+    max-width: 100%;
+    background: rgba(20, 83, 45, 0.4);
+    border: 1px solid rgba(163, 230, 53, 0.08);
+    border-radius: 10px;
+    padding: 16px 18px;
+    break-inside: avoid;
+}
+
+.tech-card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #a3e635;
+    margin-bottom: 8px;
+}
+
+.tech-card-text {
+    font-size: 12.5px;
+    color: #d1d5db;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Stats grid */
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.stat-item {
+    flex: 1 1 140px;
+    max-width: 100%;
+    text-align: center;
+    padding: 18px 10px;
+    background: rgba(20, 83, 45, 0.35);
+    border: 1px solid rgba(163, 230, 53, 0.08);
+    border-radius: 10px;
+    break-inside: avoid;
+}
+
+.stat-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    font-weight: 900;
+    color: #a3e635;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+
+.stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #9ca3af;
+    line-height: 1.3;
+}
+
+/* DB grid */
+.db-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.db-card {
+    flex: 1 1 190px;
+    max-width: 100%;
+    background: rgba(20, 83, 45, 0.3);
+    border: 1px solid rgba(163, 230, 53, 0.07);
+    border-radius: 8px;
+    padding: 12px 14px;
+    break-inside: avoid;
+}
+
+.db-card-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.db-card-desc {
+    font-size: 11px;
+    color: #9ca3af;
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Role sections */
+.role-section {
+    margin-bottom: 16px;
+    break-inside: avoid;
+}
+
+.role-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #a3e635;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.role-list {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.role-list li {
+    font-size: 13px;
+    color: #d1d5db;
+    line-height: 1.6;
+    margin-bottom: 3px;
+}
+
+/* Security list */
+.sec-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+    break-inside: avoid;
+}
+
+.sec-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    background: #a3e635;
+    border-radius: 50%;
+    margin-top: 7px;
+}
+
+.sec-text {
+    font-size: 13.5px;
+    color: #d1d5db;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.sec-text strong {
+    color: #ffffff;
+}
+
+/* Roadmap list */
+.roadmap-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+    break-inside: avoid;
+}
+
+.roadmap-line {
+    flex-shrink: 0;
+    width: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 2px;
+}
+
+.roadmap-dot {
+    width: 8px;
+    height: 8px;
+    background: #a3e635;
+    border-radius: 50%;
+}
+
+.roadmap-text {
+    font-size: 13.5px;
+    color: #d1d5db;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.roadmap-text strong {
+    color: #ffffff;
+}
+
+/* ===== ENDING PAGE ===== */
+.ending {
+    width: 720px;
+    height: 1020px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    break-before: page;
+    overflow: hidden;
+    background: #052e16;
+}
+
+.ending-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        linear-gradient(rgba(163, 230, 53, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(163, 230, 53, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+.ending-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    border: 1px solid rgba(163, 230, 53, 0.06);
+}
+
+.ending-bar {
+    width: 50px;
+    height: 3px;
+    background: #a3e635;
+    border-radius: 2px;
+    margin-bottom: 42px;
+}
+
+.ending-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.25;
+    text-align: center;
+    margin: 0 60px 16px 60px;
+}
+
+.ending-subtitle {
+    font-size: 15px;
+    color: #9ca3af;
+    text-align: center;
+    margin: 0 60px 40px 60px;
+    line-height: 1.6;
+}
+
+.ending-contact {
+    font-size: 14px;
+    color: #a3e635;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.ending-brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: #ffffff;
+    margin-top: 30px;
+}
+
+.ending-bottom {
+    position: absolute;
+    bottom: 45px;
+    font-size: 10px;
+    color: #4b5563;
+    letter-spacing: 1px;
+}
+
+/* Algorithm breakdown card */
+.algo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.algo-label {
+    flex: 1;
+    font-size: 12.5px;
+    color: #d1d5db;
+}
+
+.algo-bar-bg {
+    width: 120px;
+    height: 10px;
+    background: rgba(163, 230, 53, 0.1);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.algo-bar-fill {
+    height: 100%;
+    background: #a3e635;
+    border-radius: 5px;
+}
+
+.algo-pct {
+    font-size: 12px;
+    font-weight: 700;
+    color: #a3e635;
+    width: 35px;
+    text-align: right;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== COVER PAGE ===== -->
+<div class="cover">
+    <div class="cover-grid"></div>
+    <div class="cover-circle-1"></div>
+    <div class="cover-circle-2"></div>
+
+    <div class="cover-tag">Product Overview</div>
+    <div class="cover-title">SevaSaathi</div>
+    <p class="cover-tagline">Verified Home Care & Elder Support Platform</p>
+    <p class="cover-subtitle">Technical Architecture & Platform Capabilities</p>
+
+    <div class="cover-bottom">
+        <div class="cover-version">Version 1.0</div>
+        <div class="cover-date">2025</div>
+    </div>
+</div>
+
+<!-- ===== ALL BODY CONTENT ===== -->
+<div class="main-content">
+
+    <!-- SECTION 1: The Problem -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 01</div>
+        <div class="section-title">The Problem</div>
+        </div>
+
+    <p class="body-text">India is undergoing a profound demographic transformation. By 2026, the country will be home to over <strong>140 million elderly citizens</strong>, making it one of the fastest-aging populations in the developing world. Yet the infrastructure to support this shift remains dangerously inadequate. Unlike Western nations that built elder care systems over decades, India faces this challenge with fragmented services, no standardized quality benchmarks, and a workforce that is largely unorganized and unverified.</p>
+
+    <p class="body-text">Families seeking home care for aging parents or recovering patients confront a landscape of uncertainty. There is <strong>no trusted marketplace</strong> to find qualified caregivers. Most families rely on word-of-mouth referrals from neighbors or local agencies with zero accountability. When a caregiver underperforms, neglects medication schedules, or mistreats an elderly parent, there is no recourse, no review system, and no oversight body to turn to. The emotional toll on families already dealing with the stress of caregiving is immense.</p>
+
+    <p class="body-text">Pricing is equally opaque. Caregiver fees vary wildly between providers with no correlation to quality or experience. Families cannot compare options, verify credentials, or track the care their loved ones receive in real time. The entire ecosystem operates on <strong>trust without verification</strong>, and the consequences fall on the most vulnerable members of society. SevaSaathi exists to solve every one of these pain points with a single, comprehensive digital platform.</p>
+
+    <!-- SECTION 2: The Solution -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 02</div>
+        <div class="section-title">The Solution: SevaSaathi</div>
+        </div>
+
+    <p class="body-text">SevaSaathi is a <strong>complete digital platform</strong> that connects families in need of home care with thoroughly verified, qualified caregivers. Unlike generic classifieds or unstructured referral networks, SevaSaathi provides an end-to-end experience: from creating a detailed patient profile with medical history and dietary requirements, through AI-powered smart matching that considers skill sets, location proximity, experience levels, and real-time availability, all the way to secure payment processing and post-care reviews.</p>
+
+    <p class="body-text">At its core, the platform features a <strong>real-time care monitoring system</strong> powered by Socket.io. Caregivers submit daily care reports documenting the patient's activities, mood, meals, and medication adherence. Families receive instant notifications and can monitor care quality as it happens, not days later. This transparency layer transforms home care from a blind trust exercise into a data-driven, accountable service delivery model.</p>
+
+    <p class="body-text">The platform is built on a modern tech stack featuring Next.js 16 with React 19, TypeScript, and Tailwind CSS 4. It runs as a Progressive Web App for offline access, supports multiple authentication methods including Google OAuth and phone OTP, and integrates AI-powered document verification using the z-ai-web-dev-sdk for Aadhaar OCR processing. Every design decision prioritizes reliability, speed, and the specific needs of the Indian home care market.</p>
+
+    <!-- SECTION 3: Key Platform Features -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 03</div>
+        <div class="section-title">Key Platform Features</div>
+        </div>
+
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="card-badge">AI Engine</div>
+            <div class="card-title">Smart Matching Engine</div>
+            <div class="card-text">A 5-dimension weighted algorithm evaluates caregivers across skill match (30%), location proximity (25%), experience level (20%), real-time availability (15%), and historical rating (10%). This produces a composite relevance score that surfaces the best-fit caregivers first, eliminating guesswork for families.</div>
+        </div>
+        <div class="feature-card">
+            <div class="card-badge">Dashboards</div>
+            <div class="card-title">Multi-Role Interface</div>
+            <div class="card-text">Three fully tailored dashboards serve Families, Caregivers, and Administrators. Each role sees only the features and data relevant to their workflow. Families manage patients and bookings, caregivers handle schedules and reports, admins oversee the entire platform with analytics and approval tools.</div>
+        </div>
+        <div class="feature-card">
+            <div class="card-badge">Real-Time</div>
+            <div class="card-title">Live Care Monitoring</div>
+            <div class="card-text">Socket.io powers instant bidirectional communication between caregivers and families. When a caregiver submits a daily care report, families receive push notifications immediately. The system tracks activities, mood changes, food intake, and medication compliance in structured, reviewable reports.</div>
+        </div>
+        <div class="feature-card">
+            <div class="card-badge">Payments</div>
+            <div class="card-title">Secure Payment System</div>
+            <div class="card-text">UPI deep link integration enables instant payments via any Indian UPI app. Razorpay is integrated as a secondary gateway for maximum coverage. The platform charges a transparent 10% fee, with 90% going directly to the caregiver. Full payment history and withdrawal tracking are built in.</div>
+        </div>
+        <div class="feature-card">
+            <div class="card-badge">Verification</div>
+            <div class="card-title">AI Document Verification</div>
+            <div class="card-text">Caregivers must verify their identity through 7 document types including Aadhaar, PAN, and professional certificates. AI-powered Aadhaar OCR extracts and validates data automatically using the z-ai-web-dev-sdk. Administrators review and approve or reject submissions before a caregiver can receive bookings.</div>
+        </div>
+        <div class="feature-card">
+            <div class="card-badge">Resolution</div>
+            <div class="card-title">Complaint & Resolution</div>
+            <div class="card-text">A structured complaint system with priority levels (Low, Medium, High, Critical) ensures every issue is tracked to resolution. Administrators are auto-assigned based on workload, and families can escalate unresolved complaints. The entire lifecycle is logged for transparency and accountability.</div>
+        </div>
+    </div>
+
+    <!-- SECTION 4: How It Works -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 04</div>
+        <div class="section-title">How It Works</div>
+        </div>
+
+    <p class="body-text">The SevaSaathi workflow is designed to be intuitive for families while maintaining rigorous quality controls on the caregiver side. Here is the complete journey from search to sustained care:</p>
+
+    <div class="step-flow">
+        <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <div class="step-title">Create Patient Profile</div>
+                <div class="step-text">The family registers and creates a detailed patient profile including medical history, dietary requirements and restrictions, mobility status, and any special care needs. This data powers the AI matching engine and ensures caregivers arrive fully informed.</div>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <div class="step-title">AI Matches Best Caregivers</div>
+                <div class="step-text">The smart matching algorithm scores every available caregiver across five weighted dimensions. Results appear ranked by composite fit score, with detailed breakdowns so families understand why each match was suggested and can make informed decisions.</div>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <div class="step-title">Select & Book Care</div>
+                <div class="step-text">Families review matched caregiver profiles, read ratings from previous clients, and select their preferred caregiver. Booking supports multiple shift types including day shifts, night shifts, 12-hour, and 24-hour care arrangements with flexible scheduling.</div>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <div class="step-title">Daily Care Reports</div>
+                <div class="step-text">The confirmed caregiver provides structured daily reports covering activities performed, patient mood and behavior, meals consumed, and medications administered. These reports are timestamped and create a comprehensive care history accessible to the family at any time.</div>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-content">
+                <div class="step-title">Monitor & Review</div>
+                <div class="step-text">Families monitor care quality in real-time through the dashboard. After a care period concludes, they submit multi-dimensional reviews covering punctuality, care quality, communication, and overall satisfaction. A complaint filing system is available for any concerns.</div>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">6</div>
+            <div class="step-content">
+                <div class="step-title">Secure Payment & Payout</div>
+                <div class="step-text">Payments flow through the platform with full transparency. Families pay via UPI or Razorpay, the platform retains 10% as a service fee, and the remaining 90% is available for the caregiver to withdraw. Complete transaction histories are maintained for both parties.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matching Algorithm Detail -->
+    <div class="card card-accent">
+        <div class="card-title">Matching Algorithm Breakdown</div>
+        <div class="algo-row">
+            <span class="algo-label">Skill Match</span>
+            <div class="algo-bar-bg"><div class="algo-bar-fill" style="width: 100%;"></div></div>
+            <span class="algo-pct">30%</span>
+        </div>
+        <div class="algo-row">
+            <span class="algo-label">Location Proximity</span>
+            <div class="algo-bar-bg"><div class="algo-bar-fill" style="width: 83%;"></div></div>
+            <span class="algo-pct">25%</span>
+        </div>
+        <div class="algo-row">
+            <span class="algo-label">Experience Level</span>
+            <div class="algo-bar-bg"><div class="algo-bar-fill" style="width: 67%;"></div></div>
+            <span class="algo-pct">20%</span>
+        </div>
+        <div class="algo-row">
+            <span class="algo-label">Availability</span>
+            <div class="algo-bar-bg"><div class="algo-bar-fill" style="width: 50%;"></div></div>
+            <span class="algo-pct">15%</span>
+        </div>
+        <div class="algo-row">
+            <span class="algo-label">Rating</span>
+            <div class="algo-bar-bg"><div class="algo-bar-fill" style="width: 33%;"></div></div>
+            <span class="algo-pct">10%</span>
+        </div>
+    </div>
+
+    <!-- SECTION 5: Technology Stack -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 05</div>
+        <div class="section-title">Technology Stack</div>
+        </div>
+
+    <p class="body-text">SevaSaathi is built on a carefully selected modern technology stack optimized for developer productivity, application performance, and the specific requirements of the Indian market. Every technology choice is deliberate and purpose-driven.</p>
+
+    <div class="tech-grid">
+        <div class="tech-card">
+            <div class="tech-card-label">Frontend</div>
+            <div class="tech-card-text">Next.js 16 with React 19 and TypeScript 5. UI built with Tailwind CSS 4 and shadcn/ui component library. Animations via Framer Motion. Progressive Web App enabled for offline access.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">Backend</div>
+            <div class="tech-card-text">Next.js API Routes for server-side logic. Prisma ORM for type-safe database access. SQLite for development, MySQL for production. Full REST API with 30+ endpoints.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">AI & Machine Learning</div>
+            <div class="tech-card-text">z-ai-web-dev-sdk powers Aadhaar OCR extraction and Vision AI capabilities. Automated document data parsing reduces manual verification effort and accelerates caregiver onboarding.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">Real-Time</div>
+            <div class="tech-card-text">Socket.io standalone service provides bidirectional live communication. Instant care report delivery, notification push, and real-time booking status updates to all connected clients.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">Communication</div>
+            <div class="tech-card-text">Gmail SMTP via Nodemailer for transactional emails. Fast2SMS API for Indian phone number SMS delivery. Email logging for audit trails and delivery tracking.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">Authentication</div>
+            <div class="tech-card-text">NextAuth.js v4 with JWT session management. Google OAuth, email OTP, and phone OTP login methods. bcrypt password hashing with 10 salt rounds for security.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">Infrastructure</div>
+            <div class="tech-card-text">Progressive Web App with service worker caching. Caddy reverse proxy for production deployment. Standalone Node.js server with horizontal scaling capability.</div>
+        </div>
+        <div class="tech-card">
+            <div class="tech-card-label">Payments</div>
+            <div class="tech-card-text">UPI deep link integration for native app payments. Razorpay gateway as secondary payment processor. Automated fee splitting with 10% platform commission.</div>
+        </div>
+    </div>
+
+    <!-- SECTION 6: User Roles & Capabilities -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 06</div>
+        <div class="section-title">User Roles & Capabilities</div>
+        </div>
+
+    <p class="body-text">SevaSaathi serves three distinct user types, each with a purpose-built dashboard and feature set tailored to their specific needs and workflows in the home care ecosystem.</p>
+
+    <div class="role-section">
+        <div class="role-label">For Families</div>
+        <div class="card">
+            <div class="card-text">Families gain complete control over the care journey. They create and manage detailed <strong>patient profiles</strong> including medical history, dietary requirements, and mobility status. The <strong>smart caregiver search</strong> surfaces AI-matched professionals ranked by fit score. <strong>Booking management</strong> covers creating, tracking, cancelling, and requesting urgent care with flexible shift types. <strong>Real-time care reports</strong> deliver daily updates on activities, mood, meals, and medications. After each engagement, families submit <strong>multi-dimensional reviews</strong> and can file structured complaints through the resolution system.</div>
+        </div>
+    </div>
+
+    <div class="role-section">
+        <div class="role-label">For Caregivers</div>
+        <div class="card">
+            <div class="card-text">Caregivers build and manage a <strong>professional profile</strong> showcasing skills, certifications, availability, and a personal bio. The <strong>weekly schedule system</strong> allows setting day or night shift availability per weekday for granular control. Before accepting bookings, caregivers complete <strong>document verification</strong> covering Aadhaar, PAN, and professional certificates with AI-assisted processing. During active care, they submit detailed <strong>care reports</strong> tracking all patient activities. An <strong>earnings dashboard</strong> provides full financial transparency with withdrawal capabilities.</div>
+        </div>
+    </div>
+
+    <div class="role-section">
+        <div class="role-label">For Administrators</div>
+        <div class="card">
+            <div class="card-text">Administrators operate the platform from a powerful <strong>analytics dashboard</strong> showing user growth, booking trends, and revenue metrics. <strong>User management</strong> includes cascade operations for bulk actions across families, caregivers, and patients. The <strong>verification workflow</strong> lets admins review and approve or reject document submissions. <strong>Complaint resolution</strong> tools provide priority-based tracking with workload-balanced assignment. <strong>Withdrawal processing</strong> enables approval and payout of caregiver earnings with full audit trails.</div>
+        </div>
+    </div>
+
+    <!-- SECTION 7: Security & Trust -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 07</div>
+        <div class="section-title">Security & Trust</div>
+        </div>
+
+    <p class="body-text">Trust is the foundation of any care platform. SevaSaathi implements multiple layers of security and verification to ensure that only qualified, authenticated caregivers interact with vulnerable patients, and that all data remains protected at every stage.</p>
+
+    <div class="sec-item">
+        <div class="sec-dot"></div>
+        <div class="sec-text"><strong>Multi-Layer Authentication:</strong> Users can sign in via Google OAuth for convenience, email OTP for security, or phone OTP for accessibility in India where email adoption varies. Each method is fully integrated with NextAuth.js v4 session management.</div>
+    </div>
+    <div class="sec-item">
+        <div class="sec-dot"></div>
+        <div class="sec-text"><strong>Password Security:</strong> All passwords are hashed using bcrypt with 10 salt rounds, providing robust protection against brute-force attacks even in the event of database compromise.</div>
+    </div>
+    <div class="sec-item">
+        <div class="sec-dot"></div>
+        <div class="sec-text"><strong>JWT Session Management:</strong> Sessions use JSON Web Tokens with a 30-day expiry. Tokens are validated on every API request, ensuring that expired or tampered sessions are immediately rejected.</div>
+    </div>
+    <div class="sec-item">
+        <div class="sec-dot"></div>
+        <div class="sec-text"><strong>Document Verification Gate:</strong> Caregivers cannot receive any bookings until their documents are submitted, AI-processed, and manually approved by an administrator. This three-stage verification prevents unverified individuals from entering the care pipeline.</div>
+    </div>
+    <div class="sec-item">
+        <div class="sec-dot"></div>
+        <div class="sec-text"><strong>Complaint Resolution System:</strong> All complaints are logged with timestamps, priority levels, and assigned administrators. Families can track resolution progress, and the platform retains complete records for accountability.</div>
+    </div>
+    <div class="sec-item">
+        <div class="sec-dot"></div>
+        <div class="sec-text"><strong>Email Audit Trail:</strong> Every transactional email sent through the platform is logged in a dedicated EmailLog model, creating a comprehensive communication audit trail for dispute resolution and compliance.</div>
+    </div>
+
+    <!-- SECTION 8: Platform Statistics -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 08</div>
+        <div class="section-title">Platform Statistics</div>
+        </div>
+
+    <p class="body-text">SevaSaathi is a substantial, production-grade platform built with meticulous attention to both breadth and depth. These numbers reflect the scale and completeness of the implementation.</p>
+
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-number">40+</div>
+            <div class="stat-label">UI Components<br/>shadcn/ui</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">30+</div>
+            <div class="stat-label">API Endpoints<br/>REST</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">11</div>
+            <div class="stat-label">Database<br/>Models</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">9</div>
+            <div class="stat-label">Notification<br/>Types</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">7</div>
+            <div class="stat-label">Document<br/>Verification Types</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">4</div>
+            <div class="stat-label">Authentication<br/>Methods</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">3</div>
+            <div class="stat-label">User Roles<br/>with Dashboards</div>
+        </div>
+    </div>
+
+    <!-- SECTION 9: Database Architecture -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 09</div>
+        <div class="section-title">Database Architecture</div>
+        </div>
+
+    <p class="body-text">The platform's data layer consists of 11 carefully designed Prisma models that cover every aspect of the home care workflow, from user registration and caregiver verification through bookings, payments, care delivery, and dispute resolution.</p>
+
+    <div class="db-grid">
+        <div class="db-card">
+            <div class="db-card-name">User</div>
+            <div class="db-card-desc">Core authentication model storing credentials, role (Family, Caregiver, Admin), contact details, and profile status for every platform participant.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Patient</div>
+            <div class="db-card-desc">Patient profiles linked to family accounts with medical history, dietary needs, mobility status, age, gender, and special care requirements.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Caregiver</div>
+            <div class="db-card-desc">Extended profile for caregivers including skills, hourly rate, experience, bio, weekly availability schedule, and verification status.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Verification</div>
+            <div class="db-card-desc">Document submissions for identity and credential verification. Supports 7 document types with AI-extracted data and admin review status.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Booking</div>
+            <div class="db-card-desc">Care booking records linking patients to caregivers with shift type, date range, status tracking, and urgent request flagging.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Payment</div>
+            <div class="db-card-desc">Financial transactions with amount, platform fee, caregiver payout, UPI/Razorpay payment IDs, and payment status tracking.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">CareReport</div>
+            <div class="db-card-desc">Daily care logs submitted by caregivers documenting activities, mood, meals, medications, and notes for each active booking day.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Review</div>
+            <div class="db-card-desc">Multi-dimensional post-care evaluations covering punctuality, care quality, communication, and overall satisfaction with detailed feedback.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Complaint</div>
+            <div class="db-card-desc">Structured issue tracking with priority levels, categories, admin assignment, status workflow, and resolution documentation.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Notification</div>
+            <div class="db-card-desc">In-app notification system supporting 9 distinct notification types with read/unread tracking and timestamped delivery records.</div>
+        </div>
+        <div class="db-card">
+            <div class="db-card-name">Withdrawal</div>
+            <div class="db-card-desc">Caregiver earnings withdrawal requests with amount, UPI ID, status tracking, admin approval workflow, and payout timestamps.</div>
+        </div>
+    </div>
+
+    <!-- SECTION 10: Roadmap -->
+    <div class="chapter-header">
+        <div class="section-tag">Section 10</div>
+        <div class="section-title">Roadmap & Future Scope</div>
+        </div>
+
+    <p class="body-text">SevaSaathi's current implementation represents a robust foundation. The following roadmap items are planned to expand platform capabilities, deepen market penetration, and unlock new revenue streams in the rapidly growing Indian home care market.</p>
+
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Public Ratings & Reviews:</strong> Make caregiver ratings and reviews publicly visible on their profiles to build trust, enable informed decision-making, and incentivize high-quality care delivery through reputation systems.</div>
+    </div>
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Enhanced Admin Analytics:</strong> Expand the administrator dashboard with advanced visualizations including booking trend charts, revenue analytics, geographic heatmaps of demand, and caregiver performance benchmarking tools.</div>
+    </div>
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Caregiver PWA:</strong> Launch a dedicated mobile-first Progressive Web App for caregivers optimized for on-the-go report submission, schedule management, and instant notification receipt without requiring a desktop browser.</div>
+    </div>
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Automated Payout Processing:</strong> Implement scheduled automatic payouts to caregivers based on completed bookings, reducing manual withdrawal processing overhead and improving caregiver satisfaction with faster payments.</div>
+    </div>
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Subscription Tiers:</strong> Introduce Basic, Premium, and Enterprise subscription plans offering varying levels of features, priority matching, dedicated support, and advanced analytics for institutional clients.</div>
+    </div>
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Multi-Language Support:</strong> Add support for Hindi, Tamil, Telugu, Bengali, and other major Indian languages to serve families and caregivers across diverse linguistic regions of the country.</div>
+    </div>
+    <div class="roadmap-item">
+        <div class="roadmap-line"><div class="roadmap-dot"></div></div>
+        <div class="roadmap-text"><strong>Video Calling Integration:</strong> Enable remote video consultations between families, caregivers, and healthcare professionals for initial assessments, follow-up check-ins, and emergency situations requiring visual evaluation.</div>
+    </div>
+
+    <p class="body-text">Each roadmap item has been prioritized based on market demand, technical feasibility, and revenue impact. The platform's modular architecture ensures these features can be delivered incrementally without disrupting existing functionality, allowing SevaSaathi to grow alongside the evolving needs of India's home care ecosystem.</p>
+
+</div>
+
+<!-- ===== ENDING PAGE ===== -->
+<div class="ending">
+    <div class="ending-grid"></div>
+    <div class="ending-circle"></div>
+    <div class="ending-bar"></div>
+    <div class="ending-title">Let's Build the Future of Home Care Together</div>
+    <p class="ending-subtitle">SevaSaathi is ready to transform how India cares for its elderly and recovering loved ones. We are actively seeking partners, investors, and early adopters to join this mission.</p>
+    <div class="ending-contact">nishu@webwallah.in</div>
+    <div class="ending-brand">SevaSaathi</div>
+    <div class="ending-bottom">SevaSaathi Platform Overview 2025</div>
+</div>
+
+</body>
+</html>
