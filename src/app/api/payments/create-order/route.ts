@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         amount: amountPaise,
         currency: 'INR',
         paymentMethod: 'upi',
-        upiId: 'sevasaathi@paytm', // In production, your business UPI ID
+        upiId: process.env.PLATFORM_UPI_ID || 'nishu@webwallah.in', // Admin's UPI
         bookingId,
         name: 'SevaSaathi',
         description: `Care for ${patientName} by ${caregiverName}`,
