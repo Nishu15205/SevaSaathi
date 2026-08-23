@@ -139,13 +139,13 @@ export const api = {
       request<{ payment: any }>(`/api/payments/${id}`),
     create: (data: { bookingId: string; paymentMethod: string; userId?: string }) =>
       request<{ payment: any }>('/api/payments', { method: 'POST', body: JSON.stringify(data) }),
-    createOrder: (bookingId: string, amount: number, paymentMethod?: string, upiId?: string) =>
-      request<{ orderId: string; amount: number; currency: string; bookingId: string; name: string; description: string; paymentMethod?: string; upiId?: string; message?: string }>('/api/payments/create-order', {
+    createOrder: (bookingId: string, amount: number) =>
+      request<{ orderId: string; amount: number; currency: string; key: string; bookingId: string; name: string; description: string; isReal: boolean; prefill?: { name?: string; email?: string; contact?: string } }>('/api/payments/create-order', {
         method: 'POST',
-        body: JSON.stringify({ bookingId, amount, paymentMethod: paymentMethod || 'upi', upiId }),
+        body: JSON.stringify({ bookingId, amount }),
       }),
-    verify: (data: { bookingId: string; paymentMethod?: string }) =>
-      request<{ success: boolean; message: string }>('/api/payments/verify', {
+    verify: (data: { bookingId: string; paymentMethod?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string }) =>
+      request<{ success: boolean; message: string; paymentId?: string }>('/api/payments/verify', {
         method: 'POST',
         body: JSON.stringify(data),
       }),

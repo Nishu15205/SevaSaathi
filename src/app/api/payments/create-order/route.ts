@@ -3,12 +3,11 @@ import { z } from 'zod';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import Razorpay from 'razorpay';
 
 const createOrderSchema = z.object({
   bookingId: z.string().min(1),
   amount: z.number().positive(),
-  paymentMethod: z.enum(['stripe', 'upi', 'bank_transfer', 'cash']).default('upi'),
-  upiId: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -30,14 +29,15 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const { bookingId, amount, paymentMethod, upiId } = parsed.data;
+    const { bookingId, amount } = parsed.data;
 
     // Verify booking
     const booking = await db.booking.findUnique({
       where: { id: bookingId },
       include: {
         patient: { select: { name: true } },
-        caregiver: { select: { user: { select: { name: true } }, hourlyRate: true } },
+        caregiver: { select: { user: { select: { name: true, email: true } }, hourlyRate: true } },
+        family: { select: { name: true, email: true, phone: true } },
       },
     });
 
@@ -49,87 +49,86 @@ export async function POST(request: NextRequest) {
     }
 
     const amountPaise = Math.round(amount * 100);
-    const platformFeePaise = Math.round(amountPaise * 0.10); // 10% platform fee
+    const platformFeePaise = Math.round(amountPaise * 0.10);
     const caregiverPayoutPaise = amountPaise - platformFeePaise;
 
-    const transactionId = `ss_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const razorpayOrderId = `ss_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
-    // Upsert payment
+    // Upsert payment in DB
     const existingPayment = await db.payment.findUnique({ where: { bookingId } });
+    const paymentData = {
+      amount: amountPaise,
+      platformFee: platformFeePaise,
+      caregiverPayout: caregiverPayoutPaise,
+      status: 'PENDING' as const,
+      paymentMethod: 'razorpay',
+      transactionId: razorpayOrderId,
+    };
 
     if (existingPayment) {
-      await db.payment.update({
-        where: { id: existingPayment.id },
-        data: {
-          amount: amountPaise,
-          platformFee: platformFeePaise,
-          caregiverPayout: caregiverPayoutPaise,
-          status: 'PENDING',
-          paymentMethod,
-          transactionId,
-          upiId: upiId || null,
-        },
-      });
+      await db.payment.update({ where: { id: existingPayment.id }, data: paymentData });
     } else {
       await db.payment.create({
         data: {
           bookingId: booking.id,
           familyId: booking.familyId,
           caregiverId: booking.caregiverId,
-          amount: amountPaise,
-          platformFee: platformFeePaise,
-          caregiverPayout: caregiverPayoutPaise,
-          status: 'PENDING',
-          paymentMethod,
-          transactionId,
-          upiId: upiId || null,
+          ...paymentData,
         },
       });
     }
 
-    const patientName = booking.patient?.name ?? 'Patient';
-    const caregiverName = booking.caregiver?.user?.name ?? 'Caregiver';
+    // Check if Razorpay is configured
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-    // For UPI: return payment details to show to user
-    if (paymentMethod === 'upi') {
-      return NextResponse.json({
-        orderId: transactionId,
+    if (keyId && keySecret) {
+      // REAL Razorpay order
+      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+      const razorpayOrder = await razorpay.orders.create({
         amount: amountPaise,
         currency: 'INR',
-        paymentMethod: 'upi',
-        upiId: process.env.PLATFORM_UPI_ID || 'nishu@webwallah.in', // Admin's UPI
-        bookingId,
+        receipt: razorpayOrderId,
+        notes: {
+          bookingId,
+          patientName: booking.patient?.name,
+          caregiverName: booking.caregiver?.user?.name,
+        },
+      });
+
+      console.log(`[Razorpay] Order created: ${razorpayOrder.id} for ${amountPaise / 100}`);
+
+      return NextResponse.json({
+        orderId: razorpayOrder.id,
+        amount: amountPaise,
+        currency: 'INR',
+        key: keyId,
         name: 'SevaSaathi',
-        description: `Care for ${patientName} by ${caregiverName}`,
+        description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
+        prefill: {
+          name: booking.family?.name,
+          email: booking.family?.email,
+          contact: booking.family?.phone || undefined,
+        },
+        bookingId,
+        isReal: true,
       });
     }
 
-    // For cash/manual: mark as pending confirmation
-    if (paymentMethod === 'cash') {
-      return NextResponse.json({
-        orderId: transactionId,
-        amount: amountPaise,
-        currency: 'INR',
-        paymentMethod: 'cash',
-        bookingId,
-        name: 'SevaSaathi',
-        description: `Care for ${patientName} by ${caregiverName}`,
-        message: 'Pay cash to the caregiver. Payment will be confirmed after verification.',
-      });
-    }
-
-    // Default: simulated payment (for demo/development)
+    // FALLBACK: Test mode (no Razorpay keys)
+    console.log(`[Payment] Test order created: ${razorpayOrderId} for ${amountPaise / 100} (no Razorpay keys)`);
     return NextResponse.json({
-      orderId: transactionId,
+      orderId: razorpayOrderId,
       amount: amountPaise,
       currency: 'INR',
-      paymentMethod,
-      bookingId,
+      key: 'test_key',
       name: 'SevaSaathi',
-      description: `Care for ${patientName} by ${caregiverName}`,
+      description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
+      bookingId,
+      isReal: false,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create order error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

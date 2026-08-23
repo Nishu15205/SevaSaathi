@@ -1,110 +1,144 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyWebhookSignature } from '@/lib/razorpay';
+import { emitToUser } from '@/lib/socket';
+import { sendBookingConfirmationEmail } from '@/lib/email';
+import crypto from 'crypto';
 
-export async function POST(request: NextRequest) {
+/**
+ * Razorpay Webhook Handler
+ * 
+ * Setup in Razorpay Dashboard:
+ * Settings → Webhooks → Add Endpoint
+ * URL: https://yourdomain.com/api/payments/webhook
+ * Events: payment.captured, payment.failed
+ */
+
+export async function POST(req: NextRequest) {
   try {
-    const rawBody = await request.text();
-    const signature = request.headers.get('X-Razorpay-Signature') ?? '';
+    const body = await req.text(); // Raw body for signature verification
+    const signature = req.headers.get('x-razorpay-signature');
 
-    // --- Verify webhook signature ---
-    const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (razorpaySecret && razorpaySecret !== 'your_razorpay_key_secret_here') {
-      const valid = verifyWebhookSignature(rawBody, signature);
-      if (!valid) {
-        return NextResponse.json(
-          { error: 'Invalid signature' },
-          { status: 400 },
-        );
-      }
-    }
-    // If no real secret configured, skip verification (demo mode)
-
-    const event = JSON.parse(rawBody);
-    const eventType = event.event as string;
-    const entity = event.payload?.payment?.entity;
-
-    if (!entity) {
-      return NextResponse.json({ received: true });
+    if (!signature) {
+      return NextResponse.json({ error: 'No signature' }, { status: 400 });
     }
 
-    const razorpayPaymentId: string = entity.id ?? '';
-    const razorpayOrderId: string = entity.order_id ?? '';
+    // Verify webhook signature
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      return NextResponse.json({ error: 'Razorpay not configured' }, { status: 500 });
+    }
 
-    // --- payment.captured ---
-    if (eventType === 'payment.captured') {
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(body)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      console.error('[Webhook] Invalid signature');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    }
+
+    const event = JSON.parse(body);
+    console.log(`[Webhook] Event: ${event.event}`);
+
+    // Handle payment.captured (successful payment)
+    if (event.event === 'payment.captured') {
+      const paymentEntity = event.payload.payment.entity;
+      const razorpayOrderId = paymentEntity.order_id;
+      const razorpayPaymentId = paymentEntity.id;
+
+      // Find payment by transaction ID (we stored Razorpay order ID as transactionId)
       const payment = await db.payment.findFirst({
         where: { transactionId: razorpayOrderId },
       });
 
-      if (payment && payment.status !== 'COMPLETED') {
-        await db.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: 'COMPLETED',
-            transactionId: razorpayPaymentId,
-            paidAt: new Date(),
-          },
-        });
+      if (!payment) {
+        console.error(`[Webhook] Payment not found for order ${razorpayOrderId}`);
+        return NextResponse.json({ received: true });
+      }
 
+      if (payment.status === 'COMPLETED') {
+        console.log(`[Webhook] Payment already confirmed: ${razorpayPaymentId}`);
+        return NextResponse.json({ received: true });
+      }
+
+      // Update payment
+      await db.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'COMPLETED',
+          paidAt: new Date(),
+          paymentMethod: 'razorpay',
+          transactionId: razorpayPaymentId,
+        },
+      });
+
+      // Update booking
+      const booking = await db.booking.findUnique({
+        where: { id: payment.bookingId },
+        include: { patient: true, caregiver: { include: { user: true } }, family: true },
+      });
+
+      if (booking) {
+        const newStatus = booking.status === 'PENDING' ? 'CONFIRMED' : booking.status;
         await db.booking.update({
           where: { id: payment.bookingId },
-          data: { status: 'CONFIRMED' },
+          data: { status: newStatus, totalAmount: payment.amount },
+        });
+
+        // Notifications
+        await db.notification.create({
+          data: {
+            userId: booking.familyId,
+            type: 'PAYMENT_RECEIVED',
+            title: 'Payment Confirmed',
+            message: `Payment of ₹${payment.amount / 100} for ${booking.patient?.name || 'patient'} confirmed.`,
+            data: JSON.stringify({ bookingId: payment.bookingId, paymentId: payment.id }),
+          },
         });
 
         await db.notification.create({
           data: {
-            userId: payment.familyId,
-            type: 'PAYMENT_RECEIVED',
-            title: 'Payment Successful',
-            message: `Payment of ₹${(payment.amount / 100).toLocaleString('en-IN')} has been received. Transaction ID: ${razorpayPaymentId}`,
-            data: JSON.stringify({
-              paymentId: payment.id,
-              bookingId: payment.bookingId,
-              transactionId: razorpayPaymentId,
-            }),
+            userId: booking.caregiverId,
+            type: 'BOOKING_CONFIRMED',
+            title: 'New Booking Confirmed',
+            message: `Booking for ${booking.patient?.name || 'patient'} confirmed via Razorpay.`,
+            data: JSON.stringify({ bookingId: payment.bookingId }),
           },
         });
+
+        // Real-time
+        emitToUser(booking.familyId, 'payment:update', { bookingId: payment.bookingId, status: 'COMPLETED' });
+        emitToUser(booking.caregiverId, 'booking:update', { bookingId: payment.bookingId, status: newStatus });
+
+        // Email
+        await sendBookingConfirmationEmail({ ...booking, totalAmount: payment.amount });
+
+        console.log(`[Webhook] Booking ${payment.bookingId} confirmed via Razorpay`);
       }
     }
 
-    // --- payment.failed ---
-    if (eventType === 'payment.failed') {
+    // Handle payment.failed
+    if (event.event === 'payment.failed') {
+      const paymentEntity = event.payload.payment.entity;
+      const razorpayOrderId = paymentEntity.order_id;
+
       const payment = await db.payment.findFirst({
         where: { transactionId: razorpayOrderId },
       });
 
-      if (payment && payment.status === 'PENDING') {
+      if (payment) {
         await db.payment.update({
           where: { id: payment.id },
           data: { status: 'FAILED' },
         });
-      }
-    }
-
-    // --- refund.processed ---
-    if (eventType === 'refund.processed') {
-      const payment = await db.payment.findFirst({
-        where: { transactionId: razorpayPaymentId },
-      });
-
-      if (payment && payment.status === 'COMPLETED') {
-        await db.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: 'REFUNDED',
-            refundedAt: new Date(),
-          },
-        });
+        console.log(`[Webhook] Payment failed for booking ${payment.bookingId}`);
       }
     }
 
     return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+  } catch (err: any) {
+    console.error('Webhook error:', err);
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

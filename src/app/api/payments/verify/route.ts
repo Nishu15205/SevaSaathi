@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { emitToUser } from '@/lib/socket';
 import { sendBookingConfirmationEmail } from '@/lib/email';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { bookingId, paymentMethod } = body;
+    const { bookingId, razorpayPaymentId, razorpayOrderId, razorpaySignature, paymentMethod } = body;
 
     if (!bookingId) {
       return NextResponse.json({ error: 'bookingId is required' }, { status: 400 });
@@ -17,10 +18,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
+    // If Razorpay credentials are set, verify signature
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (keySecret && razorpayPaymentId && razorpayOrderId && razorpaySignature) {
+      const expectedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+        .digest('hex');
+
+      if (expectedSignature !== razorpaySignature) {
+        console.error('[Razorpay] Signature verification failed');
+        return NextResponse.json({ error: 'Payment verification failed', success: false }, { status: 400 });
+      }
+      console.log(`[Razorpay] Signature verified for payment ${razorpayPaymentId}`);
+    }
+
     // Mark as completed
     const updated = await db.payment.update({
       where: { id: payment.id },
-      data: { status: 'COMPLETED', paidAt: new Date(), paymentMethod: paymentMethod || payment.paymentMethod },
+      data: {
+        status: 'COMPLETED',
+        paidAt: new Date(),
+        paymentMethod: 'razorpay',
+        transactionId: razorpayPaymentId || payment.transactionId,
+      },
     });
 
     // Update booking status
@@ -36,7 +57,7 @@ export async function POST(req: NextRequest) {
         data: { status: newStatus, totalAmount: payment.amount },
       });
 
-      // Create notifications
+      // Notifications
       await db.notification.create({
         data: {
           userId: booking.familyId,
@@ -57,7 +78,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Real-time notifications
+      // Real-time
       emitToUser(booking.familyId, 'payment:update', { bookingId, status: 'COMPLETED' });
       emitToUser(booking.caregiverId, 'booking:update', { bookingId, status: newStatus });
 
@@ -65,7 +86,7 @@ export async function POST(req: NextRequest) {
       await sendBookingConfirmationEmail({ ...booking, totalAmount: payment.amount });
     }
 
-    return NextResponse.json({ success: true, message: 'Payment verified and confirmed', payment: updated });
+    return NextResponse.json({ success: true, message: 'Payment verified', paymentId: payment.id, payment: updated });
   } catch (err: any) {
     console.error('Payment verify error:', err);
     return NextResponse.json({ error: err.message || 'Verification failed' }, { status: 500 });
