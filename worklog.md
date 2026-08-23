@@ -213,3 +213,23 @@ Work Log:
 
 Stage Summary:
 - All features implemented and verified
+
+---
+Task ID: 3-a
+Agent: main
+Task: Fix PWA icon-192.png 404 and Phone OTP fallback
+
+Work Log:
+- Generated SevaSaathi branded PWA icon (1024x1024) using AI image generation, resized to 512x512 and 192x192 using sharp
+- Added icon-192.png and icon-512.png to /public/
+- Updated layout.tsx metadata.icons to reference both PNG icons and apple-touch-icon
+- Fixed sms.ts: Added `actuallyDelivered` field to SmsResult interface to distinguish real SMS from fallback
+- Fixed send-phone-otp/route.ts: Now checks `actuallyDelivered` flag — returns `devOtp` when SMS was not actually sent (regardless of whether API key exists)
+- This fixes the bug where Fast2SMS key was set but dashboard not verified → OTP sent nowhere and not returned to user
+- Verified both icons load at correct URLs via agent-browser
+- Verified main page still loads correctly, no new errors
+
+Stage Summary:
+- PWA icons: icon-192.png (35KB) and icon-512.png (59KB) created and serving correctly
+- Phone OTP: Now always returns devOtp when SMS delivery fails (even if API key is configured), so testing works seamlessly
+- Lint passes clean, no runtime errors

@@ -2,19 +2,19 @@
  * SMS Service for SevaSaathi
  * 
  * Fast2SMS OTP route: Uses their built-in OTP template
- * No DLT template needed for OTP route
- * Fallback to dev mode if API key not set
+ * Fallback to dev mode if API key not set or delivery fails
  */
 
-interface SmsResult {
+export interface SmsResult {
   success: boolean;
+  actuallyDelivered: boolean; // true only if SMS was really sent
   messageId?: string;
   error?: string;
 }
 
 /**
  * Send Phone OTP via Fast2SMS
- * Uses the 'otp' route which has a built-in template
+ * Uses the 'otp' route which has a built-in OTP template
  */
 async function sendViaFast2SMS(phone: string, otp: string): Promise<SmsResult> {
   const apiKey = process.env.FAST2SMS_API_KEY;
@@ -41,10 +41,10 @@ async function sendViaFast2SMS(phone: string, otp: string): Promise<SmsResult> {
   console.log(`📱 Fast2SMS response for ${cleanPhone}:`, JSON.stringify(data));
   
   if (data.return === true) {
-    return { success: true, messageId: data.message_id?.toString() };
+    return { success: true, actuallyDelivered: true, messageId: data.message_id?.toString() };
   }
-  
- // If OTP route fails (e.g. DLT issue), try transactional route
+
+  // If OTP route fails (e.g. DLT issue), try transactional route
   if (process.env.FAST2SMS_TEMPLATE_ID) {
     console.log('OTP route failed, trying DLT template route...');
     const dltResponse = await fetch('https://www.fast2sms.com/dev/bulkV2', {
@@ -65,7 +65,7 @@ async function sendViaFast2SMS(phone: string, otp: string): Promise<SmsResult> {
     const dltData = await dltResponse.json();
     console.log(`📱 Fast2SMS DLT response:`, JSON.stringify(dltData));
     if (dltData.return === true) {
-      return { success: true, messageId: dltData.message_id?.toString() };
+      return { success: true, actuallyDelivered: true, messageId: dltData.message_id?.toString() };
     }
     throw new Error(dltData.message || 'Fast2SMS DLT route error');
   }
@@ -76,6 +76,7 @@ async function sendViaFast2SMS(phone: string, otp: string): Promise<SmsResult> {
 /**
  * Send Phone OTP
  * Uses Fast2SMS if configured, otherwise dev mode
+ * Returns `actuallyDelivered` to distinguish real SMS from fallback
  */
 export async function sendPhoneOtp(phone: string, otp: string): Promise<SmsResult> {
   if (process.env.FAST2SMS_API_KEY) {
@@ -83,17 +84,21 @@ export async function sendPhoneOtp(phone: string, otp: string): Promise<SmsResul
       const result = await sendViaFast2SMS(phone, otp);
       return result;
     } catch (err: any) {
-      console.error('Fast2SMS failed:', err.message);
-      // If Fast2SMS fails, still return success (OTP stored in DB)
-      // Admin can see failed SMS in logs
-      return { success: true, error: `SMS failed: ${err.message}. OTP stored in DB.` };
+      console.error('⚠️ Fast2SMS failed:', err.message);
+      console.error('   OTP is stored in DB — user can still verify once SMS provider is fixed.');
+      // Return success: true but actuallyDelivered: false so the caller knows
+      return { 
+        success: true, 
+        actuallyDelivered: false, 
+        error: `SMS delivery failed: ${err.message}` 
+      };
     }
   }
 
   // Dev mode: no SMS provider configured
   console.log(`\n📱 PHONE OTP for ${phone}: ${otp}`);
   console.log(`   ⚠️ Add FAST2SMS_API_KEY to .env for real SMS delivery\n`);
-  return { success: true };
+  return { success: true, actuallyDelivered: false };
 }
 
 /**

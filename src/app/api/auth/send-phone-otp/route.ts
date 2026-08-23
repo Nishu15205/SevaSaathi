@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sendPhoneOtp, isSmsConfigured } from '@/lib/sms';
+import { sendPhoneOtp } from '@/lib/sms';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,22 +21,19 @@ export async function POST(req: NextRequest) {
     // Try real SMS delivery
     const smsResult = await sendPhoneOtp(cleanPhone, otp);
 
-    if (isSmsConfigured()) {
-      // Real SMS was attempted
-      if (smsResult.success) {
-        return NextResponse.json({
-          message: 'OTP sent to your phone number',
-        });
-      }
-      return NextResponse.json(
-        { error: 'Failed to send SMS. Please try again.' },
-        { status: 500 }
-      );
+    if (smsResult.actuallyDelivered) {
+      // Real SMS was successfully sent
+      return NextResponse.json({
+        message: 'OTP sent to your phone number',
+      });
     }
 
-    // Dev mode: return OTP in response
+    // SMS was NOT actually delivered (no key, or Fast2SMS failed)
+    // Return devOtp so testing can still work
     return NextResponse.json({
-      message: 'OTP sent to your phone number (dev mode)',
+      message: smsResult.error 
+        ? `OTP ready (SMS not delivered: ${smsResult.error}). Use the OTP below to verify.`
+        : 'OTP sent to your phone number (dev mode)',
       devOtp: otp,
     });
   } catch (err: any) {
