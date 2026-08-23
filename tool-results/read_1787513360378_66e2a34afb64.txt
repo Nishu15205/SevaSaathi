@@ -1,0 +1,747 @@
+     1→import { PrismaClient, UserRole, VerificationType, VerificationStatus, BookingStatus, ShiftType, ComplaintStatus, NotificationType, SubscriptionPlan, PaymentStatus, CareActivityType } from '@prisma/client'
+     2→import bcrypt from 'bcryptjs'
+     3→
+     4→const db = new PrismaClient()
+     5→
+     6→const SALT_ROUNDS = 10
+     7→const PASSWORD = 'password123'
+     8→
+     9→async function hashPassword(): Promise<string> {
+    10→  return bcrypt.hash(PASSWORD, SALT_ROUNDS)
+    11→}
+    12→
+    13→async function main() {
+    14→  console.log('🌱 Seeding SevaSaathi database...')
+    15→
+    16→  // Clean existing data
+    17→  await db.notification.deleteMany()
+    18→  await db.complaint.deleteMany()
+    19→  await db.review.deleteMany()
+    20→  await db.careReport.deleteMany()
+    21→  await db.payment.deleteMany()
+    22→  await db.booking.deleteMany()
+    23→  await db.verification.deleteMany()
+    24→  await db.patient.deleteMany()
+    25→  await db.caregiver.deleteMany()
+    26→  await db.user.deleteMany()
+    27→
+    28→  const passwordHash = await hashPassword()
+    29→
+    30→  // ========================================
+    31→  // 1. Admin Users (3)
+    32→  // ========================================
+    33→  const admins = await Promise.all([
+    34→    db.user.create({
+    35→      data: {
+    36→        email: 'admin@sevasaathi.in',
+    37→        passwordHash,
+    38→        phone: '+919876543210',
+    39→        name: 'Rajesh Kumar Sharma',
+    40→        role: UserRole.ADMIN,
+    41→        subscription: SubscriptionPlan.ENTERPRISE,
+    42→        isActive: true,
+    43→      },
+    44→    }),
+    45→    db.user.create({
+    46→      data: {
+    47→        email: 'operations@sevasaathi.in',
+    48→        passwordHash,
+    49→        phone: '+919876543211',
+    50→        name: 'Priya Verma',
+    51→        role: UserRole.ADMIN,
+    52→        subscription: SubscriptionPlan.ENTERPRISE,
+    53→        isActive: true,
+    54→      },
+    55→    }),
+    56→    db.user.create({
+    57→      data: {
+    58→        email: 'support@sevasaathi.in',
+    59→        passwordHash,
+    60→        phone: '+919876543212',
+    61→        name: 'Amit Mehta',
+    62→        role: UserRole.ADMIN,
+    63→        subscription: SubscriptionPlan.ENTERPRISE,
+    64→        isActive: true,
+    65→      },
+    66→    }),
+    67→  ])
+    68→
+    69→  // ========================================
+    70→  // 2. Family Users with Patient Profiles (5)
+    71→  // ========================================
+    72→  const families = await Promise.all([
+    73→    db.user.create({
+    74→      data: {
+    75→        email: 'anita.gupta@email.com',
+    76→        passwordHash,
+    77→        phone: '+919811122233',
+    78→        name: 'Anita Gupta',
+    79→        role: UserRole.FAMILY,
+    80→        subscription: SubscriptionPlan.PREMIUM,
+    81→        isActive: true,
+    82→        patientProfiles: {
+    83→          create: {
+    84→            name: 'Shanti Devi',
+    85→            age: 78,
+    86→            gender: 'Female',
+    87→            relationship: 'Mother',
+    88→            address: 'Flat 302, Antriksh Apartments, Janakpuri',
+    89→            city: 'Delhi',
+    90→            pincode: '110058',
+    91→            medicalHistory: JSON.stringify([
+    92→              { condition: 'Diabetes Type 2', since: '2010', medication: 'Metformin 500mg' },
+    93→              { condition: 'Hypertension', since: '2015', medication: 'Amlodipine 5mg' },
+    94→              { condition: 'Mild Osteoarthritis', since: '2018', medication: 'Calcium + Vitamin D' },
+    95→            ]),
+    96→            dietaryNeeds: 'Low sugar, low salt, soft food preferred',
+    97→            mobilityStatus: 'limited',
+    98→            careRequirements: JSON.stringify({
+    99→              primaryNeeds: ['feeding', 'mobility-support', 'medicine-management'],
+   100→              specialInstructions: 'Needs help with walking, blood sugar monitoring twice daily',
+   101→              hoursPerDay: 12,
+   102→            }),
+   103→            preferredLanguage: 'Hindi',
+   104→            emergencyContact: JSON.stringify({ name: 'Vikram Gupta', phone: '+919911122233', relation: 'Son' }),
+   105→          },
+   106→        },
+   107→      },
+   108→    }),
+   109→    db.user.create({
+   110→      data: {
+   111→        email: 'suresh.patel@email.com',
+   112→        passwordHash,
+   113→        phone: '+919822233344',
+   114→        name: 'Suresh Patel',
+   115→        role: UserRole.FAMILY,
+   116→        subscription: SubscriptionPlan.BASIC,
+   117→        isActive: true,
+   118→        patientProfiles: {
+   119→          create: {
+   120→            name: 'Ramesh Patel',
+   121→            age: 82,
+   122→            gender: 'Male',
+   123→            relationship: 'Father',
+   124→            address: 'H.No. 45, Sector 15, Dwarka',
+   125→            city: 'Delhi',
+   126→            pincode: '110075',
+   127→            medicalHistory: JSON.stringify([
+   128→              { condition: 'Post CABG surgery', since: '2023', medication: 'Aspirin, Atorvastatin' },
+   129→              { condition: 'Chronic Kidney Disease Stage 3', since: '2022', medication: 'Losartan' },
+   130→            ]),
+   131→            dietaryNeeds: 'Renal diet, low potassium, moderate protein',
+   132→            mobilityStatus: 'limited',
+   133→            careRequirements: JSON.stringify({
+   134→              primaryNeeds: ['medicine-management', 'post-surgery-care', 'mobility-support'],
+   135→              specialInstructions: 'Monitor BP and weight daily, wound care for surgical site',
+   136→              hoursPerDay: 24,
+   137→            }),
+   138→            preferredLanguage: 'Gujarati, Hindi',
+   139→            emergencyContact: JSON.stringify({ name: 'Suresh Patel', phone: '+919822233344', relation: 'Son' }),
+   140→          },
+   141→        },
+   142→      },
+   143→    }),
+   144→    db.user.create({
+   145→      data: {
+   146→        email: 'meena.reddy@email.com',
+   147→        passwordHash,
+   148→        phone: '+919833344455',
+   149→        name: 'Meena Reddy',
+   150→        role: UserRole.FAMILY,
+   151→        subscription: SubscriptionPlan.PREMIUM,
+   152→        isActive: true,
+   153→        patientProfiles: {
+   154→          create: {
+   155→            name: 'Lakshmi Reddy',
+   156→            age: 85,
+   157→            gender: 'Female',
+   158→            relationship: 'Mother-in-law',
+   159→            address: 'Plot 12, Sector 62, Noida',
+   160→            city: 'Noida',
+   161→            pincode: '201309',
+   162→            medicalHistory: JSON.stringify([
+   163→              { condition: 'Alzheimers (early stage)', since: '2021', medication: 'Donepezil 10mg' },
+   164→              { condition: 'Osteoporosis', since: '2016', medication: 'Alendronate' },
+   165→            ]),
+   166→            dietaryNeeds: 'Calcium rich, easy to chew, South Indian preferred',
+   167→            mobilityStatus: 'mobile',
+   168→            careRequirements: JSON.stringify({
+   169→              primaryNeeds: ['dementia-care', 'elderly-companionship', 'feeding', 'medicine-management'],
+   170→              specialInstructions: 'Needs supervision, may wander, remind for meals and medicines',
+   171→              hoursPerDay: 12,
+   172→            }),
+   173→            preferredLanguage: 'Telugu, Hindi',
+   174→            emergencyContact: JSON.stringify({ name: 'Rajesh Reddy', phone: '+919933344455', relation: 'Son' }),
+   175→          },
+   176→        },
+   177→      },
+   178→    }),
+   179→    db.user.create({
+   180→      data: {
+   181→        email: 'deepak.singh@email.com',
+   182→        passwordHash,
+   183→        phone: '+919844455566',
+   184→        name: 'Deepak Singh',
+   185→        role: UserRole.FAMILY,
+   186→        subscription: SubscriptionPlan.BASIC,
+   187→        isActive: true,
+   188→        patientProfiles: {
+   189→          create: {
+   190→            name: 'Harjeet Singh',
+   191→            age: 75,
+   192→            gender: 'Male',
+   193→            relationship: 'Father',
+   194→            address: 'House 78, Block B, Rohini Sector 7',
+   195→            city: 'Delhi',
+   196→            pincode: '110085',
+   197→            medicalHistory: JSON.stringify([
+   198→              { condition: 'Parkinsons Disease', since: '2019', medication: 'Levodopa, Carbidopa' },
+   199→              { condition: 'BPH', since: '2020', medication: 'Tamsulosin' },
+   200→            ]),
+   201→            dietaryNeeds: 'High fiber, regular meals on time',
+   202→            mobilityStatus: 'wheelchair',
+   203→            careRequirements: JSON.stringify({
+   204→              primaryNeeds: ['mobility-support', 'feeding', 'physiotherapy-assist', 'medicine-management'],
+   205→              specialInstructions: 'Help with exercises, assist in transfers, patience with tremors',
+   206→              hoursPerDay: 24,
+   207→            }),
+   208→            preferredLanguage: 'Punjabi, Hindi',
+   209→            emergencyContact: JSON.stringify({ name: 'Deepak Singh', phone: '+919844455566', relation: 'Son' }),
+   210→          },
+   211→        },
+   212→      },
+   213→    }),
+   214→    db.user.create({
+   215→      data: {
+   216→        email: 'pooja.kapoor@email.com',
+   217→        passwordHash,
+   218→        phone: '+919855566677',
+   219→        name: 'Pooja Kapoor',
+   220→        role: UserRole.FAMILY,
+   221→        subscription: SubscriptionPlan.PREMIUM,
+   222→        isActive: true,
+   223→        patientProfiles: {
+   224→          create: {
+   225→            name: 'Kamal Kapoor',
+   226→            age: 71,
+   227→            gender: 'Male',
+   228→            relationship: 'Father',
+   229→            address: 'Flat 1501, DLF Phase 3, Gurgaon',
+   230→            city: 'Gurgaon',
+   231→            pincode: '122002',
+   232→            medicalHistory: JSON.stringify([
+   233→              { condition: 'Diabetic neuropathy', since: '2017', medication: 'Pregabalin, Insulin' },
+   234→              { condition: 'Mild stroke (left side affected)', since: '2024', medication: 'Clopidogrel' },
+   235→            ]),
+   236→            dietaryNeeds: 'Diabetic diet, small frequent meals',
+   237→            mobilityStatus: 'bedridden',
+   238→            careRequirements: JSON.stringify({
+   239→              primaryNeeds: ['bedridden-care', 'feeding', 'wound-care', 'physiotherapy-assist', 'medicine-management'],
+   240→              specialInstructions: 'Bed sores prevention, passive exercises, insulin injection at 8AM and 8PM',
+   241→              hoursPerDay: 24,
+   242→            }),
+   243→            preferredLanguage: 'Hindi, English',
+   244→            emergencyContact: JSON.stringify({ name: 'Pooja Kapoor', phone: '+919855566677', relation: 'Daughter' }),
+   245→          },
+   246→        },
+   247→      },
+   248→    }),
+   249→  ])
+   250→
+   251→  // ========================================
+   252→  // 3. Caregiver Users with Profiles (8)
+   253→  // ========================================
+   254→  const defaultAvailability = JSON.stringify({
+   255→    mon: { day: true, night: true },
+   256→    tue: { day: true, night: true },
+   257→    wed: { day: true, night: true },
+   258→    thu: { day: true, night: true },
+   259→    fri: { day: true, night: true },
+   260→    sat: { day: true, night: false },
+   261→    sun: { day: true, night: false },
+   262→  })
+   263→
+   264→  const caregiverUsers = await Promise.all([
+   265→    db.user.create({
+   266→      data: {
+   267→        email: 'sunita.care@email.com',
+   268→        passwordHash,
+   269→        phone: '+917666111222',
+   270→        name: 'Sunita Devi',
+   271→        role: UserRole.CAREGIVER,
+   272→        subscription: SubscriptionPlan.NONE,
+   273→        isActive: true,
+   274→        caregiverProfile: {
+   275→          create: {
+   276→            gender: 'Female',
+   277→            dateOfBirth: new Date('1985-03-15'),
+   278→            address: 'Jhuggi 14, Madanpur Khadar',
+   279→            city: 'Delhi',
+   280→            pincode: '110076',
+   281→            latitude: 28.5355,
+   282→            longitude: 77.2726,
+   283→            yearsExperience: 8,
+   284→            qualifications: JSON.stringify(['ANM Nursing', 'First Aid Certified', 'Bedside Care Training']),
+   285→            skills: JSON.stringify(['bedridden-care', 'feeding', 'wound-care', 'medicine-management', 'elderly-companionship', 'hygiene-care']),
+   286→            languages: JSON.stringify(['Hindi', 'Bhojpuri']),
+   287→            bio: 'Experienced caregiver specializing in elderly and bedridden patient care. Trained in wound management and medicine administration.',
+   288→            hourlyRate: 250,
+   289→            availabilityJson: defaultAvailability,
+   290→            overallRating: 4.7,
+   291→            totalReviews: 34,
+   292→            completedJobs: 52,
+   293→            isVerified: true,
+   294→          },
+   295→        },
+   296→      },
+   297→    }),
+   298→    db.user.create({
+   299→      data: {
+   300→        email: 'rajendra.care@email.com',
+   301→        passwordHash,
+   302→        phone: '+917666333444',
+   303→        name: 'Rajendra Kumar',
+   304→        role: UserRole.CAREGIVER,
+   305→        subscription: SubscriptionPlan.NONE,
+   306→        isActive: true,
+   307→        caregiverProfile: {
+   308→          create: {
+   309→            gender: 'Male',
+   310→            dateOfBirth: new Date('1980-07-22'),
+   311→            address: 'House 201, Sector 8, Dwarka',
+   312→            city: 'Delhi',
+   313→            pincode: '110077',
+   314→            latitude: 28.5733,
+   315→            longitude: 77.0428,
+   316→            yearsExperience: 12,
+   317→            qualifications: JSON.stringify(['BSc Nursing', 'Physiotherapy Assistant Diploma', 'BLS Certified']),
+   318→            skills: JSON.stringify(['physiotherapy-assist', 'mobility-support', 'post-surgery-care', 'bedridden-care', 'medicine-management']),
+   319→            languages: JSON.stringify(['Hindi', 'English', 'Punjabi']),
+   320→            bio: 'Male nurse with 12 years experience in post-surgical and physiotherapy care. Strong background in patient mobility and rehabilitation support.',
+   321→            hourlyRate: 350,
+   322→            availabilityJson: defaultAvailability,
+   323→            overallRating: 4.9,
+   324→            totalReviews: 67,
+   325→            completedJobs: 120,
+   326→            isVerified: true,
+   327→          },
+   328→        },
+   329→      },
+   330→    }),
+   331→    db.user.create({
+   332→      data: {
+   333→        email: 'geeta.nurse@email.com',
+   334→        passwordHash,
+   335→        phone: '+917666555666',
+   336→        name: 'Geeta Rani',
+   337→        role: UserRole.CAREGIVER,
+   338→        subscription: SubscriptionPlan.NONE,
+   339→        isActive: true,
+   340→        caregiverProfile: {
+   341→          create: {
+   342→            gender: 'Female',
+   343→            dateOfBirth: new Date('1990-11-08'),
+   344→            address: 'Flat 5B, Sector 12, Noida',
+   345→            city: 'Noida',
+   346→            pincode: '201301',
+   347→            latitude: 28.5355,
+   348→            longitude: 77.3910,
+   349→            yearsExperience: 5,
+   350→            qualifications: JSON.stringify(['GNM Nursing', 'Dementia Care Certified']),
+   351→            skills: JSON.stringify(['dementia-care', 'elderly-companionship', 'feeding', 'medicine-management', 'mobility-support']),
+   352→            languages: JSON.stringify(['Hindi', 'English']),
+   353→            bio: 'Compassionate nurse trained in dementia and elderly care. Excellent communication skills and patience with elderly patients.',
+   354→            hourlyRate: 300,
+   355→            availabilityJson: defaultAvailability,
+   356→            overallRating: 4.5,
+   357→            totalReviews: 22,
+   358→            completedJobs: 35,
+   359→            isVerified: true,
+   360→          },
+   361→        },
+   362→      },
+   363→    }),
+   364→    db.user.create({
+   365→      data: {
+   366→        email: 'mohan.pal@email.com',
+   367→        passwordHash,
+   368→        phone: '+917666777888',
+   369→        name: 'Mohan Pal',
+   370→        role: UserRole.CAREGIVER,
+   371→        subscription: SubscriptionPlan.NONE,
+   372→        isActive: true,
+   373→        caregiverProfile: {
+   374→          create: {
+   375→            gender: 'Male',
+   376→            dateOfBirth: new Date('1988-01-30'),
+   377→            address: 'Village Bamnoli, Near Sector 28',
+   378→            city: 'Gurgaon',
+   379→            pincode: '122001',
+   380→            latitude: 28.4595,
+   381→            longitude: 77.0266,
+   382→            yearsExperience: 6,
+   383→            qualifications: JSON.stringify(['ANM Nursing', 'Home Nursing Certificate']),
+   384→            skills: JSON.stringify(['bedridden-care', 'feeding', 'mobility-support', 'wound-care', 'medicine-management']),
+   385→            languages: JSON.stringify(['Hindi', 'Haryanvi']),
+   386→            bio: 'Dedicated male caregiver experienced in handling bedridden patients. Strong and caring, specializes in patient transfer and mobility.',
+   387→            hourlyRate: 280,
+   388→            availabilityJson: defaultAvailability,
+   389→            overallRating: 4.3,
+   390→            totalReviews: 18,
+   391→            completedJobs: 28,
+   392→            isVerified: false,
+   393→          },
+   394→        },
+   395→      },
+   396→    }),
+   397→    db.user.create({
+   398→      data: {
+   399→        email: 'kamla.bai@email.com',
+   400→        passwordHash,
+   401→        phone: '+917666999000',
+   402→        name: 'Kamla Bai',
+   403→        role: UserRole.CAREGIVER,
+   404→        subscription: SubscriptionPlan.NONE,
+   405→        isActive: true,
+   406→        caregiverProfile: {
+   407→          create: {
+   408→            gender: 'Female',
+   409→            dateOfBirth: new Date('1982-06-12'),
+   410→            address: 'House 89, JJ Colony, Bawana',
+   411→            city: 'Delhi',
+   412→            pincode: '110039',
+   413→            latitude: 28.7766,
+   414→            longitude: 77.0513,
+   415→            yearsExperience: 10,
+   416→            qualifications: JSON.stringify(['GNM Nursing', 'Wound Care Specialist Certificate', 'Diabetes Educator']),
+   417→            skills: JSON.stringify(['wound-care', 'bedridden-care', 'feeding', 'medicine-management', 'physiotherapy-assist', 'post-surgery-care']),
+   418→            languages: JSON.stringify(['Hindi', 'Rajasthani']),
+   419→            bio: 'Highly experienced wound care specialist nurse. 10 years of dedicated service in home healthcare, particularly with diabetic patients.',
+   420→            hourlyRate: 320,
+   421→            availabilityJson: defaultAvailability,
+   422→            overallRating: 4.8,
+   423→            totalReviews: 45,
+   424→            completedJobs: 78,
+   425→            isVerified: true,
+   426→          },
+   427→        },
+   428→      },
+   429→    }),
+   430→    db.user.create({
+   431→      data: {
+   432→        email: 'naveen.attendant@email.com',
+   433→        passwordHash,
+   434→        phone: '+917777111222',
+   435→        name: 'Naveen Chauhan',
+   436→        role: UserRole.CAREGIVER,
+   437→        subscription: SubscriptionPlan.NONE,
+   438→        isActive: true,
+   439→        caregiverProfile: {
+   440→          create: {
+   441→            gender: 'Male',
+   442→            dateOfBirth: new Date('1995-09-03'),
+   443→            address: 'Room 12, PG Block, Pitampura',
+   444→            city: 'Delhi',
+   445→            pincode: '110034',
+   446→            latitude: 28.6996,
+   447→            longitude: 77.1425,
+   448→            yearsExperience: 2,
+   449→            qualifications: JSON.stringify(['Home Care Attendant Course', 'First Aid']),
+   450→            skills: JSON.stringify(['elderly-companionship', 'feeding', 'mobility-support', 'medicine-management']),
+   451→            languages: JSON.stringify(['Hindi', 'English']),
+   452→            bio: 'Young and energetic caregiver. Good at building rapport with elderly patients. Trained in basic patient care and first aid.',
+   453→            hourlyRate: 200,
+   454→            availabilityJson: defaultAvailability,
+   455→            overallRating: 4.0,
+   456→            totalReviews: 8,
+   457→            completedJobs: 12,
+   458→            isVerified: false,
+   459→          },
+   460→        },
+   461→      },
+   462→    }),
+   463→    db.user.create({
+   464→      data: {
+   465→        email: 'prabha.devi@email.com',
+   466→        passwordHash,
+   467→        phone: '+917777333444',
+   468→        name: 'Prabha Devi',
+   469→        role: UserRole.CAREGIVER,
+   470→        subscription: SubscriptionPlan.NONE,
+   471→        isActive: true,
+   472→        caregiverProfile: {
+   473→          create: {
+   474→            gender: 'Female',
+   475→            dateOfBirth: new Date('1987-12-25'),
+   476→            address: 'Flat 3A, Sector 56, Noida',
+   477→            city: 'Noida',
+   478→            pincode: '201301',
+   479→            latitude: 28.5766,
+   480→            longitude: 77.3211,
+   481→            yearsExperience: 7,
+   482→            qualifications: JSON.stringify(['ANM Nursing', 'Post-Surgery Care Training', 'CPR Certified']),
+   483→            skills: JSON.stringify(['post-surgery-care', 'wound-care', 'feeding', 'bedridden-care', 'medicine-management', 'physiotherapy-assist']),
+   484→            languages: JSON.stringify(['Hindi', 'English', 'Bengali']),
+   485→            bio: 'Specialized in post-surgery home care. Certified in CPR and wound management. Known for meticulous attention to patient recovery protocols.',
+   486→            hourlyRate: 330,
+   487→            availabilityJson: defaultAvailability,
+   488→            overallRating: 4.6,
+   489→            totalReviews: 29,
+   490→            completedJobs: 42,
+   491→            isVerified: true,
+   492→          },
+   493→        },
+   494→      },
+   495→    }),
+   496→    db.user.create({
+   497→      data: {
+   498→        email: 'satish.kumar@email.com',
+   499→        passwordHash,
+   500→        phone: '+917777555666',
+   501→        name: 'Satish Kumar',
+   502→        role: UserRole.CAREGIVER,
+   503→        subscription: SubscriptionPlan.NONE,
+   504→        isActive: true,
+   505→        caregiverProfile: {
+   506→          create: {
+   507→            gender: 'Male',
+   508→            dateOfBirth: new Date('1983-04-18'),
+   509→            address: 'D-12, Sector 37, Gurgaon',
+   510→            city: 'Gurgaon',
+   511→            pincode: '122001',
+   512→            latitude: 28.4495,
+   513→            longitude: 77.0636,
+   514→            yearsExperience: 9,
+   515→            qualifications: JSON.stringify(['BSc Nursing', 'ICU Experience', 'Geriatric Care Certificate']),
+   516→            skills: JSON.stringify(['bedridden-care', 'medicine-management', 'wound-care', 'feeding', 'mobility-support', 'physiotherapy-assist', 'dementia-care', 'elderly-companionship']),
+   517→            languages: JSON.stringify(['Hindi', 'English', 'Tamil']),
+   518→            bio: 'Versatile nurse with ICU background and geriatric care specialization. Can handle complex medical needs including ventilator-assisted patients.',
+   519→            hourlyRate: 380,
+   520→            availabilityJson: defaultAvailability,
+   521→            overallRating: 4.9,
+   522→            totalReviews: 55,
+   523→            completedJobs: 95,
+   524→            isVerified: true,
+   525→          },
+   526→        },
+   527→      },
+   528→    }),
+   529→  ])
+   530→
+   531→  const caregiverUsersWithProfile = await db.user.findMany({
+   532→    where: { role: UserRole.CAREGIVER },
+   533→    include: { caregiverProfile: true },
+   534→    orderBy: { createdAt: 'asc' },
+   535→  })
+   536→  const caregivers = caregiverUsersWithProfile.map((u) => u.caregiverProfile!)
+   537→
+   538→  // Also get family users with patients for reference
+   539→  const familyUsersWithPatients = await db.user.findMany({
+   540→    where: { role: UserRole.FAMILY },
+   541→    include: { patientProfiles: true },
+   542→    orderBy: { createdAt: 'asc' },
+   543→  })
+   544→
+   545→  // ========================================
+   546→  // 4. Verification Documents
+   547→  // ========================================
+   548→  const caregiver0 = caregivers[0] // Sunita - verified
+   549→  const caregiver1 = caregivers[1] // Rajendra - verified
+   550→  const caregiver2 = caregivers[2] // Geeta - verified
+   551→  const caregiver3 = caregivers[3] // Mohan - unverified (pending docs)
+   552→  const caregiver4 = caregivers[4] // Kamla - verified
+   553→  const caregiver5 = caregivers[5] // Naveen - unverified
+   554→  const caregiver6 = caregivers[6] // Prabha - verified
+   555→  const caregiver7 = caregivers[7] // Satish - verified
+   556→
+   557→  await db.verification.createMany({
+   558→    data: [
+   559→      // Sunita - all approved
+   560→      { caregiverId: caregiver0.id, docType: VerificationType.AADHAAR, docNumber: '1234-5678-9012', docUrl: '/docs/sunita-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-11-10') },
+   561→      { caregiverId: caregiver0.id, docType: VerificationType.NURSING_CERTIFICATE, docNumber: 'ANM-2017-0456', docUrl: '/docs/sunita-nursing.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-11-10') },
+   562→      { caregiverId: caregiver0.id, docType: VerificationType.POLICE_VERIFICATION, docNumber: 'PV-DL-2024-089', docUrl: '/docs/sunita-police.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-11-12') },
+   563→      // Rajendra - all approved
+   564→      { caregiverId: caregiver1.id, docType: VerificationType.AADHAAR, docNumber: '2345-6789-0123', docUrl: '/docs/rajendra-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[1].id, reviewedAt: new Date('2024-10-15') },
+   565→      { caregiverId: caregiver1.id, docType: VerificationType.MEDICAL_DEGREE, docNumber: 'BScN-2012-1234', docUrl: '/docs/rajendra-degree.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[1].id, reviewedAt: new Date('2024-10-15') },
+   566→      { caregiverId: caregiver1.id, docType: VerificationType.POLICE_VERIFICATION, docNumber: 'PV-DL-2024-045', docUrl: '/docs/rajendra-police.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[1].id, reviewedAt: new Date('2024-10-17') },
+   567→      // Geeta - all approved
+   568→      { caregiverId: caregiver2.id, docType: VerificationType.AADHAAR, docNumber: '3456-7890-1234', docUrl: '/docs/geeta-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-12-01') },
+   569→      { caregiverId: caregiver2.id, docType: VerificationType.NURSING_CERTIFICATE, docNumber: 'GNM-2018-0789', docUrl: '/docs/geeta-nursing.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-12-01') },
+   570→      // Mohan - pending + rejected
+   571→      { caregiverId: caregiver3.id, docType: VerificationType.AADHAAR, docNumber: '4567-8901-2345', docUrl: '/docs/mohan-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[1].id, reviewedAt: new Date('2025-01-05') },
+   572→      { caregiverId: caregiver3.id, docType: VerificationType.NURSING_CERTIFICATE, docNumber: 'ANM-2020-0321', docUrl: '/docs/mohan-nursing.pdf', status: VerificationStatus.REJECTED, reviewedBy: admins[1].id, reviewedAt: new Date('2025-01-06'), rejectionReason: 'Certificate is partially visible. Please re-upload a clear scan.' },
+   573→      { caregiverId: caregiver3.id, docType: VerificationType.POLICE_VERIFICATION, docNumber: 'PV-HR-2025-012', docUrl: '/docs/mohan-police.pdf', status: VerificationStatus.PENDING },
+   574→      // Kamla - approved
+   575→      { caregiverId: caregiver4.id, docType: VerificationType.AADHAAR, docNumber: '5678-9012-3456', docUrl: '/docs/kamla-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-09-20') },
+   576→      { caregiverId: caregiver4.id, docType: VerificationType.NURSING_CERTIFICATE, docNumber: 'GNM-2014-0567', docUrl: '/docs/kamla-nursing.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-09-20') },
+   577→      { caregiverId: caregiver4.id, docType: VerificationType.POLICE_VERIFICATION, docNumber: 'PV-DL-2024-023', docUrl: '/docs/kamla-police.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-09-22') },
+   578→      // Naveen - pending
+   579→      { caregiverId: caregiver5.id, docType: VerificationType.AADHAAR, docNumber: '6789-0123-4567', docUrl: '/docs/naveen-aadhaar.pdf', status: VerificationStatus.PENDING },
+   580→      { caregiverId: caregiver5.id, docType: VerificationType.ADDRESS_PROOF, docNumber: 'PASSPORT-M7890123', docUrl: '/docs/naveen-address.pdf', status: VerificationStatus.PENDING },
+   581→      // Prabha - approved
+   582→      { caregiverId: caregiver6.id, docType: VerificationType.AADHAAR, docNumber: '7890-1234-5678', docUrl: '/docs/prabha-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[2].id, reviewedAt: new Date('2024-11-25') },
+   583→      { caregiverId: caregiver6.id, docType: VerificationType.NURSING_CERTIFICATE, docNumber: 'ANM-2017-0901', docUrl: '/docs/prabha-nursing.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[2].id, reviewedAt: new Date('2024-11-25') },
+   584→      { caregiverId: caregiver6.id, docType: VerificationType.POLICE_VERIFICATION, docNumber: 'PV-UP-2024-156', docUrl: '/docs/prabha-police.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[2].id, reviewedAt: new Date('2024-11-27') },
+   585→      // Satish - approved
+   586→      { caregiverId: caregiver7.id, docType: VerificationType.AADHAAR, docNumber: '8901-2345-6789', docUrl: '/docs/satish-aadhaar.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-08-10') },
+   587→      { caregiverId: caregiver7.id, docType: VerificationType.MEDICAL_DEGREE, docNumber: 'BScN-2011-0432', docUrl: '/docs/satish-degree.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-08-10') },
+   588→      { caregiverId: caregiver7.id, docType: VerificationType.POLICE_VERIFICATION, docNumber: 'PV-HR-2024-178', docUrl: '/docs/satish-police.pdf', status: VerificationStatus.APPROVED, reviewedBy: admins[0].id, reviewedAt: new Date('2024-08-12') },
+   589→    ],
+   590→  })
+   591→
+   592→  // ========================================
+   593→  // 5. Bookings (10)
+   594→  // ========================================
+   595→  const patients = await db.patient.findMany({ where: { familyId: { in: families.map((f) => f.id) } } })
+   596→
+   597→  const bookingsData = [
+   598→    { patientId: patients[0].id, caregiverId: caregivers[0].id, familyId: families[0].id, shiftType: ShiftType.TWELVE_HOUR, startDate: new Date('2025-06-01'), endDate: new Date('2025-06-15'), startTime: '08:00', endTime: '20:00', status: BookingStatus.COMPLETED, totalAmount: 42000, platformFee: 4200, careRequirements: JSON.stringify({ needs: ['feeding', 'mobility-support', 'medicine-management'] }), familyNotes: 'Mother needs gentle and patient care. She speaks Hindi only.' },
+   599→    { patientId: patients[1].id, caregiverId: caregivers[1].id, familyId: families[1].id, shiftType: ShiftType.TWENTY_FOUR_HOUR, startDate: new Date('2025-06-10'), endDate: new Date('2025-06-20'), startTime: '00:00', endTime: '23:59', status: BookingStatus.COMPLETED, totalAmount: 84000, platformFee: 8400, careRequirements: JSON.stringify({ needs: ['medicine-management', 'post-surgery-care', 'mobility-support'] }), familyNotes: 'Father had bypass surgery. Strict dietary restrictions.' },
+   600→    { patientId: patients[2].id, caregiverId: caregivers[2].id, familyId: families[2].id, shiftType: ShiftType.DAY_SHIFT, startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), startTime: '08:00', endTime: '20:00', status: BookingStatus.COMPLETED, totalAmount: 108000, platformFee: 10800, careRequirements: JSON.stringify({ needs: ['dementia-care', 'elderly-companionship', 'feeding', 'medicine-management'] }), familyNotes: 'Mother-in-law tends to forget meals. Needs reminders and companionship.' },
+   601→    { patientId: patients[3].id, caregiverId: caregivers[4].id, familyId: families[3].id, shiftType: ShiftType.TWENTY_FOUR_HOUR, startDate: new Date('2025-07-05'), endDate: new Date('2025-07-20'), startTime: '00:00', endTime: '23:59', status: BookingStatus.COMPLETED, totalAmount: 76800, platformFee: 7680, careRequirements: JSON.stringify({ needs: ['bedridden-care', 'feeding', 'wound-care', 'physiotherapy-assist', 'medicine-management'] }), familyNotes: 'Father is diabetic with bed sores. Wound dressing twice daily.' },
+   602→    { patientId: patients[4].id, caregiverId: caregivers[7].id, familyId: families[4].id, shiftType: ShiftType.TWENTY_FOUR_HOUR, startDate: new Date('2025-07-10'), endDate: null, startTime: '00:00', endTime: '23:59', status: BookingStatus.COMPLETED, totalAmount: 91200, platformFee: 9120, careRequirements: JSON.stringify({ needs: ['bedridden-care', 'feeding', 'wound-care', 'physiotherapy-assist', 'medicine-management'] }), familyNotes: 'Father had a stroke. Left side affected. Needs complete care.' },
+   603→    { patientId: patients[0].id, caregiverId: caregivers[6].id, familyId: families[0].id, shiftType: ShiftType.TWELVE_HOUR, startDate: new Date('2025-07-20'), endDate: new Date('2025-08-05'), startTime: '08:00', endTime: '20:00', status: BookingStatus.CONFIRMED, totalAmount: 52800, platformFee: 5280, careRequirements: JSON.stringify({ needs: ['post-surgery-care', 'wound-care', 'feeding', 'medicine-management'] }), familyNotes: 'Mother has a small surgery scheduled. Need post-op care.' },
+   604→    { patientId: patients[1].id, caregiverId: caregivers[4].id, familyId: families[1].id, shiftType: ShiftType.TWENTY_FOUR_HOUR, startDate: new Date('2025-07-25'), endDate: new Date('2025-08-10'), startTime: '00:00', endTime: '23:59', status: BookingStatus.PENDING, totalAmount: 76800, platformFee: 7680, careRequirements: JSON.stringify({ needs: ['bedridden-care', 'feeding', 'wound-care', 'medicine-management'] }), familyNotes: 'Continuing care for father after previous caregiver.' },
+   605→    { patientId: patients[3].id, caregiverId: caregivers[1].id, familyId: families[3].id, shiftType: ShiftType.TWELVE_HOUR, startDate: new Date('2025-05-01'), endDate: new Date('2025-05-10'), startTime: '08:00', endTime: '20:00', status: BookingStatus.CANCELLED, totalAmount: 42000, platformFee: 4200, cancellationReason: 'Caregiver had a family emergency', careRequirements: JSON.stringify({ needs: ['physiotherapy-assist', 'mobility-support', 'medicine-management'] }), familyNotes: 'Father needs physiotherapy assistance.' },
+   606→    { patientId: patients[2].id, caregiverId: caregivers[0].id, familyId: families[2].id, shiftType: ShiftType.DAY_SHIFT, startDate: new Date('2025-05-15'), endDate: new Date('2025-05-30'), startTime: '08:00', endTime: '20:00', status: BookingStatus.COMPLETED, totalAmount: 45000, platformFee: 4500, careRequirements: JSON.stringify({ needs: ['elderly-companionship', 'feeding', 'medicine-management'] }), familyNotes: 'Short term care for mother-in-law.' },
+   607→    { patientId: patients[4].id, caregiverId: caregivers[6].id, familyId: families[4].id, shiftType: ShiftType.TWENTY_FOUR_HOUR, startDate: new Date('2025-05-20'), endDate: new Date('2025-06-05'), startTime: '00:00', endTime: '23:59', status: BookingStatus.COMPLETED, totalAmount: 79200, platformFee: 7920, careRequirements: JSON.stringify({ needs: ['bedridden-care', 'feeding', 'wound-care', 'medicine-management'] }), familyNotes: 'Post-stroke care.' },
+   608→  ]
+   609→
+   610→  const bookings = []
+   611→  for (const b of bookingsData) {
+   612→    const booking = await db.booking.create({ data: b })
+   613→    bookings.push(booking)
+   614→  }
+   615→
+   616→  // ========================================
+   617→  // 6. Payments (5) for completed bookings
+   618→  // ========================================
+   619→  const completedBookings = bookings.filter((b) => b.status === BookingStatus.COMPLETED)
+   620→  await Promise.all(
+   621→    completedBookings.slice(0, 5).map((booking, idx) =>
+   622→      db.payment.create({
+   623→        data: {
+   624→          bookingId: booking.id,
+   625→          familyId: booking.familyId,
+   626→          caregiverId: booking.caregiverId,
+   627→          amount: booking.totalAmount,
+   628→          platformFee: booking.platformFee,
+   629→          caregiverPayout: booking.totalAmount - booking.platformFee,
+   630→          status: idx < 4 ? PaymentStatus.COMPLETED : PaymentStatus.PENDING,
+   631→          paymentMethod: idx % 2 === 0 ? 'razorpay' : 'upi',
+   632→          transactionId: `TXN-${Date.now()}-${idx}`,
+   633→          paidAt: idx < 4 ? booking.updatedAt : null,
+   634→        },
+   635→      })
+   636→    )
+   637→  )
+   638→
+   639→  // ========================================
+   640→  // 7. Care Reports (8) for in_progress and completed bookings
+   641→  // ========================================
+   642→  const reportableBookings = bookings.filter(
+   643→    (b) => b.status === BookingStatus.IN_PROGRESS || b.status === BookingStatus.COMPLETED
+   644→  )
+   645→
+   646→  const reportsData = [
+   647→    { bookingId: reportableBookings[0].id, caregiverId: reportableBookings[0].caregiverId, reportDate: '2025-06-14', activities: JSON.stringify([{ type: CareActivityType.FEEDING, time: '08:30', notes: 'Had dal chawal and sabzi' }, { type: CareActivityType.MEDICINE, time: '09:00', notes: 'Gave Metformin and Amlodipine' }, { type: CareActivityType.MOBILITY, time: '10:00', notes: 'Walked around room with support for 15 min' }, { type: CareActivityType.COMPANIONSHIP, time: '11:00', notes: 'Read newspaper together, talked about old memories' }, { type: CareActivityType.FEEDING, time: '13:00', notes: 'Lunch - roti, sabzi, curd' }, { type: CareActivityType.MEDICINE, time: '21:00', notes: 'Evening medicines given' }]), summary: 'Good day overall. Patient was cheerful and ate well. Walked for 15 minutes with support.', mood: 'good', foodIntake: 'good', medicinesGiven: JSON.stringify([{ name: 'Metformin 500mg', time: '09:00', given: true }, { name: 'Amlodipine 5mg', time: '09:00', given: true }, { name: 'Calcium+VitD', time: '13:00', given: true }]), concerns: 'Blood sugar was slightly high at 180 mg/dL before lunch.' },
+   648→    { bookingId: reportableBookings[0].id, caregiverId: reportableBookings[0].caregiverId, reportDate: '2025-06-15', activities: JSON.stringify([{ type: CareActivityType.FEEDING, time: '08:30', notes: 'Oats with milk for breakfast' }, { type: CareActivityType.MEDICINE, time: '09:00', notes: 'Morning medicines given on time' }, { type: CareActivityType.MOBILITY, time: '10:30', notes: 'Walked to balcony, enjoyed fresh air' }, { type: CareActivityType.HYGIENE, time: '11:30', notes: 'Sponge bath given' }, { type: CareActivityType.COMPANIONSHIP, time: '15:00', notes: 'Watched TV together - old Bollywood songs' }]), summary: 'Last day of this booking. Patient was happy and content. All vitals normal.', mood: 'good', foodIntake: 'good', medicinesGiven: JSON.stringify([{ name: 'Metformin 500mg', time: '09:00', given: true }, { name: 'Amlodipine 5mg', time: '09:00', given: true }]), concerns: null },
+   649→    { bookingId: reportableBookings[1].id, caregiverId: reportableBookings[1].caregiverId, reportDate: '2025-06-18', activities: JSON.stringify([{ type: CareActivityType.MEDICINE, time: '06:00', notes: 'Morning medicines given - Aspirin, Atorvastatin, Losartan' }, { type: CareActivityType.VITAL_CHECK, time: '06:30', notes: 'BP 130/85, Weight 72kg, Pulse 78' }, { type: CareActivityType.FEEDING, time: '07:30', notes: 'Renal diet breakfast - idli with sambar (low salt)' }, { type: CareActivityType.MOBILITY, time: '09:00', notes: 'Assisted walking for 20 minutes' }, { type: CareActivityType.WOUND_CARE, time: '10:00', notes: 'Surgical site dressing changed. No signs of infection.' }, { type: CareActivityType.MEDICINE, time: '18:00', notes: 'Evening medicines given' }]), summary: 'Stable day. BP is controlled. Surgical wound healing well. Patient walked more today.', mood: 'normal', foodIntake: 'normal', medicinesGiven: JSON.stringify([{ name: 'Aspirin', time: '06:00', given: true }, { name: 'Atorvastatin', time: '06:00', given: true }, { name: 'Losartan', time: '06:00', given: true }]), concerns: 'Patient mentioned mild swelling in left ankle. Will monitor.' },
+   650→    { bookingId: reportableBookings[1].id, caregiverId: reportableBookings[1].caregiverId, reportDate: '2025-06-19', activities: JSON.stringify([{ type: CareActivityType.MEDICINE, time: '06:00', notes: 'Morning medicines given' }, { type: CareActivityType.VITAL_CHECK, time: '06:30', notes: 'BP 125/82, Weight 71.8kg, Pulse 76' }, { type: CareActivityType.FEEDING, time: '07:30', notes: 'Moong dal khichdi for breakfast' }, { type: CareActivityType.EXERCISE, time: '09:00', notes: 'Light stretching exercises as per physiotherapist instructions' }, { type: CareActivityType.WOUND_CARE, time: '11:00', notes: 'Wound dressing - healing nicely, reduced discharge' }]), summary: 'Good progress. Weight stable. Wound healing well. Swelling reduced.', mood: 'good', foodIntake: 'normal', medicinesGiven: JSON.stringify([{ name: 'Aspirin', time: '06:00', given: true }, { name: 'Atorvastatin', time: '06:00', given: true }, { name: 'Losartan', time: '06:00', given: true }]), concerns: null },
+   651→    { bookingId: reportableBookings[2].id, caregiverId: reportableBookings[2].caregiverId, reportDate: '2025-07-10', activities: JSON.stringify([{ type: CareActivityType.FEEDING, time: '08:00', notes: 'Upma and chai for breakfast' }, { type: CareActivityType.MEDICINE, time: '08:30', notes: 'Donepezil 10mg given' }, { type: CareActivityType.COMPANIONSHIP, time: '09:30', notes: 'Did puzzles and memory games together' }, { type: CareActivityType.MOBILITY, time: '11:00', notes: 'Short walk in the park' }, { type: CareActivityType.FEEDING, time: '13:00', notes: 'Rice, sambar, rasam for lunch' }, { type: CareActivityType.COMPANIONSHIP, time: '15:00', notes: 'Sang old Telugu songs together, patient was very happy' }]), summary: 'Patient was very cheerful today. Remembered some old songs. Good appetite.', mood: 'good', foodIntake: 'good', medicinesGiven: JSON.stringify([{ name: 'Donepezil 10mg', time: '08:30', given: true }, { name: 'Alendronate', time: '07:00', given: true }]), concerns: 'Patient forgot she had lunch and asked for food again at 4PM. Gave a light snack.' },
+   652→    { bookingId: reportableBookings[3].id, caregiverId: reportableBookings[3].caregiverId, reportDate: '2025-07-12', activities: JSON.stringify([{ type: CareActivityType.MEDICINE, time: '06:00', notes: 'Levodopa/Carbidopa given on time' }, { type: CareActivityType.VITAL_CHECK, time: '06:30', notes: 'BP 135/88, Pulse 74' }, { type: CareActivityType.FEEDING, time: '07:30', notes: 'High fiber breakfast - oats, fruits' }, { type: CareActivityType.EXERCISE, time: '09:00', notes: 'Physiotherapy exercises - 30 min session. Tremors were mild today.' }, { type: CareActivityType.MOBILITY, time: '11:00', notes: 'Transferred from bed to wheelchair independently with standby assist' }, { type: CareActivityType.WOUND_CARE, time: '14:00', notes: 'Checked bed sores - Stage 1 on lower back. Applied ointment.' }, { type: CareActivityType.MEDICINE, time: '18:00', notes: 'Evening medicines given' }]), summary: 'Active day. Patient participated well in exercises. Bed sore is being monitored.', mood: 'normal', foodIntake: 'normal', medicinesGiven: JSON.stringify([{ name: 'Levodopa/Carbidopa', time: '06:00', given: true }, { name: 'Tamsulosin', time: '22:00', given: true }]), concerns: 'Stage 1 bed sore noticed on lower back. Need to reposition every 2 hours.' },
+   653→    { bookingId: reportableBookings[4].id, caregiverId: reportableBookings[4].caregiverId, reportDate: '2025-07-15', activities: JSON.stringify([{ type: CareActivityType.MEDICINE, time: '07:00', notes: 'Insulin injection given - 8 units' }, { type: CareActivityType.FEEDING, time: '07:30', notes: 'Diabetic breakfast - multigrain toast, egg white, green tea' }, { type: CareActivityType.WOUND_CARE, time: '09:00', notes: 'Bed sore dressing changed on back and heel. Both healing.' }, { type: CareActivityType.EXERCISE, time: '10:00', notes: 'Passive range of motion exercises for left arm and leg - 20 min' }, { type: CareActivityType.FEEDING, time: '12:30', notes: 'Small meal - dal, roti, sabzi (portion controlled)' }, { type: CareActivityType.MEDICINE, time: '13:00', notes: 'Pregabalin and Clopidogrel given' }, { type: CareActivityType.MEDICINE, time: '19:00', notes: 'Evening insulin - 8 units' }]), summary: 'Stable condition. Blood sugar 140 mg/dL (fasting). Bed sores improving. Passive exercises done.', mood: 'normal', foodIntake: 'normal', medicinesGiven: JSON.stringify([{ name: 'Insulin', time: '07:00', given: true }, { name: 'Pregabalin', time: '13:00', given: true }, { name: 'Clopidogrel', time: '13:00', given: true }, { name: 'Insulin', time: '19:00', given: true }]), concerns: 'Patient seemed slightly withdrawn today. Spoke less than usual.' },
+   654→    { bookingId: reportableBookings[4].id, caregiverId: reportableBookings[4].caregiverId, reportDate: '2025-07-16', activities: JSON.stringify([{ type: CareActivityType.MEDICINE, time: '07:00', notes: 'Insulin 8 units' }, { type: CareActivityType.FEEDING, time: '07:30', notes: 'Idli with coconut chutney' }, { type: CareActivityType.WOUND_CARE, time: '09:00', notes: 'Dressing changed. Heel sore almost healed. Back sore improving.' }, { type: CareActivityType.EXERCISE, time: '10:00', notes: 'ROM exercises - left side showing slight improvement in finger movement' }, { type: CareActivityType.COMPANIONSHIP, time: '14:00', notes: 'Played old Hindi songs. Patient smiled and tried to sing along.' }]), summary: 'Positive day. Patient was more responsive. Finger movement slightly improved. Wounds healing well.', mood: 'good', foodIntake: 'good', medicinesGiven: JSON.stringify([{ name: 'Insulin', time: '07:00', given: true }, { name: 'Pregabalin', time: '13:00', given: true }, { name: 'Clopidogrel', time: '13:00', given: true }, { name: 'Insulin', time: '19:00', given: true }]), concerns: null },
+   655→  ]
+   656→
+   657→  await db.careReport.createMany({ data: reportsData })
+   658→
+   659→  // ========================================
+   660→  // 8. Reviews (6) for completed bookings
+   661→  // ========================================
+   662→  const reviewsData = [
+   663→    { bookingId: completedBookings[0].id, familyId: families[0].id, caregiverId: completedBookings[0].caregiverId, rating: 5, communicationRating: 5, punctualityRating: 5, careQualityRating: 5, comment: 'Sunita ji was absolutely wonderful with my mother. She treated her like her own family member. Very caring and attentive. Highly recommended!' },
+   664→    { bookingId: completedBookings[1].id, familyId: families[1].id, caregiverId: completedBookings[1].caregiverId, rating: 5, communicationRating: 5, punctualityRating: 4, careQualityRating: 5, comment: 'Rajendra is extremely professional. His knowledge of post-surgical care is exceptional. My father recovered well under his care. The only reason for 4 on punctuality is he was late by 10 minutes once.' },
+   665→    { bookingId: completedBookings[2].id, familyId: families[2].id, caregiverId: completedBookings[2].caregiverId, rating: 4, communicationRating: 5, punctualityRating: 5, careQualityRating: 4, comment: 'Geeta is very patient and kind. She handled my mother-in-law with dementia very well. The only reason for 4 stars is that I wish she had more experience with dementia specifically. But she is learning fast and genuinely cares.' },
+   666→    { bookingId: completedBookings[3].id, familyId: families[3].id, caregiverId: completedBookings[3].caregiverId, rating: 5, communicationRating: 4, punctualityRating: 5, careQualityRating: 5, comment: 'Kamla ji is a gem. Her wound care skills are outstanding. My fathers bed sores started healing within days. She is firm yet caring. Exactly what we needed.' },
+   667→    { bookingId: completedBookings[4].id, familyId: families[4].id, caregiverId: completedBookings[4].caregiverId, rating: 4, communicationRating: 4, punctualityRating: 5, careQualityRating: 4, comment: 'Satish is very knowledgeable and experienced. He managed my fathers complex medical needs well. Good communication. Would book again.' },
+   668→  ]
+   669→
+   670→  await db.review.createMany({ data: reviewsData as any })
+   671→
+   672→  // ========================================
+   673→  // 9. Complaints (3)
+   674→  // ========================================
+   675→  await db.complaint.createMany({
+   676→    data: [
+   677→      {
+   678→        bookingId: bookings[2].id,
+   679→        familyId: families[2].id,
+   680→        caregiverId: caregivers[2].id,
+   681→        subject: 'Caregiver arrived 45 minutes late on July 5th',
+   682→        description: 'The caregiver arrived at 8:45 AM instead of 8:00 AM. This caused disruption in the morning routine and medicine schedule for my mother-in-law who has dementia. I understand traffic can be bad, but a phone call would have helped.',
+   683→        status: ComplaintStatus.OPEN,
+   684→        priority: 'medium',
+   685→      },
+   686→      {
+   687→        bookingId: bookings[3].id,
+   688→        familyId: families[3].id,
+   689→        caregiverId: caregivers[4].id,
+   690→        subject: 'Rough handling during patient transfer',
+   691→        description: 'My father complained that the caregiver was a bit rough while helping him transfer from bed to wheelchair yesterday. He has Parkinsons and needs gentle handling. Please ensure proper technique is followed.',
+   692→        status: ComplaintStatus.IN_PROGRESS,
+   693→        priority: 'high',
+   694→        assignedTo: admins[0].id,
+   695→      },
+   696→      {
+   697→        bookingId: bookings[0].id,
+   698→        familyId: families[0].id,
+   699→        caregiverId: caregivers[0].id,
+   700→        subject: 'Billing discrepancy for overtime hours',
+   701→        description: 'I was charged for 2 extra hours on June 10th but the caregiver had left on time at 8 PM. Please check the records and refund the extra amount of Rs 500.',
+   702→        status: ComplaintStatus.RESOLVED,
+   703→        priority: 'low',
+   704→        assignedTo: admins[1].id,
+   705→        resolution: 'Verified timing records. Caregiver indeed left at 8 PM. The extra 2 hours were a system error. Refund of Rs 500 has been processed to the family wallet.',
+   706→        resolvedAt: new Date('2025-06-20'),
+   707→      },
+   708→    ],
+   709→  })
+   710→
+   711→  // ========================================
+   712→  // 10. Notifications (15)
+   713→  // ========================================
+   714→  await db.notification.createMany({
+   715→    data: [
+   716→      { userId: families[0].id, type: NotificationType.BOOKING_CONFIRMED, title: 'Booking Confirmed', message: 'Your booking for Shanti Devi with Sunita Devi (June 1-15) has been confirmed.', data: JSON.stringify({ bookingId: bookings[0].id }) },
+   717→      { userId: families[0].id, type: NotificationType.CARE_REPORT_SUBMITTED, title: 'Daily Care Report', message: 'A care report has been submitted for Shanti Devi for June 14.', data: JSON.stringify({ bookingId: bookings[0].id }) },
+   718→      { userId: families[0].id, type: NotificationType.REVIEW_REQUEST, title: 'Rate Your Experience', message: 'Your care session with Sunita Devi has ended. Please share your feedback.', data: JSON.stringify({ bookingId: bookings[0].id }) },
+   719→      { userId: families[0].id, type: NotificationType.PAYMENT_RECEIVED, title: 'Payment Confirmed', message: 'Payment of Rs 42,000 for booking #1 has been received.', data: JSON.stringify({ bookingId: bookings[0].id }) },
+   720→      { userId: families[1].id, type: NotificationType.BOOKING_CONFIRMED, title: 'Booking Confirmed', message: 'Your booking for Ramesh Patel with Rajendra Kumar (June 10-20) has been confirmed.', data: JSON.stringify({ bookingId: bookings[1].id }) },
+   721→      { userId: families[1].id, type: NotificationType.CARE_REPORT_SUBMITTED, title: 'Daily Care Report', message: 'A care report has been submitted for Ramesh Patel for June 18.', data: JSON.stringify({ bookingId: bookings[1].id }) },
+   722→      { userId: families[2].id, type: NotificationType.BOOKING_CONFIRMED, title: 'Booking Confirmed', message: 'Your booking for Lakshmi Reddy with Geeta Rani (July 1-31) has been confirmed.', data: JSON.stringify({ bookingId: bookings[2].id }) },
+   723→      { userId: families[2].id, type: NotificationType.URGENT_REQUEST, title: 'Caregiver Running Late', message: 'Your caregiver Geeta Rani is running late today (July 5th). Expected arrival: 8:45 AM.', data: JSON.stringify({ bookingId: bookings[2].id }) },
+   724→      { userId: families[3].id, type: NotificationType.BOOKING_CONFIRMED, title: 'Booking Confirmed', message: 'Your booking for Harjeet Singh with Kamla Bai (July 5-20) has been confirmed.', data: JSON.stringify({ bookingId: bookings[3].id }) },
+   725→      { userId: families[4].id, type: NotificationType.BOOKING_CONFIRMED, title: 'Booking Confirmed', message: 'Your booking for Kamal Kapoor with Satish Kumar (July 10 onwards) has been confirmed.', data: JSON.stringify({ bookingId: bookings[4].id }) },
+   726→      { userId: caregivers[0].userId, type: NotificationType.VERIFICATION_UPDATE, title: 'Verification Approved', message: 'Your documents have been verified and approved. You are now a verified caregiver on SevaSaathi!', data: null },
+   727→      { userId: caregivers[1].userId, type: NotificationType.VERIFICATION_UPDATE, title: 'Verification Approved', message: 'Congratulations! All your documents have been verified. Your profile is now verified.', data: null },
+   728→      { userId: caregivers[3].userId, type: NotificationType.VERIFICATION_UPDATE, title: 'Verification Update', message: 'Your nursing certificate was rejected. Please re-upload a clear scan of the certificate.', data: JSON.stringify({ reason: 'Certificate is partially visible' }) },
+   729→      { userId: admins[0].id, type: NotificationType.SYSTEM, title: 'New Complaint Filed', message: 'A new complaint has been filed by Meena Reddy regarding caregiver Geeta Rani.', data: JSON.stringify({ complaintId: '1' }) },
+   730→      { userId: admins[0].id, type: NotificationType.SYSTEM, title: 'Pending Verifications', message: '3 new verification documents are pending review.', data: JSON.stringify({ count: 3 }) },
+   731→    ],
+   732→  })
+   733→
+   734→  console.log('✅ Seed completed successfully!')
+   735→  console.log(`   Created: ${admins.length} admins, ${families.length} families, ${caregivers.length} caregivers`)
+   736→  console.log(`   Bookings: ${bookings.length}, Patients: ${patients.length}`)
+   737→}
+   738→
+   739→main()
+   740→  .catch((e) => {
+   741→    console.error('❌ Seed failed:', e)
+   742→    process.exit(1)
+   743→  })
+   744→  .finally(async () => {
+   745→    await db.$disconnect()
+   746→  })
+   747→
