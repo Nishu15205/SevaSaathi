@@ -1,4 +1,5 @@
 import { db } from './db';
+import { Resend } from 'resend';
 
 interface EmailOptions {
   to: string;
@@ -8,35 +9,83 @@ interface EmailOptions {
   type?: string;
 }
 
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 /**
  * Email service for SevaSaathi
- * In production, integrate with Resend, SendGrid, or Nodemailer SMTP.
- * For development, emails are logged to the database and console.
+ * - With RESEND_API_KEY: Sends real emails via Resend
+ * - Without RESEND_API_KEY: Logs to console + database (dev mode)
  */
 export async function sendEmail({ to, subject, html, userId, type }: EmailOptions) {
   try {
     // Production: Use Resend API
-    // const resend = new Resend(process.env.RESEND_API_KEY);
-    // await resend.emails.send({ from: 'SevaSaathi <noreply@sevasaathi.in>', to, subject, html });
+    if (resend) {
+      const result = await resend.emails.send({
+        from: 'SevaSaathi <onboarding@resend.dev>', // Update with your verified domain after setup
+        to,
+        subject,
+        html,
+      });
+
+      console.log(`\n📧 EMAIL SENT via Resend -> ${to}`);
+      console.log(`   Subject: ${subject}`);
+      console.log(`   Resend ID: ${result.data?.id}`);
+      console.log(`   Type: ${type || 'general'}\n`);
+
+      await db.emailLog.create({
+        data: { to, subject, body: html, status: 'sent', userId, type, externalId: result.data?.id },
+      });
+
+      return { success: true, messageId: result.data?.id };
+    }
 
     // Development: Log to console and database
-    console.log(`\n📧 EMAIL -> ${to}`);
+    console.log(`\n📧 EMAIL (DEV MODE) -> ${to}`);
     console.log(`   Subject: ${subject}`);
-    console.log(`   Type: ${type || 'general'}\n`);
+    console.log(`   Type: ${type || 'general'}`);
+    console.log(`   ⚠️ Add RESEND_API_KEY to .env for real delivery\n`);
 
-    // Store in email_logs for admin visibility
     await db.emailLog.create({
       data: { to, subject, body: html, status: 'sent', userId, type },
     });
 
     return { success: true };
-  } catch (err) {
-    console.error('Email send error:', err);
+  } catch (err: any) {
+    console.error('Email send error:', err?.message || err);
     await db.emailLog.create({
       data: { to, subject, body: html, status: 'failed', userId, type },
     }).catch(() => {});
-    return { success: false, error: 'Failed to send email' };
+    return { success: false, error: err?.message || 'Failed to send email' };
   }
+}
+
+/**
+ * Send OTP via email (used for registration & password reset)
+ */
+export async function sendOtpEmail(to: string, otp: string, purpose: string) {
+  const purposeText = purpose === 'REGISTER' ? 'Verify your email to complete registration' : 'Use this OTP to reset your password';
+  const html = `
+    <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #14532d; padding: 20px; text-align: center;">
+        <h1 style="color: #a3e635; margin: 0;">SevaSaathi</h1>
+        <p style="color: white; margin: 5px 0 0;">${purpose === 'REGISTER' ? 'Email Verification' : 'Password Reset'}</p>
+      </div>
+      <div style="padding: 24px; background: #f9fafb;">
+        <p style="color: #374151;">${purposeText}:</p>
+        <div style="background: white; border-radius: 12px; padding: 24px; margin: 16px 0; text-align: center; border: 2px dashed #a3e635;">
+          <p style="font-size: 32px; font-weight: bold; color: #14532d; letter-spacing: 8px; margin: 0;">${otp}</p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">This OTP expires in 5 minutes. Do not share it with anyone.</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to,
+    subject: purpose === 'REGISTER' ? `SevaSaathi - Verify Your Email (${otp})` : `SevaSaathi - Password Reset OTP (${otp})`,
+    html,
+    type: purpose === 'REGISTER' ? 'email_verification' : 'password_reset',
+  });
 }
 
 export async function sendBookingConfirmationEmail(booking: any) {

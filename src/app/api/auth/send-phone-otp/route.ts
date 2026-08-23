@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { sendPhoneOtp, isSmsConfigured } from '@/lib/sms';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,13 +18,26 @@ export async function POST(req: NextRequest) {
       data: { otpSecret: `${otp}:${otpExpiry}` },
     });
 
-    // In production, send via MSG91/Twilio/Fast2SMS API here
-    // For dev mode, return the OTP in response and log it
-    console.log(`\n📱 PHONE OTP for ${cleanPhone}: ${otp}\n`);
+    // Try real SMS delivery
+    const smsResult = await sendPhoneOtp(cleanPhone, otp);
 
+    if (isSmsConfigured()) {
+      // Real SMS was attempted
+      if (smsResult.success) {
+        return NextResponse.json({
+          message: 'OTP sent to your phone number',
+        });
+      }
+      return NextResponse.json(
+        { error: 'Failed to send SMS. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    // Dev mode: return OTP in response
     return NextResponse.json({
-      message: 'OTP sent to your phone number',
-      devOtp: otp, // Only returned in development
+      message: 'OTP sent to your phone number (dev mode)',
+      devOtp: otp,
     });
   } catch (err: any) {
     console.error('Send phone OTP error:', err);

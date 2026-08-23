@@ -99,12 +99,14 @@ export async function GET(req: NextRequest) {
     const userRole = (requestedRole === "CAREGIVER" || requestedRole === "FAMILY") ? requestedRole : "FAMILY";
 
     let user;
+    let isNewUser = false;
     if (existing) {
       user = await db.user.update({
         where: { email: googleUser.email },
         data: { lastLoginAt: new Date(), avatarUrl: googleUser.picture || existing.avatarUrl },
       });
     } else {
+      isNewUser = true;
       user = await db.user.create({
         data: {
           email: googleUser.email,
@@ -127,9 +129,12 @@ export async function GET(req: NextRequest) {
       secret: process.env.NEXTAUTH_SECRET!,
     });
 
-    // Step 5: Redirect using CORRECT external URL
+    // Step 5: Redirect with auth=success (include new user flag)
     const origin = getExternalOrigin(req);
-    const response = NextResponse.redirect(`${origin}/?auth=success`);
+    const redirectPath = isNewUser
+      ? `/?auth=success&new=true&email=${encodeURIComponent(googleUser.email)}`
+      : `/?auth=success`;
+    const response = NextResponse.redirect(`${origin}${redirectPath}`);
     response.cookies.set("next-auth.session-token", jwtToken, {
       path: "/",
       httpOnly: true,
@@ -138,12 +143,12 @@ export async function GET(req: NextRequest) {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    console.log(`[google-cb] Session set for: ${googleUser.email}, redirect → ${origin}`);
+    console.log(`[google-cb] Session set for: ${googleUser.email}, isNew=${isNewUser}, redirect → ${origin}`);
 
-    // Clear state cookies
-    response.cookies.set("google_oauth_state", "", { path: "/api/auth/google-cb", maxAge: 0 });
-    response.cookies.set("google_redirect_uri", "", { path: "/api/auth/google-cb", maxAge: 0 });
-    response.cookies.set("google_oauth_role", "", { path: "/api/auth/google-cb", maxAge: 0 });
+    // Clear state cookies with path="/" to match how they were set
+    response.cookies.set("google_oauth_state", "", { path: "/", maxAge: 0 });
+    response.cookies.set("google_redirect_uri", "", { path: "/", maxAge: 0 });
+    response.cookies.set("google_oauth_role", "", { path: "/", maxAge: 0 });
 
     return response;
   } catch (err) {

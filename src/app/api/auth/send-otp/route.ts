@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { sendOtpEmail } from '@/lib/email'
 
 // In-memory OTP store (for demo/sandbox - in production use Redis/DB)
 export const otpStore = new Map<string, { otp: string; expiresAt: number; purpose: string }>()
@@ -30,11 +31,21 @@ export async function POST(request: NextRequest) {
     // Store OTP
     otpStore.set(`${email}:${purpose}`, { otp, expiresAt, purpose })
 
-    // In production, you would send this OTP via email service (e.g., Resend, SendGrid, AWS SES)
-    // For demo/sandbox, we return the OTP in the response so the user can use it
+    // Try to send real email via Resend
+    const hasResendKey = !!process.env.RESEND_API_KEY
+    if (hasResendKey) {
+      await sendOtpEmail(email, otp, purpose)
+      return NextResponse.json({
+        message: `OTP sent to ${email}`,
+        expiresIn: '5 minutes',
+      })
+    }
+
+    // Dev mode: return OTP in response
+    console.log(`\n📧 EMAIL OTP for ${email}: ${otp} (dev mode - add RESEND_API_KEY for real delivery)\n`)
     return NextResponse.json({
-      message: `OTP sent to ${email} (check response for demo OTP)`,
-      otp, // ONLY for demo! Remove in production.
+      message: `OTP sent to ${email} (dev mode)`,
+      otp,
       expiresIn: '5 minutes',
     })
   } catch (error) {

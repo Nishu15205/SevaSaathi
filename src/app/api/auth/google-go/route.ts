@@ -41,24 +41,22 @@ export async function GET(req: NextRequest) {
 
   const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-  // Store state + redirect_uri + role in cookies, then REDIRECT to Google
+  // Store state + redirect_uri + role in cookies with path="/" so they survive proxy chain
   const response = NextResponse.redirect(googleUrl);
   response.cookies.set("google_oauth_state", state, {
-    path: "/api/auth/google-cb",
+    path: "/",
     httpOnly: true,
     sameSite: "lax",
     maxAge: 600,
   });
-  // Store the redirect_uri so the callback uses the EXACT same value
   response.cookies.set("google_redirect_uri", redirectUri, {
-    path: "/api/auth/google-cb",
+    path: "/",
     httpOnly: true,
     sameSite: "lax",
     maxAge: 600,
   });
-  // Store the role so the callback knows whether to create FAMILY or CAREGIVER
   response.cookies.set("google_oauth_role", role, {
-    path: "/api/auth/google-cb",
+    path: "/",
     httpOnly: true,
     sameSite: "lax",
     maxAge: 600,

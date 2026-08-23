@@ -479,14 +479,15 @@ model Withdrawal {
 // ============================================================
 
 model EmailLog {
-  id        String   @id @default(cuid())
-  to        String
-  subject   String
-  body      String
-  status    String   @default("sent") // sent, failed
-  userId    String?  @map("user_id")
- type      String?  // booking_confirmation, care_report, etc.
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(cuid())
+  to          String
+  subject     String
+  body        String
+  status      String   @default("sent") // sent, failed
+  userId      String?  @map("user_id")
+  type        String?  // booking_confirmation, care_report, etc.
+  externalId  String?  @map("external_id") // Resend message ID
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("email_logs")
 }
