@@ -1,5 +1,5 @@
+import nodemailer from 'nodemailer';
 import { db } from './db';
-import { Resend } from 'resend';
 
 interface EmailOptions {
   to: string;
@@ -9,41 +9,55 @@ interface EmailOptions {
   type?: string;
 }
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// Create reusable transporter using Gmail SMTP
+function getTransporter() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!user || !pass) return null;
+
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // STARTTLS
+    auth: { user, pass },
+  });
+}
 
 /**
  * Email service for SevaSaathi
- * - With RESEND_API_KEY: Sends real emails via Resend
- * - Without RESEND_API_KEY: Logs to console + database (dev mode)
+ * - With SMTP_USER + SMTP_PASS: Sends real emails via Gmail SMTP
+ * - Without: Logs to console + database (dev mode)
  */
 export async function sendEmail({ to, subject, html, userId, type }: EmailOptions) {
   try {
-    // Production: Use Resend API
-    if (resend) {
-      const result = await resend.emails.send({
-        from: 'SevaSaathi <onboarding@resend.dev>', // Update with your verified domain after setup
+    const transporter = getTransporter();
+
+    if (transporter) {
+      // Real email delivery via Gmail SMTP
+      const info = await transporter.sendMail({
+        from: `"SevaSaathi" <${process.env.SMTP_USER}>`,
         to,
         subject,
         html,
       });
 
-      console.log(`\n📧 EMAIL SENT via Resend -> ${to}`);
+      console.log(`\n📧 EMAIL SENT via Gmail SMTP -> ${to}`);
       console.log(`   Subject: ${subject}`);
-      console.log(`   Resend ID: ${result.data?.id}`);
+      console.log(`   Message ID: ${info.messageId}`);
       console.log(`   Type: ${type || 'general'}\n`);
 
       await db.emailLog.create({
-        data: { to, subject, body: html, status: 'sent', userId, type, externalId: result.data?.id },
+        data: { to, subject, body: html, status: 'sent', userId, type, externalId: info.messageId },
       });
 
-      return { success: true, messageId: result.data?.id };
+      return { success: true, messageId: info.messageId };
     }
 
     // Development: Log to console and database
     console.log(`\n📧 EMAIL (DEV MODE) -> ${to}`);
     console.log(`   Subject: ${subject}`);
     console.log(`   Type: ${type || 'general'}`);
-    console.log(`   ⚠️ Add RESEND_API_KEY to .env for real delivery\n`);
+    console.log(`   ⚠️ Add SMTP_USER and SMTP_PASS to .env for real delivery\n`);
 
     await db.emailLog.create({
       data: { to, subject, body: html, status: 'sent', userId, type },
@@ -60,10 +74,12 @@ export async function sendEmail({ to, subject, html, userId, type }: EmailOption
 }
 
 /**
- * Send OTP via email (used for registration & password reset)
+ * Send OTP via email (registration & password reset)
  */
 export async function sendOtpEmail(to: string, otp: string, purpose: string) {
-  const purposeText = purpose === 'REGISTER' ? 'Verify your email to complete registration' : 'Use this OTP to reset your password';
+  const purposeText = purpose === 'REGISTER'
+    ? 'Verify your email to complete registration'
+    : 'Use this OTP to reset your password';
   const html = `
     <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #14532d; padding: 20px; text-align: center;">
@@ -82,7 +98,9 @@ export async function sendOtpEmail(to: string, otp: string, purpose: string) {
 
   return sendEmail({
     to,
-    subject: purpose === 'REGISTER' ? `SevaSaathi - Verify Your Email (${otp})` : `SevaSaathi - Password Reset OTP (${otp})`,
+    subject: purpose === 'REGISTER'
+      ? `SevaSaathi - Verify Your Email (${otp})`
+      : `SevaSaathi - Password Reset OTP (${otp})`,
     html,
     type: purpose === 'REGISTER' ? 'email_verification' : 'password_reset',
   });
@@ -123,7 +141,11 @@ export async function sendBookingConfirmationEmail(booking: any) {
     </div>
   `;
 
-  await sendEmail({ to: family.email, subject: `Booking Confirmed - ${patient.name} - ${dateStr}`, html, userId: family.id, type: 'booking_confirmation' });
+  await sendEmail({
+    to: family.email,
+    subject: `Booking Confirmed - ${patient.name} - ${dateStr}`,
+    html, userId: family.id, type: 'booking_confirmation',
+  });
 }
 
 export async function sendCareReportEmail(report: any, booking: any) {
@@ -157,5 +179,9 @@ export async function sendCareReportEmail(report: any, booking: any) {
     </div>
   `;
 
-  await sendEmail({ to: family.email, subject: `Care Report - ${patient.name} - ${report.reportDate}`, html, userId: family.id, type: 'care_report' });
+  await sendEmail({
+    to: family.email,
+    subject: `Care Report - ${patient.name} - ${report.reportDate}`,
+    html, userId: family.id, type: 'care_report',
+  });
 }
