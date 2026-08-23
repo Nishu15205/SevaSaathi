@@ -31,12 +31,11 @@ export async function POST(request: NextRequest) {
     }
     const { bookingId, amount } = parsed.data;
 
-    // Verify booking
     const booking = await db.booking.findUnique({
       where: { id: bookingId },
       include: {
         patient: { select: { name: true } },
-        caregiver: { select: { user: { select: { name: true, email: true } }, hourlyRate: true } },
+        caregiver: { select: { user: { select: { name: true } } } },
         family: { select: { name: true, email: true, phone: true } },
       },
     });
@@ -45,86 +44,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
     if (booking.familyId !== userId) {
-      return NextResponse.json({ error: 'This booking does not belong to you' }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const amountPaise = Math.round(amount * 100);
     const platformFeePaise = Math.round(amountPaise * 0.10);
     const caregiverPayoutPaise = amountPaise - platformFeePaise;
+    const orderId = `ss_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-    const razorpayOrderId = `ss_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-
-    // Upsert payment in DB
-    const existingPayment = await db.payment.findUnique({ where: { bookingId } });
-    const paymentData = {
+    // Upsert payment
+    const existing = await db.payment.findUnique({ where: { bookingId } });
+    const data = {
       amount: amountPaise,
       platformFee: platformFeePaise,
       caregiverPayout: caregiverPayoutPaise,
       status: 'PENDING' as const,
-      paymentMethod: 'razorpay',
-      transactionId: razorpayOrderId,
+      paymentMethod: 'upi',
+      transactionId: orderId,
     };
-
-    if (existingPayment) {
-      await db.payment.update({ where: { id: existingPayment.id }, data: paymentData });
+    if (existing) {
+      await db.payment.update({ where: { id: existing.id }, data });
     } else {
-      await db.payment.create({
-        data: {
-          bookingId: booking.id,
-          familyId: booking.familyId,
-          caregiverId: booking.caregiverId,
-          ...paymentData,
-        },
-      });
+      await db.payment.create({ data: { bookingId: booking.id, familyId: booking.familyId, caregiverId: booking.caregiverId, ...data } });
     }
 
-    // Check if Razorpay is configured
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (keyId && keySecret) {
-      // REAL Razorpay order
-      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-      const razorpayOrder = await razorpay.orders.create({
+    // If Razorpay keys are configured, create a real Razorpay order
+    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+      const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+      const rzpOrder = await razorpay.orders.create({
         amount: amountPaise,
         currency: 'INR',
-        receipt: razorpayOrderId,
-        notes: {
-          bookingId,
-          patientName: booking.patient?.name,
-          caregiverName: booking.caregiver?.user?.name,
-        },
+        receipt: orderId,
+        notes: { bookingId, patientName: booking.patient?.name, caregiverName: booking.caregiver?.user?.name },
       });
-
-      console.log(`[Razorpay] Order created: ${razorpayOrder.id} for ${amountPaise / 100}`);
-
       return NextResponse.json({
-        orderId: razorpayOrder.id,
-        amount: amountPaise,
-        currency: 'INR',
-        key: keyId,
-        name: 'SevaSaathi',
-        description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
-        prefill: {
-          name: booking.family?.name,
-          email: booking.family?.email,
-          contact: booking.family?.phone || undefined,
-        },
-        bookingId,
-        isReal: true,
+        orderId: rzpOrder.id, amount: amountPaise, currency: 'INR', key: process.env.RAZORPAY_KEY_ID,
+        name: 'SevaSaathi', description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
+        prefill: { name: booking.family?.name, email: booking.family?.email, contact: booking.family?.phone || undefined },
+        bookingId, isReal: true,
       });
     }
 
-    // FALLBACK: Test mode (no Razorpay keys)
-    console.log(`[Payment] Test order created: ${razorpayOrderId} for ${amountPaise / 100} (no Razorpay keys)`);
+    // Default: UPI direct (no gateway needed)
     return NextResponse.json({
-      orderId: razorpayOrderId,
-      amount: amountPaise,
-      currency: 'INR',
-      key: 'test_key',
-      name: 'SevaSaathi',
-      description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
-      bookingId,
+      orderId, amount: amountPaise, currency: 'INR', bookingId,
+      name: 'SevaSaathi', description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
       isReal: false,
     });
   } catch (error: any) {
