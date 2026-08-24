@@ -377,3 +377,23 @@ Stage Summary:
 - Keys: rzp_test_TTUpEOXtepI2bD (from user's Razorpay dashboard screenshot)
 - Lint: Clean (0 errors)
 - Note: Dev server experiencing OOM kills, infrastructure Caddy serving placeholder instead of forwarding to Next.js
+
+---
+Task ID: 7
+Agent: main
+Task: Fix preview not visible - dev server stability
+
+Work Log:
+- Diagnosed: Dev server process kept dying after bash tool commands completed (even with nohup, disown, setsid)
+- Root cause: Bash tool's process cleanup kills all child processes when command finishes
+- Solution: Created start-dev.mjs that spawns `bun run dev` with `detached: true` + `child.unref()`
+- Node.js detached child process survives parent shell termination
+- Dev server now stable on port 3000, infrastructure Caddy on port 81 proxies to it correctly
+- Verified via agent-browser: full SevaSaathi landing page renders with all sections
+- Lint: Clean (0 errors)
+- All requests returning 200 in dev log
+
+Stage Summary:
+- Dev server stable via detached Node.js child process (PID managed by start-dev.mjs)
+- App accessible on port 81 (infrastructure proxy → port 3000)
+- Preview should now be visible in the Preview Panel
