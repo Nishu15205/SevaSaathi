@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { getGoogleClientId } from "@/lib/config";
 
+const OAUTH_SECRET = process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi";
+
 /**
- * Generates the real Google OAuth URL with the correct redirect_uri.
- * Stores the redirect_uri and role in cookies so the callback can reuse them.
+ * Creates a signed state token that encodes role + redirectUri.
+ * Format: base64url(payload).base64url(hmac)
+ * This eliminates the need for cookies which get stripped by proxies.
+ */
+function createSignedState(role: string, redirectUri: string): string {
+  const payload = JSON.stringify({
+    s: crypto.randomUUID(),
+    r: role,
+    u: redirectUri,
+    exp: Date.now() + 10 * 60 * 1000, // 10 minutes
+  });
+  const payloadB64 = Buffer.from(payload).toString("base64url");
+  const sig = crypto.createHmac("sha256", OAUTH_SECRET).update(payloadB64).digest("base64url");
+  return `${payloadB64}.${sig}`;
+}
+
+/**
+ * Generates the real Google OAuth URL.
+ * Uses signed state (no cookies needed) — proxy-proof.
  */
 export async function GET(req: NextRequest) {
   // Priority 1: Use origin passed from the client (browser's window.location.origin)
@@ -27,8 +47,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Google OAuth not configured" }, { status: 500 });
   }
 
-  // Generate a random state for CSRF protection
-  const state = crypto.randomUUID();
+  // Create self-contained signed state (role + redirectUri baked in)
+  const state = createSignedState(role, redirectUri);
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -42,26 +62,5 @@ export async function GET(req: NextRequest) {
 
   const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-  // Store state + redirect_uri + role in cookies with path="/" so they survive proxy chain
-  const response = NextResponse.redirect(googleUrl);
-  response.cookies.set("google_oauth_state", state, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 600,
-  });
-  response.cookies.set("google_redirect_uri", redirectUri, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 600,
-  });
-  response.cookies.set("google_oauth_role", role, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 600,
-  });
-
-  return response;
+  return NextResponse.redirect(googleUrl);
 }

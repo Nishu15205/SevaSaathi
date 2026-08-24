@@ -1,40 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import { encode } from "next-auth/jwt";
 import { getGoogleClientId, getGoogleClientSecret } from "@/lib/config";
 
+const OAUTH_SECRET = process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi";
+
 /**
- * Get the correct external base URL from the google_redirect_uri cookie.
- * This was stored during google-go from window.location.origin.
- * Falls back to X-Forwarded headers, then req.url.
+ * Verifies and decodes the signed state token from google-go.
+ * Returns { s, r, u, exp } or null if invalid.
  */
-function getExternalOrigin(req: NextRequest): string {
-  // Priority 1: Use the redirect_uri cookie (set from window.location.origin)
-  const redirectUri = req.cookies.get("google_redirect_uri")?.value;
-  if (redirectUri) {
-    try {
-      return new URL(redirectUri).origin;
-    } catch {}
+function verifySignedState(state: string): { s: string; r: string; u: string; exp: number } | null {
+  try {
+    const dotIdx = state.lastIndexOf(".");
+    if (dotIdx === -1) return null;
+    const payloadB64 = state.substring(0, dotIdx);
+    const sig = state.substring(dotIdx + 1);
+    const expectedSig = crypto
+      .createHmac("sha256", OAUTH_SECRET)
+      .update(payloadB64)
+      .digest("base64url");
+    if (sig.length !== expectedSig.length) return null;
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
+      return null;
+    }
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    if (!payload.exp || Date.now() > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
   }
-
-  // Priority 2: X-Forwarded headers
-  const proto = req.headers.get("x-forwarded-proto");
-  const host = req.headers.get("x-forwarded-host");
-  if (proto && host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
-    return `${proto}://${host}`;
-  }
-
-  // Priority 3: req.url (direct access only)
-  return new URL(req.url).origin;
 }
 
-/** Redirect to a path using the correct external URL */
-function redirectTo(req: NextRequest, path: string): NextResponse {
-  return NextResponse.redirect(`${getExternalOrigin(req)}${path}`);
+/** Get origin from state data (most reliable — came from browser's window.location.origin) */
+function getOriginFromState(stateData: { u: string }): string {
+  try {
+    return new URL(stateData.u).origin;
+  } catch {
+    return "";
+  }
+}
+
+/** Redirect to a path using the state's origin (proxy-proof) */
+function redirectToStateOrigin(stateData: { u: string }, path: string): NextResponse {
+  const origin = getOriginFromState(stateData);
+  return NextResponse.redirect(`${origin}${path}`);
 }
 
 /**
  * Handles the Google OAuth callback.
+ * Reads role + redirectUri from the signed state (no cookies needed).
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -42,26 +57,25 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
+  // For error responses, try to get origin from state if available
   if (error) {
-    return redirectTo(req, `/?auth=error&message=${encodeURIComponent(error)}`);
+    return NextResponse.json({ error }, { status: 400 });
   }
 
   if (!code || !state) {
-    return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Missing authorization code or state.")}`);
+    return NextResponse.json({ error: "Missing authorization code or state." }, { status: 400 });
   }
 
-  // Verify state (CSRF)
-  const savedState = req.cookies.get("google_oauth_state")?.value;
-  if (!savedState || savedState !== state) {
-    return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Invalid state parameter. Please try again.")}`);
+  // Verify signed state (no cookies needed — proxy-proof)
+  const stateData = verifySignedState(state);
+  if (!stateData) {
+    return NextResponse.json({ error: "Invalid or expired state. Please try again." }, { status: 400 });
   }
 
-  // Use the EXACT redirect_uri stored during google-go
-  const redirectUri = req.cookies.get("google_redirect_uri")?.value || `${getExternalOrigin(req)}/api/auth/google-cb`;
-
-  // Cookie secure flag
-  const proto = req.headers.get("x-forwarded-proto");
-  const isSecure = proto === "https" || redirectUri.startsWith("https");
+  // Extract role and redirect URI from state
+  const requestedRole = stateData.r || "";
+  const redirectUri = stateData.u;
+  const origin = getOriginFromState(stateData);
 
   try {
     // Step 1: Exchange code for tokens
@@ -82,7 +96,7 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error("Token exchange failed:", tokenData);
-      return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Failed to exchange authorization code.")}`);
+      return redirectToStateOrigin(stateData, "/?auth=error&message=" + encodeURIComponent("Failed to exchange authorization code."));
     }
 
     // Step 2: Get user info from Google
@@ -91,14 +105,12 @@ export async function GET(req: NextRequest) {
     });
     const googleUser = await userRes.json();
     if (!googleUser.email) {
-      return redirectTo(req, `/?auth=error&message=${encodeURIComponent("Could not get user info from Google.")}`);
+      return redirectToStateOrigin(stateData, "/?auth=error&message=" + encodeURIComponent("Could not get user info from Google."));
     }
 
     // Step 3: Upsert user in database
     const existing = await db.user.findUnique({ where: { email: googleUser.email } });
 
-    // Read the role from cookie (set during google-go)
-    const requestedRole = req.cookies.get("google_oauth_role")?.value;
     const userRole = (requestedRole === "CAREGIVER" || requestedRole === "FAMILY") ? requestedRole : "FAMILY";
 
     let user;
@@ -133,33 +145,31 @@ export async function GET(req: NextRequest) {
         picture: user.avatarUrl,
         role: user.role,
       },
-      secret: process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi",
+      secret: OAUTH_SECRET,
     });
 
-    // Step 5: Redirect with auth=success (include new user flag)
-    const origin = getExternalOrigin(req);
+    // Step 5: Redirect with auth=success
     const redirectPath = isNewUser
       ? `/?auth=success&new=true&email=${encodeURIComponent(googleUser.email)}`
-      : `/?auth=success`;
+      : "/?auth=success";
     const response = NextResponse.redirect(`${origin}${redirectPath}`);
 
-    // Set cookie with both possible names to handle proxy scenarios
-    const nextAuthUrl = process.env.NEXTAUTH_URL || '';
-    const cookieSecure = nextAuthUrl.startsWith('https') || proto === 'https';
-    const cookieName = cookieSecure
-      ? '__Secure-next-auth.session-token'
-      : 'next-auth.session-token';
+    // Set session cookie (both secure and non-secure variants for proxy compatibility)
+    const isSecure = redirectUri.startsWith("https");
+    const cookieName = isSecure
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token";
 
     response.cookies.set(cookieName, jwtToken, {
       path: "/",
       httpOnly: true,
       sameSite: "lax",
-      secure: cookieSecure,
+      secure: isSecure,
       maxAge: 30 * 24 * 60 * 60,
     });
-    // Also set the non-secure variant so it works regardless of proxy header
-    if (cookieSecure) {
-      response.cookies.set('next-auth.session-token', jwtToken, {
+    // Also set non-secure variant so it works regardless of proxy
+    if (isSecure) {
+      response.cookies.set("next-auth.session-token", jwtToken, {
         path: "/",
         httpOnly: true,
         sameSite: "lax",
@@ -170,14 +180,9 @@ export async function GET(req: NextRequest) {
 
     console.log(`[google-cb] Session set for: ${googleUser.email}, isNew=${isNewUser}, redirect → ${origin}`);
 
-    // Clear state cookies with path="/" to match how they were set
-    response.cookies.set("google_oauth_state", "", { path: "/", maxAge: 0 });
-    response.cookies.set("google_redirect_uri", "", { path: "/", maxAge: 0 });
-    response.cookies.set("google_oauth_role", "", { path: "/", maxAge: 0 });
-
     return response;
   } catch (err) {
     console.error("Google OAuth callback error:", err);
-    return redirectTo(req, `/?auth=error&message=${encodeURIComponent("An error occurred during Google sign-in.")}`);
+    return redirectToStateOrigin(stateData, "/?auth=error&message=" + encodeURIComponent("An error occurred during Google sign-in."));
   }
 }
