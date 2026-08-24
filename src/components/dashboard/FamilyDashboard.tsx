@@ -738,6 +738,8 @@ function FindCaregiversTab() {
   });
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
+  const [newlyCreatedBooking, setNewlyCreatedBooking] = useState<any>(null);
+  const [paymentAfterBooking, setPaymentAfterBooking] = useState(false);
 
   const [form, setForm] = useState({
     city: '', skills: '', shiftType: '', date: '', patientAge: '', mobilityStatus: '',
@@ -777,7 +779,7 @@ function FindCaregiversTab() {
 
     setBookingSubmitting(true);
     try {
-      await api.bookings.create({
+      const res = await api.bookings.create({
         patientId: bookingForm.patientId,
         caregiverId: bookingCaregiver.id,
         familyId: user.id,
@@ -789,10 +791,14 @@ function FindCaregiversTab() {
         careRequirements: { needs: bookingCaregiver.skills || [] },
         familyNotes: bookingForm.familyNotes,
       });
-      toast.success('Booking created successfully!');
+      const newBooking = res.booking || res;
       setBookingModalOpen(false);
       setBookingCaregiver(null);
       setBookingForm({ patientId: '', shiftType: 'TWELVE_HOUR', startDate: '', endDate: '', startTime: '08:00', endTime: '20:00', familyNotes: '' });
+      // Auto-open payment dialog
+      setNewlyCreatedBooking(newBooking);
+      setPaymentAfterBooking(true);
+      toast.success('Booking created! Please complete payment to confirm.');
     } catch (err: any) {
       toast.error(err.message || 'Failed to create booking');
     } finally {
@@ -1050,6 +1056,14 @@ function FindCaregiversTab() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Auto-open Payment Dialog after booking creation */}
+      <PaymentDialog
+        isOpen={paymentAfterBooking}
+        onClose={() => { setPaymentAfterBooking(false); setNewlyCreatedBooking(null); }}
+        booking={newlyCreatedBooking}
+        onSuccess={() => { setPaymentAfterBooking(false); setNewlyCreatedBooking(null); }}
+      />
     </div>
   );
 }
@@ -1063,6 +1077,8 @@ function BookingsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   const fetchBookings = useCallback(async () => {
     if (!user?.id) return;
@@ -1154,21 +1170,34 @@ function BookingsTab() {
                         </Badge>
                         <p className="text-sm font-semibold text-gray-800 mt-1">₹{booking.totalAmount || 0}</p>
                       </div>
-                      {booking.status === 'PENDING' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCancel(booking.id)}
-                          disabled={cancelling === booking.id}
-                          className="rounded-xl text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 gap-1 text-xs"
-                        >
-                          {cancelling === booking.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <XCircle className="h-3 w-3" />
-                          )}
-                          Cancel
-                        </Button>
+                      {booking.status === 'PENDING' && !booking.payment && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => { setSelectedBooking(booking); setPaymentDialogOpen(true); }}
+                            className="shrink-0 bg-forest-900 hover:bg-forest-800 text-white rounded-xl text-xs font-semibold gap-1 cursor-pointer"
+                          >
+                            <IndianRupee className="h-3 w-3" />
+                            Pay Now
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCancel(booking.id)}
+                            disabled={cancelling === booking.id}
+                            className="rounded-xl text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 gap-1 text-xs"
+                          >
+                            {cancelling === booking.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <XCircle className="h-3 w-3" />
+                            )}
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                      {booking.status === 'PENDING' && booking.payment && (
+                        <span className="text-[11px] text-gray-400">Payment processing...</span>
                       )}
                     </div>
                   </div>
@@ -1178,6 +1207,14 @@ function BookingsTab() {
           ))}
         </div>
       )}
+
+      {/* Payment Dialog */}
+      <PaymentDialog
+        isOpen={paymentDialogOpen}
+        onClose={() => setPaymentDialogOpen(false)}
+        booking={selectedBooking}
+        onSuccess={() => { setPaymentDialogOpen(false); setSelectedBooking(null); fetchBookings(); }}
+      />
     </div>
   );
 }
@@ -1986,7 +2023,7 @@ function PaymentsTab() {
 
   const unpaidBookings = bookings.filter(
     (b) =>
-      (b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS') &&
+      (b.status === 'PENDING' || b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS') &&
       !b.payment
   );
 

@@ -304,3 +304,24 @@ Stage Summary:
 - /home/z/my-project/SevaSaathi-QA-Checklist.pdf (153KB, 21 pages) - Internal testing document
 - /home/z/my-project/SevaSaathi-Project-Overview.pdf (486KB, 11 pages) - Client presentation
 - /home/z/my-project/SevaSaathi-Project-Overview.html (42KB) - HTML source for client PDF
+
+---
+Task ID: 4
+Agent: main
+Task: Fix Create Account button visibility + Payment-before-confirmation flow
+
+Work Log:
+- Fixed LoginModal.tsx: Changed `overflow-hidden` to `overflow-y-auto max-h-[55vh]` on the registration form content div
+- Fixed FamilyDashboard.tsx BookingsTab: Added "Pay Now" button next to "Cancel" for PENDING bookings without payment
+- Added PaymentDialog import and state to BookingsTab
+- Added PaymentDialog to FindCaregiversTab that auto-opens after booking creation
+- Changed booking creation flow: after api.bookings.create(), stores booking and opens PaymentDialog automatically
+- Updated PaymentsTab unpaidBookings filter to include PENDING status (was only CONFIRMED/IN_PROGRESS)
+- Updated backend notification: "Booking Confirmed" → "Booking Created" with payment reminder message
+- Clean lint, no errors
+
+Stage Summary:
+- Create Account button now visible with scrollable form
+- Booking flow: Create → Payment Dialog auto-opens → Pay → Status changes to CONFIRMED
+- PENDING bookings show both "Pay Now" (green) and "Cancel" (red) buttons
+- If payment already exists on PENDING booking, shows "Payment processing..." text

@@ -274,7 +274,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
           </div>
         </div>
 
-        <div className="px-6 py-4 overflow-hidden">
+        <div className="px-6 py-4 overflow-y-auto max-h-[55vh]">
           <AnimatePresence mode="wait" custom={tab}>
             {tab === "login" && (
               <motion.div key="login" custom={tab} variants={contentVariants} initial="enter" animate="center" exit="exit" className="space-y-4">

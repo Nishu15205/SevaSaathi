@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
       data: {
         userId: data.familyId,
         type: 'BOOKING_CONFIRMED',
-        title: 'Booking Confirmed',
-        message: `Your booking for ${booking.patient.name} has been created. Total: Rs ${totalAmount}`,
+        title: 'Booking Created',
+        message: `Your booking for ${booking.patient.name} has been created (${String.fromCharCode(8377)}${totalAmount}). Please complete payment to confirm.`,
         data: JSON.stringify({ bookingId: booking.id }),
       },
     })
