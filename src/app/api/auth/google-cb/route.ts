@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { encode } from "next-auth/jwt";
+import { getGoogleClientId, getGoogleClientSecret } from "@/lib/config";
 
 /**
  * Get the correct external base URL from the google_redirect_uri cookie.
@@ -64,13 +65,15 @@ export async function GET(req: NextRequest) {
 
   try {
     // Step 1: Exchange code for tokens
+    const [clientId, clientSecret] = await Promise.all([getGoogleClientId(), getGoogleClientSecret()]);
+
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        client_id: clientId!,
+        client_secret: clientSecret!,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),

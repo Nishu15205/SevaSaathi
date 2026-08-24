@@ -456,10 +456,35 @@ Work Log:
 - **Aadhaar verification** was already simplified to number-only input (done in previous session)
 - **Note: MSG91 credentials were NEVER provided by user.** Only Fast2SMS was given. SMS uses Fast2SMS.
 
+---
+Task ID: 10
+Agent: main
+Task: Fix Google OAuth \"not configured\" error, fix profile form blank bug, verify all pending tasks
+
+Work Log:
+- **Restored .env.local with recovered credentials from git commit 03572c8:**
+  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+  - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+  - FAST2SMS_API_KEY
+  - PLATFORM_UPI_ID, PLATFORM_UPI_NAME
+  - NEXTAUTH_SECRET
+- **Fixed Google OAuth \"not configured\" error:**
+  - Created .env.local (was missing entirely, only .env had DATABASE_URL)
+  - Updated google-go/route.ts to use `getGoogleClientId()` from config service (DB first, env fallback) instead of `process.env.GOOGLE_CLIENT_ID`
+  - Updated google-cb/route.ts to use `getGoogleClientId()` and `getGoogleClientSecret()` from config service for token exchange
+  - Verified `/api/auth/google-configured` returns `{configured: true}`
+- **Fixed caregiver profile form blank/reverting bug (hardened fix):**
+  - Root cause: AuthProvider's `currentUserRef` resets to null on component remount (HMR, strict mode), then `setAuth({ caregiverProfile: null })` overwrites the existing profile
+  - Fix 1: Initialize `currentUserRef` from `useAuthStore.getState().user?.id` so it survives remounts
+  - Fix 2: When `currentUserRef.current !== id`, check if store already has this user ID \u2014 if so, just sync the ref without overwriting
+  - Fix 3: Made `parseJsonSafe` handle both string and array inputs (API returns parsed arrays, store has strings)
+- **Aadhaar verification:** Already simplified to number-only input (confirmed, no changes needed)
+- **Backend credential management:** Already built (config.ts + admin UI + DB seeding, all working)
+- **Browser verified:** Landing page renders correctly, Google OAuth flow triggers
+- **Lint:** Clean (0 errors)
+
 Stage Summary:
-- All credentials restored and stored in both .env.local AND database
-- Admin can manage credentials via Dashboard > Credentials tab without code changes
-- All services (SMS, Email, Razorpay) read from DB first, env as fallback
-- Caregiver profile no longer reverts to blank after creation
-- Lint: Clean (0 errors)
-- Browser verified: Landing page renders correctly
+- Google OAuth: Fixed \u2014 no more `\"error\":\"Google OAuth not configured\"`
+- Profile form: Fixed \u2014 HMR/remount no longer clears caregiverProfile
+- All credentials in both .env.local and DB system_configs table
+- All services read from DB first, env as fallback

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGoogleClientId } from "@/lib/config";
 
 /**
  * Generates the real Google OAuth URL with the correct redirect_uri.
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${baseUrl}/api/auth/google-cb`;
   const role = req.nextUrl.searchParams.get("role") || "";
 
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = await getGoogleClientId();
   if (!clientId) {
     return NextResponse.json({ error: "Google OAuth not configured" }, { status: 500 });
   }

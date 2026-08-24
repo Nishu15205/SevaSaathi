@@ -10,8 +10,8 @@ function AuthSync() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const fetchDoneRef = useRef<string | null>(null);
-  // Use a ref for currentUser to avoid dependency-driven re-fires
-  const currentUserRef = useRef<string | null>(null);
+  // Initialize ref from store so HMR/remount doesn't lose the user ID
+  const currentUserRef = useRef<string | null>(useAuthStore.getState().user?.id || null);
 
   const userId = session?.user ? (session.user as any).id : null;
 
@@ -28,19 +28,27 @@ function AuthSync() {
 
       // Only set basic auth if we DON'T already have a user with this ID.
       // This prevents overwriting caregiverProfile/patientProfiles with null.
+      // Also check localStorage to survive HMR/remounts.
+      const existingUser = useAuthStore.getState().user;
       if (currentUserRef.current !== id) {
-        currentUserRef.current = id;
-        setAuth({
-          id,
-          email: u.email,
-          name: u.name,
-          phone: "",
-          role: u.role,
-          avatarUrl: u.image || null,
-          subscription: "NONE" as any,
-          patientProfiles: [],
-          caregiverProfile: null,
-        });
+        // Check if we already have this user in the store (e.g., from localStorage)
+        if (existingUser?.id === id) {
+          // Same user, ref just reset (HMR/dev). Don't overwrite store data.
+          currentUserRef.current = id;
+        } else {
+          currentUserRef.current = id;
+          setAuth({
+            id,
+            email: u.email,
+            name: u.name,
+            phone: "",
+            role: u.role,
+            avatarUrl: u.image || null,
+            subscription: "NONE" as any,
+            patientProfiles: [],
+            caregiverProfile: null,
+          });
+        }
       }
 
       // Fetch full user data (including caregiverProfile, patientProfiles) once

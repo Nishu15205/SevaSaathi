@@ -207,13 +207,17 @@ function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md
   );
 }
 
-function parseJsonSafe(jsonStr: string | null | undefined): string[] {
-  if (!jsonStr) return [];
+function parseJsonSafe(input: string | null | undefined | any): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) return input;
   try {
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JSON.parse(input);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return jsonStr.split(',').map((s) => s.trim()).filter(Boolean);
+    if (typeof input === 'string') {
+      return input.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
   }
 }
 
