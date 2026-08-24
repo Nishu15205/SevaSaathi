@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { db } from './db';
+import { getSmtpHost, getSmtpPort, getSmtpUser, getSmtpPass } from './config';
 
 interface EmailOptions {
   to: string;
@@ -9,39 +10,40 @@ interface EmailOptions {
   type?: string;
 }
 
-// Create reusable transporter using Gmail SMTP
-function getTransporter() {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!user || !pass) return null;
+async function getTransporterAsync() {
+  const user = await getSmtpUser();
+  const pass = await getSmtpPass();
+  const host = await getSmtpHost();
+  const port = await getSmtpPort();
+  if (!user || !pass || !host) return null;
 
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // STARTTLS
+    host,
+    port: parseInt(port || '587', 10),
+    secure: false,
     auth: { user, pass },
   });
 }
 
 /**
  * Email service for SevaSaathi
- * - With SMTP_USER + SMTP_PASS: Sends real emails via Gmail SMTP
+ * - With SMTP credentials (from DB or env): Sends real emails via Gmail SMTP
  * - Without: Logs to console + database (dev mode)
  */
 export async function sendEmail({ to, subject, html, userId, type }: EmailOptions) {
   try {
-    const transporter = getTransporter();
+    const transporter = await getTransporterAsync();
+    const smtpUser = await getSmtpUser();
 
-    if (transporter) {
-      // Real email delivery via Gmail SMTP
+    if (transporter && smtpUser) {
       const info = await transporter.sendMail({
-        from: `"SevaSaathi" <${process.env.SMTP_USER}>`,
+        from: `"SevaSaathi" <${smtpUser}>`,
         to,
         subject,
         html,
       });
 
-      console.log(`\n📧 EMAIL SENT via Gmail SMTP -> ${to}`);
+      console.log(`\n📧 EMAIL SENT via SMTP -> ${to}`);
       console.log(`   Subject: ${subject}`);
       console.log(`   Message ID: ${info.messageId}`);
       console.log(`   Type: ${type || 'general'}\n`);
@@ -57,7 +59,7 @@ export async function sendEmail({ to, subject, html, userId, type }: EmailOption
     console.log(`\n📧 EMAIL (DEV MODE) -> ${to}`);
     console.log(`   Subject: ${subject}`);
     console.log(`   Type: ${type || 'general'}`);
-    console.log(`   ⚠️ Add SMTP_USER and SMTP_PASS to .env for real delivery\n`);
+    console.log(`   ⚠️ Configure SMTP in Admin > Credentials for real delivery\n`);
 
     await db.emailLog.create({
       data: { to, subject, body: html, status: 'sent', userId, type },
@@ -73,9 +75,6 @@ export async function sendEmail({ to, subject, html, userId, type }: EmailOption
   }
 }
 
-/**
- * Send OTP via email (registration & password reset)
- */
 export async function sendOtpEmail(to: string, otp: string, purpose: string) {
   const purposeText = purpose === 'REGISTER'
     ? 'Verify your email to complete registration'

@@ -701,15 +701,37 @@ function CreateProfileForm({ userId, onCreated }: { userId: string; onCreated: (
 
 function ProfileTab({ user }: { user: User }) {
   const profile = user.caregiverProfile;
+  const [creating, setCreating] = useState(false);
   const skills = parseJsonSafe(profile?.skills);
   const languages = parseJsonSafe(profile?.languages);
+
+  if (creating) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-forest-600" />
+        <p className="text-sm text-gray-500">Setting up your profile...</p>
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
       <CreateProfileForm
         userId={user.id}
-        onCreated={() => {
-          // Reload auth data from server to get the clean profile
+        onCreated={(createdProfile: any) => {
+          setCreating(true);
+          // Use the returned profile directly for instant update
+          if (createdProfile) {
+            const current = useAuthStore.getState().user;
+            if (current) {
+              useAuthStore.getState().setAuth({
+                ...current,
+                caregiverProfile: createdProfile,
+              });
+              return; // Store updated, creating state will clear on re-render
+            }
+          }
+          // Fallback: fetch from server
           api.auth.me(user.id).then(res => {
             if (res.user) useAuthStore.getState().setAuth(res.user);
           }).catch(() => {

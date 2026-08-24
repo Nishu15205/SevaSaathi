@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import Razorpay from 'razorpay';
+import { getRazorpayKeyId, getRazorpayKeySecret } from '@/lib/config';
 
 const createOrderSchema = z.object({
   bookingId: z.string().min(1),
@@ -68,9 +69,11 @@ export async function POST(request: NextRequest) {
       await db.payment.create({ data: { bookingId: booking.id, familyId: booking.familyId, caregiverId: booking.caregiverId, ...data } });
     }
 
-    // If Razorpay keys are configured, create a real Razorpay order
-    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-      const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+    // If Razorpay keys are configured (from DB config or env), create a real Razorpay order
+    const rzpKeyId = await getRazorpayKeyId();
+    const rzpKeySecret = await getRazorpayKeySecret();
+    if (rzpKeyId && rzpKeySecret) {
+      const razorpay = new Razorpay({ key_id: rzpKeyId, key_secret: rzpKeySecret });
       const rzpOrder = await razorpay.orders.create({
         amount: amountPaise,
         currency: 'INR',
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
         notes: { bookingId, patientName: booking.patient?.name, caregiverName: booking.caregiver?.user?.name },
       });
       return NextResponse.json({
-        orderId: rzpOrder.id, amount: amountPaise, currency: 'INR', key: process.env.RAZORPAY_KEY_ID,
+        orderId: rzpOrder.id, amount: amountPaise, currency: 'INR', key: rzpKeyId,
         name: 'SevaSaathi', description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
         prefill: { name: booking.family?.name, email: booking.family?.email, contact: booking.family?.phone || undefined },
         bookingId, isReal: true,

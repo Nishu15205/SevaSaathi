@@ -475,6 +475,24 @@ model Withdrawal {
 }
 
 // ============================================================
+// SYSTEM CONFIG (backend-managed credentials & settings)
+// ============================================================
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  section   String   // e.g., "GOOGLE_OAUTH", "RAZORPAY", "SMTP", "SMS", "PLATFORM"
+  key       String   // e.g., "CLIENT_ID", "API_KEY", "SECRET"
+  value     String   // The actual credential value
+  label     String   // Display name, e.g., "Google Client ID"
+  isSecret  Boolean  @default(true) @map("is_secret") // Hide value in UI
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([section, key])
+  @@map("system_configs")
+}
+
+// ============================================================
 // EMAIL LOG (for tracking sent emails)
 // ============================================================
 

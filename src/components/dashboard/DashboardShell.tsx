@@ -67,6 +67,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Withdrawals', key: 'withdrawals', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Reviews', key: 'reviews', icon: <Star className="h-4 w-4" /> },
   { label: 'Complaints', key: 'complaints', icon: <AlertTriangle className="h-4 w-4" /> },
+  { label: 'Credentials', key: 'credentials', icon: <KeyRound className="h-4 w-4" /> },
 ];
 
 const caregiverNavItems: NavItem[] = [

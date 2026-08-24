@@ -9,20 +9,29 @@ function AuthSync() {
   const { data: session, status } = useSession();
   const setAuth = useAuthStore((s) => s.setAuth);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const currentUser = useAuthStore((s) => s.user);
   const fetchDoneRef = useRef<string | null>(null);
+  // Use a ref for currentUser to avoid dependency-driven re-fires
+  const currentUserRef = useRef<string | null>(null);
+
+  const userId = session?.user ? (session.user as any).id : null;
+
+  useEffect(() => {
+    // Keep ref in sync with store
+    const storeUser = useAuthStore.getState().user;
+    if (storeUser?.id) currentUserRef.current = storeUser.id;
+  });
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const u = session.user as any;
-      const userId = u.id;
+      const id = u.id;
 
       // Only set basic auth if we DON'T already have a user with this ID.
-      // This prevents overwriting caregiverProfile/patientProfiles that were
-      // fetched from /api/auth/me with null values from the session cookie.
-      if (!currentUser || currentUser.id !== userId) {
+      // This prevents overwriting caregiverProfile/patientProfiles with null.
+      if (currentUserRef.current !== id) {
+        currentUserRef.current = id;
         setAuth({
-          id: userId,
+          id,
           email: u.email,
           name: u.name,
           phone: "",
@@ -35,9 +44,9 @@ function AuthSync() {
       }
 
       // Fetch full user data (including caregiverProfile, patientProfiles) once
-      if (userId && fetchDoneRef.current !== userId) {
-        fetchDoneRef.current = userId;
-        fetch(`/api/auth/me?userId=${userId}`)
+      if (id && fetchDoneRef.current !== id) {
+        fetchDoneRef.current = id;
+        fetch(`/api/auth/me?userId=${id}`)
           .then((res) => {
             if (!res.ok) return null;
             return res.json();
@@ -46,8 +55,7 @@ function AuthSync() {
             if (!data?.user) return;
             const fullUser = data.user;
             // Only update if the session user hasn't changed
-            const current = useAuthStore.getState().user;
-            if (current?.id !== userId) return;
+            if (currentUserRef.current !== id) return;
 
             setAuth({
               id: fullUser.id,
@@ -67,9 +75,10 @@ function AuthSync() {
       }
     } else if (status === "unauthenticated") {
       fetchDoneRef.current = null;
+      currentUserRef.current = null;
       clearAuth();
     }
-  }, [session, status, setAuth, clearAuth, currentUser]);
+  }, [session, status, setAuth, clearAuth]);
 
   return null;
 }

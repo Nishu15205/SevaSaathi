@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
+import { getGoogleClientId, getGoogleClientSecret } from "@/lib/config";
 
 export async function GET() {
-  const configured = !!(
-    process.env.GOOGLE_CLIENT_ID &&
-    process.env.GOOGLE_CLIENT_ID.length > 5 &&
-    process.env.GOOGLE_CLIENT_SECRET &&
-    process.env.GOOGLE_CLIENT_SECRET.length > 5
-  );
+  const clientId = await getGoogleClientId();
+  const clientSecret = await getGoogleClientSecret();
+  const configured = !!(clientId && clientId.length > 5 && clientSecret && clientSecret.length > 5);
   return NextResponse.json({ configured });
 }

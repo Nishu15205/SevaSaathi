@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
     }
 
     // SMS provider NOT configured → dev mode, show dev OTP
-    if (!isSmsConfigured()) {
+    const smsAvailable = await isSmsConfigured();
+    if (!smsAvailable) {
       return NextResponse.json({
         message: 'OTP sent to your phone number (dev mode)',
         devOtp: otp,
@@ -44,7 +45,8 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('Send phone OTP error:', err);
     // Distinguish between dev mode (show OTP) and provider failure (hide OTP)
-    if (!isSmsConfigured()) {
+    const smsAvailable = await isSmsConfigured();
+    if (!smsAvailable) {
       // Dev mode — no provider, return the OTP for testing
       return NextResponse.json({
         message: 'OTP sent (dev mode)',

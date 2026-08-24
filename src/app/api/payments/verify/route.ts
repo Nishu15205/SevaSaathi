@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { emitToUser } from '@/lib/socket';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import crypto from 'crypto';
+import { getRazorpayKeySecret } from '@/lib/config';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,8 +19,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
-    // If Razorpay credentials are set, verify signature
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    // If Razorpay credentials are set (from DB config or env), verify signature
+    const keySecret = await getRazorpayKeySecret();
     if (keySecret && razorpayPaymentId && razorpayOrderId && razorpaySignature) {
       const expectedSignature = crypto
         .createHmac('sha256', keySecret)

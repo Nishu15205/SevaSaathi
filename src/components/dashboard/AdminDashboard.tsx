@@ -6,7 +6,7 @@ import {
   Users, ShieldCheck, CalendarCheck, Star, AlertTriangle, IndianRupee,
   CheckCircle2, XCircle, Loader2, Eye, ChevronDown, ChevronUp, MapPin,
   Clock, BadgeCheck, Ban, FileText, TrendingUp, Activity, UserCog,
-  MessageSquare, Send, Search, Trash2, Wallet,
+  MessageSquare, Send, Search, Trash2, Wallet, KeyRound, Save, RefreshCw, EyeOff,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1014,6 +1014,7 @@ export function AdminDashboard({ activeTab }: { activeTab: string }) {
             {activeTab === 'withdrawals' && <motion.div key="withdrawals" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><WithdrawalsTab /></motion.div>}
             {activeTab === 'reviews' && <motion.div key="reviews" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ReviewsTab onViewUser={handleViewUser} /></motion.div>}
             {activeTab === 'complaints' && <motion.div key="complaints" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ComplaintsTab onViewUser={handleViewUser} /></motion.div>}
+            {activeTab === 'credentials' && <motion.div key="credentials" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><CredentialsTab /></motion.div>}
           </AnimatePresence>
         </div>
       </ScrollArea>
@@ -1024,6 +1025,210 @@ export function AdminDashboard({ activeTab }: { activeTab: string }) {
         open={!!profileUserId}
         onClose={() => { setProfileUserId(null); setProfileUserName(null); }}
       />
+    </div>
+  );
+}
+
+/* ============================================================ */
+/* CREDENTIALS TAB                                               */
+/* ============================================================ */
+
+const SECTION_INFO: Record<string, { label: string; color: string; description: string }> = {
+  GOOGLE_OAUTH: { label: 'Google OAuth', color: 'bg-blue-50 border-blue-200', description: 'Google sign-in credentials' },
+  RAZORPAY: { label: 'Razorpay', color: 'bg-blue-50 border-blue-200', description: 'Payment gateway credentials' },
+  SMTP: { label: 'Email (SMTP)', color: 'bg-amber-50 border-amber-200', description: 'Gmail SMTP email sending' },
+  SMS: { label: 'SMS (Fast2SMS)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery' },
+  PLATFORM: { label: 'Platform', color: 'bg-purple-50 border-purple-200', description: 'Platform UPI & settings' },
+  APP: { label: 'App Config', color: 'bg-gray-50 border-gray-200', description: 'Application settings' },
+};
+
+function CredentialsTab() {
+  const [configs, setConfigs] = useState<Record<string, Record<string, { value: string; label: string; isSecret: boolean }>>>();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+
+  const fetchConfigs = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/configs');
+      const data = await res.json();
+      setConfigs(data.configs || {});
+    } catch (err: any) {
+      toast.error('Failed to load credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const seedFromEnv = async () => {
+    try {
+      const res = await fetch('/api/admin/configs?action=seed');
+      const data = await res.json();
+      toast.success(data.message || 'Seeded from environment');
+      await fetchConfigs();
+    } catch {
+      toast.error('Failed to seed');
+    }
+  };
+
+  const handleSave = async () => {
+    if (Object.keys(edits).length === 0) return;
+    setSaving(true);
+    try {
+      const items = Object.entries(edits).map(([fullKey, value]) => {
+        const [section, key] = fullKey.split('.');
+        const existing = configs?.[section]?.[key];
+        return { section, key, value, label: existing?.label || key, isSecret: existing?.isSecret ?? true };
+      });
+      const res = await fetch('/api/admin/configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configs: items }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || 'Failed to save'); return; }
+      toast.success(data.message || 'Credentials updated');
+      setEdits({});
+      await fetchConfigs();
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => { fetchConfigs(); }, []);
+
+  const hasEdits = Object.keys(edits).length > 0;
+  const sections = configs ? Object.keys(configs).sort() : [];
+  const totalKeys = sections.reduce((acc, s) => acc + Object.keys(configs![s] || {}).length, 0);
+  const filledKeys = sections.reduce((acc, s) => acc + Object.values(configs![s] || {}).filter(v => v.value).length, 0);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">System Credentials</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <Skeleton key={i} className="h-48 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">System Credentials</h2>
+          <p className="text-sm text-gray-400 mt-1">Manage API keys and service credentials. Changes take effect immediately.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            {filledKeys}/{totalKeys} configured
+          </Badge>
+          <Button variant="outline" size="sm" onClick={seedFromEnv} className="rounded-xl gap-1.5 text-xs">
+            <RefreshCw className="h-3.5 w-3.5" /> Sync from .env
+          </Button>
+          {hasEdits && (
+            <Button size="sm" onClick={handleSave} disabled={saving} className="btn-black rounded-xl gap-1.5 text-xs">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save ({Object.keys(edits).length})
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {sections.length === 0 ? (
+        <Card className="rounded-2xl">
+          <CardContent className="p-8 text-center">
+            <KeyRound className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <h3 className="font-semibold text-gray-700">No Credentials Configured</h3>
+            <p className="text-sm text-gray-400 mt-1 mb-4">Click "Sync from .env" to import credentials from your environment file.</p>
+            <Button onClick={seedFromEnv} className="btn-black rounded-xl gap-2 text-sm">
+              <RefreshCw className="h-4 w-4" /> Sync from .env
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {sections.map((section) => {
+            const info = SECTION_INFO[section] || { label: section, color: 'bg-gray-50 border-gray-200', description: '' };
+            const keys = Object.entries(configs![section] || {});
+            const sectionFilled = keys.filter(([, v]) => v.value).length;
+            return (
+              <Card key={section} className={`rounded-2xl border ${info.color} overflow-hidden`}>
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold text-gray-900">{info.label}</CardTitle>
+                    <Badge variant={sectionFilled === keys.length ? 'default' : 'outline'} className={sectionFilled === keys.length ? 'bg-green-100 text-green-700 text-[10px]' : 'text-[10px]'}>
+                      {sectionFilled}/{keys.length}
+                    </Badge>
+                  </div>
+                  {info.description && <p className="text-[11px] text-gray-500 mt-0.5">{info.description}</p>}
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-2">
+                  {keys.map(([key, { value, label, isSecret }]) => {
+                    const fullKey = `${section}.${key}`;
+                    const editValue = edits[fullKey];
+                    const displayValue = editValue !== undefined ? editValue : value;
+                    const isHidden = isSecret && !showSecrets[fullKey] && displayValue;
+                    return (
+                      <div key={key} className="space-y-1">
+                        <label className="text-[11px] font-medium text-gray-500 block">{label}</label>
+                        <div className="relative">
+                          <Input
+                            value={isHidden ? '••••••••' : (displayValue || '')}
+                            onChange={(e) => setEdits(prev => ({ ...prev, [fullKey]: e.target.value }))}
+                            onFocus={() => { if (isSecret && displayValue) setShowSecrets(p => ({ ...p, [fullKey]: true })); }}
+                            placeholder="Not set"
+                            className="h-8 text-xs rounded-lg pr-8 font-mono"
+                          />
+                          {isSecret && displayValue && (
+                            <button
+                              type="button"
+                              onClick={() => setShowSecrets(p => ({ ...p, [fullKey]: !p[fullKey] }))}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              {showSecrets[fullKey] ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                        {value && editValue === undefined && (
+                          <div className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            <span className="text-[10px] text-green-600">Active</span>
+                          </div>
+                        )}
+                        {!value && !editValue && (
+                          <div className="flex items-center gap-1">
+                            <XCircle className="h-3 w-3 text-gray-400" />
+                            <span className="text-[10px] text-gray-400">Not configured</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {hasEdits && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Button onClick={handleSave} disabled={saving} className="btn-black rounded-2xl shadow-lg gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save {Object.keys(edits).length} Change(s)
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
