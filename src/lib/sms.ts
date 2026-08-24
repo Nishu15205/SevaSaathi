@@ -2,7 +2,8 @@
  * SMS Service for SevaSaathi
  * 
  * Fast2SMS OTP route: Uses their built-in OTP template
- * Fallback to dev mode if API key not set or delivery fails
+ * Falls back to dev mode ONLY when no API key is configured.
+ * When API key IS configured but delivery fails, caller gets an error — no dev OTP.
  */
 
 export interface SmsResult {
@@ -75,27 +76,18 @@ async function sendViaFast2SMS(phone: string, otp: string): Promise<SmsResult> {
 
 /**
  * Send Phone OTP
- * Uses Fast2SMS if configured, otherwise dev mode
- * Returns `actuallyDelivered` to distinguish real SMS from fallback
+ * - If FAST2SMS_API_KEY is set → sends real SMS. On failure, throws error (no dev OTP).
+ * - If FAST2SMS_API_KEY is NOT set → dev mode, returns actuallyDelivered: false.
  */
 export async function sendPhoneOtp(phone: string, otp: string): Promise<SmsResult> {
   if (process.env.FAST2SMS_API_KEY) {
-    try {
-      const result = await sendViaFast2SMS(phone, otp);
-      return result;
-    } catch (err: any) {
-      console.error('⚠️ Fast2SMS failed:', err.message);
-      console.error('   OTP is stored in DB — user can still verify once SMS provider is fixed.');
-      // Return success: true but actuallyDelivered: false so the caller knows
-      return { 
-        success: true, 
-        actuallyDelivered: false, 
-        error: `SMS delivery failed: ${err.message}` 
-      };
-    }
+    // API key configured → send real SMS
+    // If it fails, let the error propagate — no dev OTP fallback
+    const result = await sendViaFast2SMS(phone, otp);
+    return result;
   }
 
-  // Dev mode: no SMS provider configured
+  // No API key → dev mode
   console.log(`\n📱 PHONE OTP for ${phone}: ${otp}`);
   console.log(`   ⚠️ Add FAST2SMS_API_KEY to .env for real SMS delivery\n`);
   return { success: true, actuallyDelivered: false };
