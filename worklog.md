@@ -426,3 +426,40 @@ Stage Summary:
 - Caregiver profile: No longer resets after creation
 - Aadhaar: Simple number entry, instant verification
 - `.env.local`: Organized with all credential sections and instructions
+
+---
+Task ID: 9
+Agent: main
+Task: Restore credentials, fix profile bug, backend credential system
+
+Work Log:
+- **Restored lost credentials from git history:** Found all credentials in commit 03572c8. Restored: Google OAuth (Client ID + Secret), SMTP (user: nishu@webwallah.in, password: rlcu rkjx xcpf alht), Fast2SMS API Key, Platform UPI (nishu@webwallah.in), Razorpay keys.
+- **Fixed caregiver profile blank/reverting bug:**
+  1. AuthProvider.tsx: Removed `currentUser` from useEffect dependency array. Used a ref (`currentUserRef`) instead to track the current user ID, preventing cascade re-fires that would overwrite caregiverProfile with null.
+  2. ProfileTab in CaregiverDashboard.tsx: Changed `onCreated` callback to use the returned `res.caregiver` directly instead of making a separate `api.auth.me` call. Added `creating` loading state to prevent blank form flash during store update.
+- **Backend credential management system:**
+  1. Added `SystemConfig` model to Prisma schema (section, key, value, label, isSecret with unique [section, key])
+  2. Created `/src/lib/config.ts` with: getConfig, getConfigWithFallback (DB first, env fallback), setConfig, deleteConfig, getAllConfigs, bulkUpsert, seedConfigsFromEnv
+  3. Created `/api/admin/configs` (GET list + seed from env, POST bulk upsert)
+  4. Added `Credentials` tab to Admin Dashboard with section cards (Google OAuth, Razorpay, SMTP, SMS, Platform, App Config)
+  5. Each card shows keys with labels, masked secrets (eye toggle), Active/Not configured status
+  6. Save button with floating action button, Sync from .env button
+- **Services updated to read from DB config:**
+  1. sms.ts: Now async, reads Fast2SMS API key via getFast2SmsApiKey() (DB -> env fallback)
+  2. email.ts: getTransporterAsync reads host/port/user/pass from DB config
+  3. razorpay.ts: All functions now async, read from DB config
+  4. payments/create-order: Uses getRazorpayKeyId/getRazorpayKeySecret from config
+  5. payments/verify: Uses getRazorpayKeySecret from config
+  6. google-configured: Uses getGoogleClientId/getGoogleClientSecret from config
+  7. send-phone-otp: Updated isSmsConfigured() calls to use await (now async)
+- **Seeded 13 configs from .env.local** into system_configs table
+- **Aadhaar verification** was already simplified to number-only input (done in previous session)
+- **Note: MSG91 credentials were NEVER provided by user.** Only Fast2SMS was given. SMS uses Fast2SMS.
+
+Stage Summary:
+- All credentials restored and stored in both .env.local AND database
+- Admin can manage credentials via Dashboard > Credentials tab without code changes
+- All services (SMS, Email, Razorpay) read from DB first, env as fallback
+- Caregiver profile no longer reverts to blank after creation
+- Lint: Clean (0 errors)
+- Browser verified: Landing page renders correctly
