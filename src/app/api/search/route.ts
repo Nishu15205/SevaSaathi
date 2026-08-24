@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ShiftType } from '@prisma/client'
 
+/** Safely parse JSON — returns the raw value if parsing fails */
+function safeJsonParse(val: string | null | undefined, fallback: unknown = []): unknown {
+  if (!val) return fallback
+  if (Array.isArray(val)) return val
+  if (typeof val === 'object') return val
+  try {
+    return JSON.parse(val)
+  } catch {
+    if (val.includes(',')) return val.split(',').map(s => s.trim()).filter(Boolean)
+    return fallback
+  }
+}
+
 interface ScoredCaregiver {
   id: string
   userId: string
@@ -52,8 +65,8 @@ export async function GET(request: NextRequest) {
     const scored: ScoredCaregiver[] = []
 
     for (const c of caregivers) {
-      const caregiverSkills: string[] = JSON.parse(c.skills)
-      const availability: Record<string, { day: boolean; night: boolean }> = JSON.parse(c.availabilityJson)
+      const caregiverSkills: string[] = (safeJsonParse(c.skills) || []) as string[]
+      const availability: Record<string, { day: boolean; night: boolean }> = (safeJsonParse(c.availabilityJson, {})) as Record<string, { day: boolean; night: boolean }>
 
       // Skill Match: 30%
       let skillScore = 0

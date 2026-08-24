@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 
+function safeJsonParse(val: string | null | undefined, fallback: unknown = []): unknown {
+  if (!val) return fallback
+  if (Array.isArray(val)) return val
+  if (typeof val === 'object') return val
+  try { return JSON.parse(val) } catch {
+    if (val.includes(',')) return val.split(',').map(s => s.trim()).filter(Boolean)
+    return fallback
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -49,10 +59,10 @@ export async function GET(
 
     const result = {
       ...caregiver,
-      skills: JSON.parse(caregiver.skills),
-      qualifications: JSON.parse(caregiver.qualifications),
-      languages: caregiver.languages ? JSON.parse(caregiver.languages) : [],
-      availabilityJson: JSON.parse(caregiver.availabilityJson),
+      skills: safeJsonParse(caregiver.skills),
+      qualifications: safeJsonParse(caregiver.qualifications),
+      languages: safeJsonParse(caregiver.languages),
+      availabilityJson: safeJsonParse(caregiver.availabilityJson, {}),
     }
 
     return NextResponse.json({ caregiver: result })
@@ -153,10 +163,10 @@ export async function PUT(
 
     const result = {
       ...caregiver,
-      skills: JSON.parse(caregiver.skills),
-      qualifications: JSON.parse(caregiver.qualifications),
-      languages: caregiver.languages ? JSON.parse(caregiver.languages) : [],
-      availabilityJson: JSON.parse(caregiver.availabilityJson),
+      skills: safeJsonParse(caregiver.skills),
+      qualifications: safeJsonParse(caregiver.qualifications),
+      languages: safeJsonParse(caregiver.languages),
+      availabilityJson: safeJsonParse(caregiver.availabilityJson, {}),
     }
 
     return NextResponse.json({ caregiver: result })

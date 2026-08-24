@@ -488,3 +488,23 @@ Stage Summary:
 - Profile form: Fixed \u2014 HMR/remount no longer clears caregiverProfile
 - All credentials in both .env.local and DB system_configs table
 - All services read from DB first, env as fallback
+---
+Task ID: 1
+Agent: main
+Task: Fix Google OAuth state error + full E2E testing of profiles
+
+Work Log:
+- Analyzed screenshot: Google OAuth callback returning `{"error":"Invalid or expired state"}`
+- Checked dev logs: Google returns UUID `dfd5ce6b-...` instead of our signed base64url state — proxy chain truncates/corrupts long state
+- Added OAuthState model to Prisma schema (DB-backed state storage)
+- Rewrote google-go: stores role+redirectUrl in DB, passes short UUID (36 chars) as state
+- Rewrote google-cb: looks up UUID in DB, one-time use, auto-cleanup of expired states
+- Fixed NextResponse.redirect relative URL error (was causing 500 in Next.js 16)
+- Added `safeJsonParse` utility to caregivers API, caregivers/[id] API, and search API
+- E2E tested: Family registration (Rajesh Sharma), Patient profile (Suresh Sharma), Caregiver registration (Priya Verma), Login/Logout, Caregiver search with match scoring
+
+Stage Summary:
+- Google OAuth now uses short UUID state stored in DB (proxy-proof)
+- JSON.parse crashes fixed across 3 API routes
+- All major flows verified working: register, login, patient creation, caregiver profile, smart search
+- Lint clean, no dev server errors

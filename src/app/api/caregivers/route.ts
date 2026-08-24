@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 
+/** Safely parse JSON — returns the raw value if parsing fails */
+function safeJsonParse(val: string | null | undefined, fallback: unknown = []): unknown {
+  if (!val) return fallback
+  if (Array.isArray(val)) return val
+  if (typeof val === 'object') return val
+  try {
+    return JSON.parse(val)
+  } catch {
+    // If it looks like a comma-separated string, split it
+    if (val.includes(',')) return val.split(',').map(s => s.trim()).filter(Boolean)
+    return fallback
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
@@ -53,10 +67,10 @@ export async function GET(request: NextRequest) {
 
     const results = caregivers.map((c) => ({
       ...c,
-      skills: JSON.parse(c.skills),
-      qualifications: JSON.parse(c.qualifications),
-      languages: c.languages ? JSON.parse(c.languages) : [],
-      availabilityJson: JSON.parse(c.availabilityJson),
+      skills: safeJsonParse(c.skills),
+      qualifications: safeJsonParse(c.qualifications),
+      languages: safeJsonParse(c.languages),
+      availabilityJson: safeJsonParse(c.availabilityJson, DEFAULT_AVAILABILITY),
     }))
 
     return NextResponse.json({
@@ -139,10 +153,10 @@ export async function POST(request: NextRequest) {
 
     const result = {
       ...caregiver,
-      skills: JSON.parse(caregiver.skills),
-      qualifications: JSON.parse(caregiver.qualifications),
-      languages: caregiver.languages ? JSON.parse(caregiver.languages) : [],
-      availabilityJson: JSON.parse(caregiver.availabilityJson),
+      skills: safeJsonParse(caregiver.skills),
+      qualifications: safeJsonParse(caregiver.qualifications),
+      languages: safeJsonParse(caregiver.languages),
+      availabilityJson: safeJsonParse(caregiver.availabilityJson, DEFAULT_AVAILABILITY),
     }
 
     return NextResponse.json({ caregiver: result }, { status: 201 })
