@@ -1,29 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { db } from "@/lib/db";
 import { getGoogleClientId } from "@/lib/config";
 
-const OAUTH_SECRET = process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi";
-
 /**
- * Creates a signed state token that encodes role + redirectUri.
- * Format: base64url(payload).base64url(hmac)
- * This eliminates the need for cookies which get stripped by proxies.
- */
-function createSignedState(role: string, redirectUri: string): string {
-  const payload = JSON.stringify({
-    s: crypto.randomUUID(),
-    r: role,
-    u: redirectUri,
-    exp: Date.now() + 10 * 60 * 1000, // 10 minutes
-  });
-  const payloadB64 = Buffer.from(payload).toString("base64url");
-  const sig = crypto.createHmac("sha256", OAUTH_SECRET).update(payloadB64).digest("base64url");
-  return `${payloadB64}.${sig}`;
-}
-
-/**
- * Generates the real Google OAuth URL.
- * Uses signed state (no cookies needed) — proxy-proof.
+ * Generates the Google OAuth URL.
+ * Stores state data in the DB and passes a short UUID as the state param.
+ * This avoids proxy issues with long signed-state strings.
  */
 export async function GET(req: NextRequest) {
   // Priority 1: Use origin passed from the client (browser's window.location.origin)
@@ -47,8 +30,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Google OAuth not configured" }, { status: 500 });
   }
 
-  // Create self-contained signed state (role + redirectUri baked in)
-  const state = createSignedState(role, redirectUri);
+  // Create a short UUID as state — store the real data in DB
+  const stateToken = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  await db.oAuthState.create({
+    data: {
+      stateToken,
+      role,
+      redirectUrl: baseUrl,
+      expiresAt,
+    },
+  });
+
+  // Clean up old expired states
+  await db.oAuthState.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  });
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -57,7 +55,7 @@ export async function GET(req: NextRequest) {
     scope: "openid email profile",
     access_type: "offline",
     prompt: "consent",
-    state: state,
+    state: stateToken,
   });
 
   const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

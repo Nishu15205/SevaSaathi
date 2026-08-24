@@ -493,6 +493,23 @@ model SystemConfig {
 }
 
 // ============================================================
+// OAUTH STATE (short-lived state tokens for OAuth flows)
+// ============================================================
+
+model OAuthState {
+  id          String   @id @default(cuid())
+  stateToken  String   @unique @map("state_token") // UUID passed to Google as state param
+  role        String   @default("")             // CAREGIVER, FAMILY, or empty
+  redirectUrl String   @map("redirect_url")      // Full origin URL for post-auth redirect
+  createdAt   DateTime @default(now()) @map("created_at")
+  expiresAt   DateTime @map("expires_at")         // 10 minutes from creation
+
+  @@index([stateToken])
+  @@index([expiresAt])
+  @@map("oauth_states")
+}
+
+// ============================================================
 // EMAIL LOG (for tracking sent emails)
 // ============================================================
 
