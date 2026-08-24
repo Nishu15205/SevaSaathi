@@ -35,6 +35,7 @@ import {
   Eye,
   Play,
   Phone,
+  Hash,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -438,7 +439,7 @@ function OverviewTab({ user }: { user: User }) {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-blue-900">Get Verified - Build Trust</p>
-                <p className="text-xs text-blue-700/70">Upload your Aadhaar card to get the verified badge and more bookings</p>
+                <p className="text-xs text-blue-700/70">Enter your Aadhaar number to get the verified badge and more bookings</p>
               </div>
             </div>
             <Button size="sm" onClick={() => {}} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shrink-0">
@@ -903,136 +904,102 @@ function ProfileTab({ user }: { user: User }) {
 /* ============================================================ */
 
 function AadharVerificationSection({ caregiverId }: { caregiverId: string }) {
-  const [aadharResult, setAadharResult] = useState<any>(null);
+  const [aadharNumber, setAadharNumber] = useState('');
   const [verifying, setVerifying] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
+  const [verifiedNumber, setVerifiedNumber] = useState('');
+  const [error, setError] = useState('');
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const formatAadhar = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 12);
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 8) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+    return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
+  };
 
-    // Show preview
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setImagePreview(ev.target?.result as string);
-      setAadharResult(null);
-    };
-    reader.readAsDataURL(file);
+  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatAadhar(e.target.value);
+    setAadharNumber(formatted);
+    setError('');
   };
 
   const handleVerify = async () => {
-    if (!imagePreview) {
-      toast.error('Please upload an Aadhar card image first');
+    const digits = aadharNumber.replace(/\s/g, '');
+    if (digits.length !== 12) {
+      setError('Enter complete 12-digit Aadhaar number');
       return;
     }
     setVerifying(true);
+    setError('');
     try {
-      const result = await api.verifyAadhar(imagePreview);
-      setAadharResult(result);
+      const result = await api.verifyAadhar(digits, caregiverId);
       if (result.verified) {
-        toast.success('Aadhar card verified successfully!');
+        setVerified(true);
+        setVerifiedNumber(result.aadharNumber || aadharNumber);
+        toast.success('Aadhaar verified successfully! You are now a verified caregiver.');
+        // Refresh auth to get updated isVerified status
+        const me = await api.auth.me(useAuthStore.getState().user?.id || '');
+        if (me.user) useAuthStore.getState().setAuth(me.user);
       } else {
-        toast.error(result.error || 'Aadhar verification failed');
+        setError(result.error || 'Verification failed');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Verification failed');
-      setAadharResult({ verified: false, error: err.message });
+      setError(err.message || 'Verification failed');
     } finally {
       setVerifying(false);
     }
   };
 
+  if (verified) {
+    return (
+      <div className="mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck className="h-4 w-4 text-green-600" />
+          <p className="text-sm font-semibold text-green-800">Aadhaar Verified</p>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-green-900">Verification Complete</p>
+              <p className="text-sm font-mono text-green-700 mt-0.5">{verifiedNumber}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6">
       <div className="flex items-center gap-2 mb-3">
         <ShieldCheck className="h-4 w-4 text-forest-700" />
-        <p className="text-sm font-semibold text-gray-700">Aadhar Card Verification</p>
+        <p className="text-sm font-semibold text-gray-700">Aadhaar Card Verification</p>
       </div>
       <div className="bg-gray-50 rounded-2xl p-5">
-        <p className="text-xs text-gray-500 mb-4">Upload your Aadhar card for AI-powered instant verification. Your data is processed securely and not stored.</p>
-        
-        <div className="space-y-4">
-          {/* Upload Area */}
-          {!imagePreview ? (
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-forest-400 hover:bg-forest-50/50 transition-colors">
-              <Camera className="h-10 w-10 text-gray-400 mb-3" />
-              <p className="text-sm font-medium text-gray-600">Upload Aadhar Card</p>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG - Clear photo of your Aadhar card</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </label>
-          ) : (
-            <div className="space-y-3">
-              <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                <img src={imagePreview} alt="Aadhar preview" className="w-full max-h-48 object-contain bg-white" />
-                <button
-                  onClick={() => { setImagePreview(null); setAadharResult(null); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
-                >
-                  <XCircle className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleVerify}
-                  disabled={verifying}
-                  className="btn-green text-sm gap-2"
-                >
-                  {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  {verifying ? 'Verifying...' : 'Verify Aadhar'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setImagePreview(null); setAadharResult(null); }} className="rounded-full">
-                  Change Image
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Result */}
-          {aadharResult && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-xl p-4 ${
-                aadharResult.verified
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                {aadharResult.verified ? (
-                  <><CheckCircle2 className="h-5 w-5 text-green-600" /><p className="text-sm font-semibold text-green-800">Verification Successful</p></>
-                ) : (
-                  <><XCircle className="h-5 w-5 text-red-600" /><p className="text-sm font-semibold text-red-800">Verification Failed</p></>
-                )}
-              </div>
-              {aadharResult.verified ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                  {aadharResult.name && (
-                    <div><p className="text-[10px] text-green-600 font-medium">Name</p><p className="text-sm font-semibold text-green-900">{aadharResult.name}</p></div>
-                  )}
-                  {aadharResult.aadharNumber && (
-                    <div><p className="text-[10px] text-green-600 font-medium">Aadhar Number</p><p className="text-sm font-semibold text-green-900 font-mono">{aadharResult.aadharNumber.replace(/(\d{4})/g, '$1 ').trim()}</p></div>
-                  )}
-                  {aadharResult.dob && (
-                    <div><p className="text-[10px] text-green-600 font-medium">Date of Birth</p><p className="text-sm font-semibold text-green-900">{aadharResult.dob}</p></div>
-                  )}
-                  {aadharResult.gender && (
-                    <div><p className="text-[10px] text-green-600 font-medium">Gender</p><p className="text-sm font-semibold text-green-900">{aadharResult.gender}</p></div>
-                  )}
-                  {aadharResult.address && (
-                    <div className="sm:col-span-2"><p className="text-[10px] text-green-600 font-medium">Address</p><p className="text-sm font-semibold text-green-900">{aadharResult.address}</p></div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-red-700">{aadharResult.error || 'Could not verify the uploaded document. Please ensure it is a clear image of an Aadhar card.'}</p>
-              )}
-            </motion.div>
-          )}
+        <p className="text-xs text-gray-500 mb-4">Enter your 12-digit Aadhaar number to get verified. Verified caregivers get more bookings and trust from families.</p>
+        <div className="space-y-3">
+          <div className="relative">
+            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={aadharNumber}
+              onChange={handleAadharChange}
+              placeholder="XXXX XXXX XXXX"
+              className="pl-10 rounded-xl text-lg font-mono tracking-wider h-12"
+              maxLength={14}
+            />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <Button
+            onClick={handleVerify}
+            disabled={verifying || aadharNumber.replace(/\s/g, '').length !== 12}
+            className="btn-green text-sm gap-2 rounded-xl w-full"
+          >
+            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {verifying ? 'Verifying...' : 'Verify Aadhaar'}
+          </Button>
         </div>
       </div>
     </div>

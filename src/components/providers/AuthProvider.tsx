@@ -9,6 +9,7 @@ function AuthSync() {
   const { data: session, status } = useSession();
   const setAuth = useAuthStore((s) => s.setAuth);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const currentUser = useAuthStore((s) => s.user);
   const fetchDoneRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -16,18 +17,22 @@ function AuthSync() {
       const u = session.user as any;
       const userId = u.id;
 
-      // Set basic auth immediately from session data so UI never shows null user
-      setAuth({
-        id: userId,
-        email: u.email,
-        name: u.name,
-        phone: "",
-        role: u.role,
-        avatarUrl: u.image || null,
-        subscription: "NONE" as any,
-        patientProfiles: [],
-        caregiverProfile: null,
-      });
+      // Only set basic auth if we DON'T already have a user with this ID.
+      // This prevents overwriting caregiverProfile/patientProfiles that were
+      // fetched from /api/auth/me with null values from the session cookie.
+      if (!currentUser || currentUser.id !== userId) {
+        setAuth({
+          id: userId,
+          email: u.email,
+          name: u.name,
+          phone: "",
+          role: u.role,
+          avatarUrl: u.image || null,
+          subscription: "NONE" as any,
+          patientProfiles: [],
+          caregiverProfile: null,
+        });
+      }
 
       // Fetch full user data (including caregiverProfile, patientProfiles) once
       if (userId && fetchDoneRef.current !== userId) {
@@ -64,7 +69,7 @@ function AuthSync() {
       fetchDoneRef.current = null;
       clearAuth();
     }
-  }, [session, status, setAuth, clearAuth]);
+  }, [session, status, setAuth, clearAuth, currentUser]);
 
   return null;
 }

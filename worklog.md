@@ -397,3 +397,32 @@ Stage Summary:
 - Dev server stable via detached Node.js child process (PID managed by start-dev.mjs)
 - App accessible on port 81 (infrastructure proxy → port 3000)
 - Preview should now be visible in the Preview Panel
+
+---
+Task ID: 8
+Agent: main
+Task: Fix Google OAuth, Caregiver profile reset, Aadhaar simplification, Config sections
+
+Work Log:
+- **Google OAuth fix (3 sub-issues):**
+  1. AuthSync in AuthProvider.tsx was calling `setAuth({ caregiverProfile: null })` on every `useSession()` re-trigger, overwriting the profile data fetched from `/api/auth/me`. Fixed by only setting basic auth when the user ID changes or no user exists yet.
+  2. JWT tokens from `google-simulate` and `google-cb` were missing `sub` field. NextAuth's session callback reads `token.sub || token.id`. Added `sub` to both JWT encode calls.
+  3. Cookie name mismatch: `NEXTAUTH_URL` is HTTPS, so NextAuth expects `__Secure-next-auth.session-token`, but our routes set `next-auth.session-token`. Fixed by setting BOTH cookie names (secure + non-secure) on the redirect response.
+- **Caregiver profile reset fix:** Same root cause as Google OAuth fix #1. AuthSync no longer overwrites existing user data with null values. Profile persists after creation.
+- **Aadhaar verification simplified:**
+  - Replaced image-upload + VLM-based verification with simple 12-digit Aadhaar number input
+  - Backend `/api/verify-aadhar` now accepts `{ aadharNumber, caregiverId }` instead of base64 image
+  - Validates 12-digit format, creates APPROVED verification record in DB, marks caregiver `isVerified: true`
+  - Frontend: auto-formatting input (XXXX XXXX XXXX), shows verified state after successful verification
+  - Refreshes auth store after verification to show verified badge immediately
+- **Backend config sections:**
+  - Reorganized `.env.local` with clear sections: APP, GOOGLE OAUTH, RAZORPAY PAYMENT, EMAIL (GMAIL SMTP), SMS (FAST2SMS), DATABASE
+  - Added comments with links to get each credential
+  - All existing values filled in (Razorpay keys, SMTP host/port/user)
+  - Empty placeholders with instructions for: Google OAuth, SMTP password, Fast2SMS API key
+
+Stage Summary:
+- Google sign-in (simulated): Verified working via agent-browser — user logged in, dashboard shown
+- Caregiver profile: No longer resets after creation
+- Aadhaar: Simple number entry, instant verification
+- `.env.local`: Organized with all credential sections and instructions

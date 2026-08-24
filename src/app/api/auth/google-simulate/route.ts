@@ -61,15 +61,15 @@ export async function GET(req: NextRequest) {
     }
 
     // Create a NextAuth-compatible JWT token
+    // Include both 'sub' and 'id' — NextAuth uses 'sub' internally
     const token = await encode({
       token: {
+        sub: user.id,
         id: user.id,
         email: user.email,
         name: user.name,
         picture: user.avatarUrl,
         role: user.role,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
       },
       secret: process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi",
     });
@@ -80,15 +80,31 @@ export async function GET(req: NextRequest) {
 
     const response = NextResponse.redirect(`${redirectBase}${redirectPath}`);
 
-    // Set the NextAuth session cookie
-    const isSecure = origin?.startsWith("https") || req.headers.get("x-forwarded-proto") === "https";
-    response.cookies.set("next-auth.session-token", token, {
+    // Set cookie with both possible names to handle proxy scenarios
+    // NextAuth picks the right one based on request protocol
+    const isSecure = (process.env.NEXTAUTH_URL || '').startsWith('https')
+      || req.headers.get('x-forwarded-proto') === 'https';
+    const cookieName = isSecure
+      ? '__Secure-next-auth.session-token'
+      : 'next-auth.session-token';
+
+    response.cookies.set(cookieName, token, {
       httpOnly: true,
       secure: isSecure,
-      sameSite: "lax",
+      sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60,
-      path: "/",
+      path: '/',
     });
+    // Also set the non-secure variant so it works regardless of proxy header
+    if (isSecure) {
+      response.cookies.set('next-auth.session-token', token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60,
+        path: '/',
+      });
+    }
 
     console.log(`[google-simulate] Session set for: ${user.email}, isNew=${isNewUser}, redirect → ${redirectBase}`);
     return response;
@@ -101,7 +117,7 @@ export async function GET(req: NextRequest) {
 
 /** Fallback: get origin from forwarded headers */
 function getOrigin(req: NextRequest): string {
- const proto = req.headers.get("x-forwarded-proto") || "https";
+  const proto = req.headers.get("x-forwarded-proto") || "https";
   const host = req.headers.get("host") || "localhost:3000";
   return `${proto}://${host}`;
 }

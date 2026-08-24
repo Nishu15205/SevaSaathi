@@ -1,0 +1,1337 @@
+   701→function ProfileTab({ user }: { user: User }) {
+   702→  const profile = user.caregiverProfile;
+   703→  const skills = parseJsonSafe(profile?.skills);
+   704→  const languages = parseJsonSafe(profile?.languages);
+   705→
+   706→  if (!profile) {
+   707→    return (
+   708→      <CreateProfileForm
+   709→        userId={user.id}
+   710→        onCreated={() => {
+   711→          // Reload auth data from server to get the clean profile
+   712→          api.auth.me(user.id).then(res => {
+   713→            if (res.user) useAuthStore.getState().setAuth(res.user);
+   714→          }).catch(() => {
+   715→            window.location.reload();
+   716→          });
+   717→        }}
+   718→      />
+   719→    );
+   720→  }
+   721→
+   722→  return (
+   723→    <div className="space-y-6">
+   724→      <div>
+   725→        <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
+   726→        <p className="text-sm text-gray-400 mt-1">Your caregiver profile details as seen by families.</p>
+   727→      </div>
+   728→
+   729→      <motion.div
+   730→        initial={{ opacity: 0, y: 12 }}
+   731→        animate={{ opacity: 1, y: 0 }}
+   732→        transition={{ duration: 0.3 }}
+   733→      >
+   734→        <Card className="rounded-2xl border-gray-100 overflow-hidden">
+   735→          {/* Header Banner */}
+   736→          <div className="green-gradient-bg h-28 sm:h-36 relative">
+   737→            <div className="absolute -bottom-10 left-6">
+   738→              <div className="w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center border-4 border-white">
+   739→                <span className="text-2xl font-bold text-forest-900">
+   740→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+   741→                </span>
+   742→              </div>
+   743→            </div>
+   744→          </div>
+   745→
+   746→          <CardContent className="pt-14 pb-6 px-6">
+   747→            {/* Name & Verification */}
+   748→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+   749→              <div>
+   750→                <div className="flex items-center gap-2">
+   751→                  <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
+   752→                  {profile.isVerified && (
+   753→                    <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+   754→                      <ShieldCheck className="h-3 w-3" /> Verified
+   755→                    </Badge>
+   756→                  )}
+   757→                </div>
+   758→                <p className="text-sm text-gray-400 mt-0.5">{user.email} · {user.phone}</p>
+   759→              </div>
+   760→              <div className="flex items-center gap-2 bg-forest-50 rounded-xl px-4 py-2">
+   761→                <Star className="h-5 w-5 fill-lime-400 text-lime-400" />
+   762→                <span className="text-lg font-bold text-gray-900">{profile.overallRating.toFixed(1)}</span>
+   763→                <span className="text-xs text-gray-400">({profile.totalReviews} reviews)</span>
+   764→              </div>
+   765→            </div>
+   766→
+   767→            <Separator className="bg-gray-100 mb-6" />
+   768→
+   769→            {/* Info Grid */}
+   770→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+   771→              <div className="flex items-start gap-3">
+   772→                <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+   773→                  <MapPin className="h-5 w-5 text-forest-700" />
+   774→                </div>
+   775→                <div>
+   776→                  <p className="text-xs text-gray-400 font-medium">City</p>
+   777→                  <p className="text-sm font-semibold text-gray-800">{profile.city}</p>
+   778→                </div>
+   779→              </div>
+   780→
+   781→              <div className="flex items-start gap-3">
+   782→                <div className="w-10 h-10 rounded-xl bg-lime-50 flex items-center justify-center shrink-0">
+   783→                  <Briefcase className="h-5 w-5 text-lime-700" />
+   784→                </div>
+   785→                <div>
+   786→                  <p className="text-xs text-gray-400 font-medium">Experience</p>
+   787→                  <p className="text-sm font-semibold text-gray-800">{profile.yearsExperience} years</p>
+   788→                </div>
+   789→              </div>
+   790→
+   791→              <div className="flex items-start gap-3">
+   792→                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+   793→                  <IndianRupee className="h-5 w-5 text-amber-700" />
+   794→                </div>
+   795→                <div>
+   796→                  <p className="text-xs text-gray-400 font-medium">Hourly Rate</p>
+   797→                  <p className="text-sm font-semibold text-gray-800">₹{profile.hourlyRate}/hour</p>
+   798→                </div>
+   799→              </div>
+   800→
+   801→              <div className="flex items-start gap-3">
+   802→                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+   803→                  <CheckCircle2 className="h-5 w-5 text-purple-700" />
+   804→                </div>
+   805→                <div>
+   806→                  <p className="text-xs text-gray-400 font-medium">Completed Jobs</p>
+   807→                  <p className="text-sm font-semibold text-gray-800">{profile.completedJobs} jobs</p>
+   808→                </div>
+   809→              </div>
+   810→
+   811→              <div className="flex items-start gap-3">
+   812→                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+   813→                  <Star className="h-5 w-5 text-blue-700" />
+   814→                </div>
+   815→                <div>
+   816→                  <p className="text-xs text-gray-400 font-medium">Rating</p>
+   817→                  <p className="text-sm font-semibold text-gray-800">{profile.overallRating.toFixed(1)} / 5.0</p>
+   818→                </div>
+   819→              </div>
+   820→
+   821→              <div className="flex items-start gap-3">
+   822→                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+   823→                  <ShieldCheck className="h-5 w-5 text-green-700" />
+   824→                </div>
+   825→                <div>
+   826→                  <p className="text-xs text-gray-400 font-medium">Verification</p>
+   827→                  <p className={`text-sm font-semibold ${profile.isVerified ? 'text-green-700' : 'text-gray-500'}`}>
+   828→                    {profile.isVerified ? 'Verified' : 'Pending Verification'}
+   829→                  </p>
+   830→                </div>
+   831→              </div>
+   832→            </div>
+   833→
+   834→            {/* Skills */}
+   835→            {skills.length > 0 && (
+   836→              <div className="mb-6">
+   837→                <div className="flex items-center gap-2 mb-3">
+   838→                  <Stethoscope className="h-4 w-4 text-gray-400" />
+   839→                  <p className="text-sm font-semibold text-gray-700">Skills</p>
+   840→                </div>
+   841→                <div className="flex flex-wrap gap-2">
+   842→                  {skills.map((skill) => (
+   843→                    <Badge
+   844→                      key={skill}
+   845→                      variant="outline"
+   846→                      className="bg-forest-50 text-forest-700 border-forest-200 rounded-full px-3 py-1 text-xs font-medium"
+   847→                    >
+   848→                      {skill}
+   849→                    </Badge>
+   850→                  ))}
+   851→                </div>
+   852→              </div>
+   853→            )}
+   854→
+   855→            {/* Languages */}
+   856→            {languages.length > 0 && (
+   857→              <div className="mb-6">
+   858→                <div className="flex items-center gap-2 mb-3">
+   859→                  <Languages className="h-4 w-4 text-gray-400" />
+   860→                  <p className="text-sm font-semibold text-gray-700">Languages</p>
+   861→                </div>
+   862→                <div className="flex flex-wrap gap-2">
+   863→                  {languages.map((lang) => (
+   864→                    <Badge
+   865→                      key={lang}
+   866→                      variant="outline"
+   867→                      className="bg-lime-50 text-lime-700 border-lime-200 rounded-full px-3 py-1 text-xs font-medium"
+   868→                    >
+   869→                      {lang}
+   870→                    </Badge>
+   871→                  ))}
+   872→                </div>
+   873→              </div>
+   874→            )}
+   875→
+   876→            {/* Bio */}
+   877→            {profile.bio && (
+   878→              <div className="mb-6">
+   879→                <div className="flex items-center gap-2 mb-3">
+   880→                  <FileText className="h-4 w-4 text-gray-400" />
+   881→                  <p className="text-sm font-semibold text-gray-700">About</p>
+   882→                </div>
+   883→                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4">
+   884→                  {profile.bio}
+   885→                </p>
+   886→              </div>
+   887→            )}
+   888→
+   889→            {/* Phone Verification */}
+   890→            <PhoneVerificationSection user={user} />
+   891→
+   892→            {/* Aadhar Verification */}
+   893→            <AadharVerificationSection caregiverId={profile.id} />
+   894→          </CardContent>
+   895→        </Card>
+   896→      </motion.div>
+   897→    </div>
+   898→  );
+   899→}
+   900→
+   901→/* ============================================================ */
+   902→/* AADHAR VERIFICATION SECTION                                    */
+   903→/* ============================================================ */
+   904→
+   905→function AadharVerificationSection({ caregiverId }: { caregiverId: string }) {
+   906→  const [aadharResult, setAadharResult] = useState<any>(null);
+   907→  const [verifying, setVerifying] = useState(false);
+   908→  const [imagePreview, setImagePreview] = useState<string | null>(null);
+   909→
+   910→  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+   911→    const file = e.target.files?.[0];
+   912→    if (!file) return;
+   913→
+   914→    // Show preview
+   915→    const reader = new FileReader();
+   916→    reader.onload = (ev) => {
+   917→      setImagePreview(ev.target?.result as string);
+   918→      setAadharResult(null);
+   919→    };
+   920→    reader.readAsDataURL(file);
+   921→  };
+   922→
+   923→  const handleVerify = async () => {
+   924→    if (!imagePreview) {
+   925→      toast.error('Please upload an Aadhar card image first');
+   926→      return;
+   927→    }
+   928→    setVerifying(true);
+   929→    try {
+   930→      const result = await api.verifyAadhar(imagePreview);
+   931→      setAadharResult(result);
+   932→      if (result.verified) {
+   933→        toast.success('Aadhar card verified successfully!');
+   934→      } else {
+   935→        toast.error(result.error || 'Aadhar verification failed');
+   936→      }
+   937→    } catch (err: any) {
+   938→      toast.error(err.message || 'Verification failed');
+   939→      setAadharResult({ verified: false, error: err.message });
+   940→    } finally {
+   941→      setVerifying(false);
+   942→    }
+   943→  };
+   944→
+   945→  return (
+   946→    <div className="mt-6">
+   947→      <div className="flex items-center gap-2 mb-3">
+   948→        <ShieldCheck className="h-4 w-4 text-forest-700" />
+   949→        <p className="text-sm font-semibold text-gray-700">Aadhar Card Verification</p>
+   950→      </div>
+   951→      <div className="bg-gray-50 rounded-2xl p-5">
+   952→        <p className="text-xs text-gray-500 mb-4">Upload your Aadhar card for AI-powered instant verification. Your data is processed securely and not stored.</p>
+   953→        
+   954→        <div className="space-y-4">
+   955→          {/* Upload Area */}
+   956→          {!imagePreview ? (
+   957→            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-forest-400 hover:bg-forest-50/50 transition-colors">
+   958→              <Camera className="h-10 w-10 text-gray-400 mb-3" />
+   959→              <p className="text-sm font-medium text-gray-600">Upload Aadhar Card</p>
+   960→              <p className="text-xs text-gray-400 mt-1">JPG, PNG - Clear photo of your Aadhar card</p>
+   961→              <input
+   962→                type="file"
+   963→                accept="image/*"
+   964→                onChange={handleFileSelect}
+   965→                className="hidden"
+   966→              />
+   967→            </label>
+   968→          ) : (
+   969→            <div className="space-y-3">
+   970→              <div className="relative rounded-xl overflow-hidden border border-gray-200">
+   971→                <img src={imagePreview} alt="Aadhar preview" className="w-full max-h-48 object-contain bg-white" />
+   972→                <button
+   973→                  onClick={() => { setImagePreview(null); setAadharResult(null); }}
+   974→                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+   975→                >
+   976→                  <XCircle className="h-4 w-4" />
+   977→                </button>
+   978→              </div>
+   979→              <div className="flex gap-2">
+   980→                <Button
+   981→                  onClick={handleVerify}
+   982→                  disabled={verifying}
+   983→                  className="btn-green text-sm gap-2"
+   984→                >
+   985→                  {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+   986→                  {verifying ? 'Verifying...' : 'Verify Aadhar'}
+   987→                </Button>
+   988→                <Button variant="outline" size="sm" onClick={() => { setImagePreview(null); setAadharResult(null); }} className="rounded-full">
+   989→                  Change Image
+   990→                </Button>
+   991→              </div>
+   992→            </div>
+   993→          )}
+   994→
+   995→          {/* Result */}
+   996→          {aadharResult && (
+   997→            <motion.div
+   998→              initial={{ opacity: 0, y: 8 }}
+   999→              animate={{ opacity: 1, y: 0 }}
+  1000→              className={`rounded-xl p-4 ${
+  1001→                aadharResult.verified
+  1002→                  ? 'bg-green-50 border border-green-200'
+  1003→                  : 'bg-red-50 border border-red-200'
+  1004→              }`}
+  1005→            >
+  1006→              <div className="flex items-center gap-2 mb-2">
+  1007→                {aadharResult.verified ? (
+  1008→                  <><CheckCircle2 className="h-5 w-5 text-green-600" /><p className="text-sm font-semibold text-green-800">Verification Successful</p></>
+  1009→                ) : (
+  1010→                  <><XCircle className="h-5 w-5 text-red-600" /><p className="text-sm font-semibold text-red-800">Verification Failed</p></>
+  1011→                )}
+  1012→              </div>
+  1013→              {aadharResult.verified ? (
+  1014→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+  1015→                  {aadharResult.name && (
+  1016→                    <div><p className="text-[10px] text-green-600 font-medium">Name</p><p className="text-sm font-semibold text-green-900">{aadharResult.name}</p></div>
+  1017→                  )}
+  1018→                  {aadharResult.aadharNumber && (
+  1019→                    <div><p className="text-[10px] text-green-600 font-medium">Aadhar Number</p><p className="text-sm font-semibold text-green-900 font-mono">{aadharResult.aadharNumber.replace(/(\d{4})/g, '$1 ').trim()}</p></div>
+  1020→                  )}
+  1021→                  {aadharResult.dob && (
+  1022→                    <div><p className="text-[10px] text-green-600 font-medium">Date of Birth</p><p className="text-sm font-semibold text-green-900">{aadharResult.dob}</p></div>
+  1023→                  )}
+  1024→                  {aadharResult.gender && (
+  1025→                    <div><p className="text-[10px] text-green-600 font-medium">Gender</p><p className="text-sm font-semibold text-green-900">{aadharResult.gender}</p></div>
+  1026→                  )}
+  1027→                  {aadharResult.address && (
+  1028→                    <div className="sm:col-span-2"><p className="text-[10px] text-green-600 font-medium">Address</p><p className="text-sm font-semibold text-green-900">{aadharResult.address}</p></div>
+  1029→                  )}
+  1030→                </div>
+  1031→              ) : (
+  1032→                <p className="text-sm text-red-700">{aadharResult.error || 'Could not verify the uploaded document. Please ensure it is a clear image of an Aadhar card.'}</p>
+  1033→              )}
+  1034→            </motion.div>
+  1035→          )}
+  1036→        </div>
+  1037→      </div>
+  1038→    </div>
+  1039→  );
+  1040→}
+  1041→
+  1042→/* ============================================================ */
+  1043→/* BOOKINGS TAB                                                  */
+  1044→/* ============================================================ */
+  1045→
+  1046→function BookingsTab({ user }: { user: User }) {
+  1047→  const profile = user.caregiverProfile;
+  1048→  const [bookings, setBookings] = useState<Booking[]>([]);
+  1049→  const [loading, setLoading] = useState(true);
+  1050→  const [error, setError] = useState('');
+  1051→  const [completingId, setCompletingId] = useState<string | null>(null);
+  1052→  const [statusFilter, setStatusFilter] = useState('');
+  1053→
+  1054→  const fetchBookings = useCallback(async () => {
+  1055→    if (!profile?.id) return;
+  1056→    setLoading(true);
+  1057→    setError('');
+  1058→    try {
+  1059→      const params: any = { caregiverId: profile.id };
+  1060→      if (statusFilter) params.status = statusFilter;
+  1061→      const res = await api.bookings.list(params);
+  1062→      const mapped = (res.bookings || []).map((b: any) => ({
+  1063→        ...b,
+  1064→        date: b.startDate,
+  1065→        patientName: b.patient?.name,
+  1066→        familyName: b.family?.name,
+  1067→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+  1068→      }));
+  1069→      setBookings(mapped);
+  1070→    } catch (err: any) {
+  1071→      setError(err.message || 'Failed to load bookings');
+  1072→    } finally {
+  1073→      setLoading(false);
+  1074→    }
+  1075→  }, [profile?.id, statusFilter]);
+  1076→
+  1077→  useEffect(() => {
+  1078→    fetchBookings();
+  1079→  }, [fetchBookings]);
+  1080→
+  1081→  const handleStatusChange = async (bookingId: string, status: string, reason?: string) => {
+  1082→    setCompletingId(bookingId);
+  1083→    try {
+  1084→      await api.bookings.updateStatus(bookingId, { status, cancellationReason: reason });
+  1085→      const labels: Record<string, string> = {
+  1086→        CONFIRMED: 'Booking accepted!',
+  1087→        IN_PROGRESS: 'Care started!',
+  1088→        COMPLETED: 'Booking completed!',
+  1089→        CANCELLED: 'Booking declined.',
+  1090→      };
+  1091→      toast.success(labels[status] || `Booking updated`);
+  1092→      fetchBookings();
+  1093→    } catch (err: any) {
+  1094→      toast.error(err.message || 'Failed to update booking');
+  1095→    } finally {
+  1096→      setCompletingId(null);
+  1097→    }
+  1098→  };
+  1099→
+  1100→  if (error) {
+  1101→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1102→  }
+  1103→
+  1104→  if (bookings.length === 0) {
+  1105→    return (
+  1106→      <div className="space-y-6">
+  1107→        <div>
+  1108→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+  1109→          <p className="text-sm text-gray-400 mt-1">Manage all your care bookings.</p>
+  1110→        </div>
+  1111→        <EmptyState
+  1112→          icon={<CalendarCheck className="h-7 w-7" />}
+  1113→          title="No bookings yet"
+  1114→          description="When families book your services, their requests will appear here."
+  1115→        />
+  1116→      </div>
+  1117→    );
+  1118→  }
+  1119→
+  1120→  const sorted = [...bookings].sort(
+  1121→    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  1122→  );
+  1123→
+  1124→  return (
+  1125→    <div className="space-y-6">
+  1126→      <div className="flex items-center justify-between flex-wrap gap-3">
+  1127→        <div>
+  1128→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+  1129→          <p className="text-sm text-gray-400 mt-1">Manage and respond to care booking requests.</p>
+  1130→        </div>
+  1131→        <Button
+  1132→          variant="outline"
+  1133→          size="sm"
+  1134→          onClick={fetchBookings}
+  1135→          className="rounded-xl gap-1.5"
+  1136→        >
+  1137→          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+  1138→        </Button>
+  1139→      </div>
+  1140→
+  1141→      <div className="flex gap-2 flex-wrap">
+  1142→        {['', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
+  1143→          <Button
+  1144→            key={f}
+  1145→            variant={statusFilter === f ? 'default' : 'outline'}
+  1146→            size="sm"
+  1147→            className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+  1148→            onClick={() => setStatusFilter(f)}
+  1149→          >
+  1150→            {f || 'All'}
+  1151→          </Button>
+  1152→        ))}
+  1153→      </div>
+  1154→
+  1155→      <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+  1156→        {sorted.map((booking, i) => (
+  1157→          <motion.div
+  1158→            key={booking.id}
+  1159→            initial={{ opacity: 0, y: 8 }}
+  1160→            animate={{ opacity: 1, y: 0 }}
+  1161→            transition={{ delay: i * 0.03 }}
+  1162→          >
+  1163→            <Card className="rounded-2xl border-gray-100 hover:shadow-sm transition-shadow">
+  1164→              <CardContent className="p-4">
+  1165→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  1166→                  <div className="flex items-start gap-3 min-w-0 flex-1">
+  1167→                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+  1168→                      booking.status === 'IN_PROGRESS'
+  1169→                        ? 'bg-green-100 text-green-700'
+  1170→                        : booking.status === 'COMPLETED'
+  1171→                        ? 'bg-gray-100 text-gray-500'
+  1172→                        : 'bg-forest-50 text-forest-700'
+  1173→                    }`}>
+  1174→                      <UserRound className="h-5 w-5" />
+  1175→                    </div>
+  1176→                    <div className="min-w-0">
+  1177→                      <div className="flex items-center gap-2 flex-wrap">
+  1178→                        <p className="text-sm font-semibold text-gray-800">
+  1179→                          {booking.patientName || 'Patient'}
+  1180→                        </p>
+  1181→                        <Badge
+  1182→                          variant="outline"
+  1183→                          className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}
+  1184→                        >
+  1185→                          {statusLabels[booking.status] || booking.status}
+  1186→                        </Badge>
+  1187→                      </div>
+  1188→                      <p className="text-xs text-gray-400 mt-0.5">
+  1189→                        {booking.familyName && `${booking.familyName} · `}
+  1190→                        {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || '—'} - ${booking.endTime || '—'}`}
+  1191→                      </p>
+  1192→                      {booking.careType && (
+  1193→                        <p className="text-xs text-gray-500 mt-0.5">{booking.careType}</p>
+  1194→                      )}
+  1195→                    </div>
+  1196→                  </div>
+  1197→
+  1198→                  <div className="flex items-center gap-2 sm:shrink-0 flex-wrap">
+  1199→                    {booking.totalAmount && (
+  1200→                      <span className="text-sm font-semibold text-gray-700">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+  1201→                    )}
+  1202→                    {booking.status === 'PENDING' && (
+  1203→                      <>
+  1204→                        <Button
+  1205→                          size="sm"
+  1206→                          onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
+  1207→                          disabled={completingId === booking.id}
+  1208→                          className="btn-green text-xs px-3 h-8"
+  1209→                        >
+  1210→                          {completingId === booking.id ? (
+  1211→                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1212→                          ) : (
+  1213→                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Accept</>
+  1214→                          )}
+  1215→                        </Button>
+  1216→                        <Button
+  1217→                          size="sm"
+  1218→                          variant="outline"
+  1219→                          onClick={() => handleStatusChange(booking.id, 'CANCELLED', 'Caregiver declined the booking')}
+  1220→                          disabled={completingId === booking.id}
+  1221→                          className="text-red-600 border-red-200 hover:bg-red-50 text-xs px-3 h-8 rounded-full"
+  1222→                        >
+  1223→                          <XCircle className="h-3.5 w-3.5 mr-1" />
+  1224→                          Decline
+  1225→                        </Button>
+  1226→                      </>
+  1227→                    )}
+  1228→                    {booking.status === 'CONFIRMED' && (
+  1229→                      <Button
+  1230→                        size="sm"
+  1231→                        onClick={() => handleStatusChange(booking.id, 'IN_PROGRESS')}
+  1232→                        disabled={completingId === booking.id}
+  1233→                        className="btn-black text-xs px-3 h-8"
+  1234→                      >
+  1235→                        {completingId === booking.id ? (
+  1236→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1237→                        ) : (
+  1238→                          <><Play className="h-3.5 w-3.5 mr-1" />Start Care</>
+  1239→                        )}
+  1240→                      </Button>
+  1241→                    )}
+  1242→                    {booking.status === 'IN_PROGRESS' && (
+  1243→                      <Button
+  1244→                        size="sm"
+  1245→                        onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
+  1246→                        disabled={completingId === booking.id}
+  1247→                        className="btn-green text-xs px-4 h-8"
+  1248→                      >
+  1249→                        {completingId === booking.id ? (
+  1250→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1251→                        ) : (
+  1252→                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Complete</>
+  1253→                        )}
+  1254→                      </Button>
+  1255→                    )}
+  1256→                  </div>
+  1257→                </div>
+  1258→              </CardContent>
+  1259→            </Card>
+  1260→          </motion.div>
+  1261→        ))}
+  1262→      </div>
+  1263→    </div>
+  1264→  );
+  1265→}
+  1266→
+  1267→/* ============================================================ */
+  1268→/* SUBMIT REPORT TAB                                             */
+  1269→/* ============================================================ */
+  1270→
+  1271→const ACTIVITY_OPTIONS = [
+  1272→  { value: 'feeding', label: 'Feeding' },
+  1273→  { value: 'bathing', label: 'Bathing' },
+  1274→  { value: 'hygiene', label: 'Hygiene' },
+  1275→  { value: 'mobility', label: 'Mobility' },
+  1276→  { value: 'medicine', label: 'Medicine' },
+  1277→  { value: 'exercise', label: 'Exercise' },
+  1278→  { value: 'companionship', label: 'Companionship' },
+  1279→  { value: 'vital_check', label: 'Vital Check' },
+  1280→  { value: 'wound_care', label: 'Wound Care' },
+  1281→];
+  1282→
+  1283→function SubmitReportTab({ user }: { user: User }) {
+  1284→  const profile = user.caregiverProfile;
+  1285→  const [bookings, setBookings] = useState<Booking[]>([]);
+  1286→  const [loading, setLoading] = useState(true);
+  1287→  const [error, setError] = useState('');
+  1288→  const [submitting, setSubmitting] = useState(false);
+  1289→
+  1290→  const [selectedBookingId, setSelectedBookingId] = useState('');
+  1291→  const [reportDate, setReportDate] = useState(getTodayDate());
+  1292→  const [activities, setActivities] = useState('');
+  1293→  const [summary, setSummary] = useState('');
+  1294→  const [mood, setMood] = useState('');
+  1295→  const [foodIntake, setFoodIntake] = useState('');
+  1296→  const [medicines, setMedicines] = useState('');
+  1297→  const [concerns, setConcerns] = useState('');
+  1298→
+  1299→  const fetchBookings = useCallback(async () => {
+  1300→    if (!profile?.id) return;
+  1301→    setLoading(true);
+  1302→    setError('');
+  1303→    try {
+  1304→      const res = await api.bookings.list({ caregiverId: profile.id });
+  1305→      const mapped = (res.bookings || []).map((b: any) => ({
+  1306→        ...b,
+  1307→        date: b.startDate,
+  1308→        patientName: b.patient?.name,
+  1309→        familyName: b.family?.name,
+  1310→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+  1311→      }));
+  1312→      const eligible = mapped.filter((b: any) =>
+  1313→        ['IN_PROGRESS', 'CONFIRMED'].includes(b.status)
+  1314→      );
+  1315→      setBookings(eligible);
+  1316→      if (eligible.length > 0 && !selectedBookingId) {
+  1317→        setSelectedBookingId(eligible[0].id);
+  1318→      }
+  1319→    } catch (err: any) {
+  1320→      setError(err.message || 'Failed to load bookings');
+  1321→    } finally {
+  1322→      setLoading(false);
+  1323→    }
+  1324→  }, [profile?.id]);
+  1325→
+  1326→  useEffect(() => {
+  1327→    fetchBookings();
+  1328→  }, [fetchBookings]);
+  1329→
+  1330→  const resetForm = () => {
+  1331→    setActivities('');
+  1332→    setSummary('');
+  1333→    setMood('');
+  1334→    setFoodIntake('');
+  1335→    setMedicines('');
+  1336→    setConcerns('');
+  1337→  };
+  1338→
+  1339→  const handleSubmit = async (e: React.FormEvent) => {
+  1340→    e.preventDefault();
+  1341→    if (!selectedBookingId) {
+  1342→      toast.error('Please select a booking.');
+  1343→      return;
+  1344→    }
+  1345→    if (!reportDate) {
+  1346→      toast.error('Please select a report date.');
+  1347→      return;
+  1348→    }
+  1349→
+  1350→    setSubmitting(true);
+  1351→    try {
+  1352→      const activityList = activities
+  1353→        .split(',')
+  1354→        .map((a) => a.trim())
+  1355→        .filter(Boolean);
+  1356→
+  1357→      const medicineLines = medicines
+  1358→        .split('\n')
+  1359→        .map((line) => line.trim())
+  1360→        .filter(Boolean);
+  1361→
+  1362→      const medicineEntries = medicineLines.map((line) => {
+  1363→        const parts = line.split(',').map((p) => p.trim());
+  1364→        return {
+  1365→          name: parts[0] || '',
+  1366→          time: parts[1] || '',
+  1367→          given: parts[2]?.toLowerCase() === 'yes',
+  1368→        };
+  1369→      });
+  1370→
+  1371→      await api.reports.create({
+  1372→        bookingId: selectedBookingId,
+  1373→        caregiverId: profile?.id,
+  1374→        reportDate,
+  1375→        activities: JSON.stringify(activityList),
+  1376→        summary,
+  1377→        mood,
+  1378→        foodIntake,
+  1379→        medicinesGiven: JSON.stringify(medicineEntries),
+  1380→        concerns,
+  1381→      });
+  1382→
+  1383→      toast.success('Care report submitted successfully!');
+  1384→      resetForm();
+  1385→    } catch (err: any) {
+  1386→      toast.error(err.message || 'Failed to submit report');
+  1387→    } finally {
+  1388→      setSubmitting(false);
+  1389→    }
+  1390→  };
+  1391→
+  1392→  if (error) {
+  1393→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1394→  }
+  1395→
+  1396→  if (bookings.length === 0) {
+  1397→    return (
+  1398→      <div className="space-y-6">
+  1399→        <div>
+  1400→          <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+  1401→          <p className="text-sm text-gray-400 mt-1">File daily care reports for your active bookings.</p>
+  1402→        </div>
+  1403→        <EmptyState
+  1404→          icon={<ClipboardList className="h-7 w-7" />}
+  1405→          title="No active bookings"
+  1406→          description="You need at least one confirmed or in-progress booking to submit a care report."
+  1407→        />
+  1408→      </div>
+  1409→    );
+  1410→  }
+  1411→
+  1412→  return (
+  1413→    <div className="space-y-6">
+  1414→      <div>
+  1415→        <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+  1416→        <p className="text-sm text-gray-400 mt-1">File daily care reports for your active bookings.</p>
+  1417→      </div>
+  1418→
+  1419→      <form onSubmit={handleSubmit}>
+  1420→        <motion.div
+  1421→          initial={{ opacity: 0, y: 12 }}
+  1422→          animate={{ opacity: 1, y: 0 }}
+  1423→          transition={{ duration: 0.3 }}
+  1424→          className="space-y-6"
+  1425→        >
+  1426→          {/* Booking & Date Row */}
+  1427→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1428→            <div className="space-y-2">
+  1429→              <Label className="text-sm font-medium text-gray-700">Booking</Label>
+  1430→              <Select value={selectedBookingId} onValueChange={setSelectedBookingId}>
+  1431→                <SelectTrigger className="rounded-xl">
+  1432→                  <SelectValue placeholder="Select booking" />
+  1433→                </SelectTrigger>
+  1434→                <SelectContent>
+  1435→                  {bookings.map((b) => (
+  1436→                    <SelectItem key={b.id} value={b.id}>
+  1437→                      {b.patientName || 'Patient'} — {formatDate(b.date)}
+  1438→                    </SelectItem>
+  1439→                  ))}
+  1440→                </SelectContent>
+  1441→              </Select>
+  1442→            </div>
+  1443→            <div className="space-y-2">
+  1444→              <Label className="text-sm font-medium text-gray-700">Report Date</Label>
+  1445→              <input
+  1446→                type="date"
+  1447→                value={reportDate}
+  1448→                onChange={(e) => setReportDate(e.target.value)}
+  1449→                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+  1450→              />
+  1451→            </div>
+  1452→          </div>
+  1453→
+  1454→          {/* Activities & Summary */}
+  1455→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1456→            <div className="space-y-2">
+  1457→              <Label className="text-sm font-medium text-gray-700">
+  1458→                Activities
+  1459→                <span className="text-xs text-gray-400 font-normal ml-1.5">(comma-separated)</span>
+  1460→              </Label>
+  1461→              <Textarea
+  1462→                value={activities}
+  1463→                onChange={(e) => setActivities(e.target.value)}
+  1464→                placeholder="e.g. feeding, bathing, vital_check, medicine"
+  1465→                className="rounded-xl min-h-[100px] resize-none"
+  1466→              />
+  1467→              <div className="flex flex-wrap gap-1.5">
+  1468→                {ACTIVITY_OPTIONS.map((opt) => (
+  1469→                  <button
+  1470→                    key={opt.value}
+  1471→                    type="button"
+  1472→                    onClick={() => {
+  1473→                      const current = activities
+  1474→                        .split(',')
+  1475→                        .map((a) => a.trim().toLowerCase())
+  1476→                        .filter(Boolean);
+  1477→                      if (current.includes(opt.value)) {
+  1478→                        setActivities(
+  1479→                          current.filter((a) => a !== opt.value).join(', ')
+  1480→                        );
+  1481→                      } else {
+  1482→                        setActivities(
+  1483→                          [...current, opt.value].join(', ')
+  1484→                        );
+  1485→                      }
+  1486→                    }}
+  1487→                    className={`text-xs px-2.5 py-1 rounded-full border transition-all duration-150 ${
+  1488→                      activities
+  1489→                        .split(',')
+  1490→                        .map((a) => a.trim().toLowerCase())
+  1491→                        .includes(opt.value)
+  1492→                        ? 'bg-forest-900 text-white border-forest-900'
+  1493→                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-forest-300 hover:text-forest-700'
+  1494→                    }`}
+  1495→                  >
+  1496→                    {opt.label}
+  1497→                  </button>
+  1498→                ))}
+  1499→              </div>
+  1500→            </div>
+  1501→            <div className="space-y-2">
+  1502→              <Label className="text-sm font-medium text-gray-700">Summary</Label>
+  1503→              <Textarea
+  1504→                value={summary}
+  1505→                onChange={(e) => setSummary(e.target.value)}
+  1506→                placeholder="Brief summary of the care provided today..."
+  1507→                className="rounded-xl min-h-[100px] resize-none"
+  1508→              />
+  1509→            </div>
+  1510→          </div>
+  1511→
+  1512→          {/* Mood & Food Intake */}
+  1513→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1514→            <div className="space-y-2">
+  1515→              <Label className="text-sm font-medium text-gray-700">Patient Mood</Label>
+  1516→              <Select value={mood} onValueChange={setMood}>
+  1517→                <SelectTrigger className="rounded-xl">
+  1518→                  <SelectValue placeholder="Select mood" />
+  1519→                </SelectTrigger>
+  1520→                <SelectContent>
+  1521→                  <SelectItem value="good">😊 Good</SelectItem>
+  1522→                  <SelectItem value="normal">😐 Normal</SelectItem>
+  1523→                  <SelectItem value="upset">😟 Upset</SelectItem>
+  1524→                  <SelectItem value="unwell">🤒 Unwell</SelectItem>
+  1525→                </SelectContent>
+  1526→              </Select>
+  1527→            </div>
+  1528→            <div className="space-y-2">
+  1529→              <Label className="text-sm font-medium text-gray-700">Food Intake</Label>
+  1530→              <Select value={foodIntake} onValueChange={setFoodIntake}>
+  1531→                <SelectTrigger className="rounded-xl">
+  1532→                  <SelectValue placeholder="Select food intake" />
+  1533→                </SelectTrigger>
+  1534→                <SelectContent>
+  1535→                  <SelectItem value="good">Good</SelectItem>
+  1536→                  <SelectItem value="normal">Normal</SelectItem>
+  1537→                  <SelectItem value="poor">Poor</SelectItem>
+  1538→                  <SelectItem value="refused">Refused</SelectItem>
+  1539→                </SelectContent>
+  1540→              </Select>
+  1541→            </div>
+  1542→          </div>
+  1543→
+  1544→          {/* Medicines & Concerns */}
+  1545→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1546→            <div className="space-y-2">
+  1547→              <Label className="text-sm font-medium text-gray-700">
+  1548→                Medicines Given
+  1549→                <span className="text-xs text-gray-400 font-normal ml-1.5">
+  1550→                  (one per line: name, time, yes/no)
+  1551→                </span>
+  1552→              </Label>
+  1553→              <Textarea
+  1554→                value={medicines}
+  1555→                onChange={(e) => setMedicines(e.target.value)}
+  1556→                placeholder={`Paracetamol 500mg, 8:00 AM, yes\nMetformin, 9:00 AM, yes\nVitamin D, 12:00 PM, no`}
+  1557→                className="rounded-xl min-h-[100px] resize-none font-mono text-xs"
+  1558→              />
+  1559→            </div>
+  1560→            <div className="space-y-2">
+  1561→              <Label className="text-sm font-medium text-gray-700">Concerns</Label>
+  1562→              <Textarea
+  1563→                value={concerns}
+  1564→                onChange={(e) => setConcerns(e.target.value)}
+  1565→                placeholder="Any concerns, unusual observations, or notes for the family..."
+  1566→                className="rounded-xl min-h-[100px] resize-none"
+  1567→              />
+  1568→            </div>
+  1569→          </div>
+  1570→
+  1571→          {/* Submit Button */}
+  1572→          <div className="flex justify-end pt-2">
+  1573→            <Button
+  1574→              type="submit"
+  1575→              disabled={submitting}
+  1576→              className="btn-black px-8 h-11 text-sm"
+  1577→            >
+  1578→              {submitting ? (
+  1579→                <>
+  1580→                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+  1581→                  Submitting...
+  1582→                </>
+  1583→              ) : (
+  1584→                <>
+  1585→                  <Send className="h-4 w-4 mr-2" />
+  1586→                  Submit Report
+  1587→                </>
+  1588→              )}
+  1589→            </Button>
+  1590→          </div>
+  1591→        </motion.div>
+  1592→      </form>
+  1593→    </div>
+  1594→  );
+  1595→}
+  1596→
+  1597→/* ============================================================ */
+  1598→/* COMPLAINTS TAB                                                */
+  1599→/* ============================================================ */
+  1600→
+  1601→const complaintStatusColors: Record<string, string> = {
+  1602→  OPEN: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  1603→  IN_PROGRESS: 'bg-blue-100 text-blue-800 border-blue-200',
+  1604→  RESOLVED: 'bg-green-100 text-green-800 border-green-200',
+  1605→  DISMISSED: 'bg-gray-100 text-gray-700 border-gray-200',
+  1606→};
+  1607→
+  1608→const priorityColors: Record<string, string> = {
+  1609→  low: 'bg-green-100 text-green-700',
+  1610→  medium: 'bg-yellow-100 text-yellow-700',
+  1611→  high: 'bg-orange-100 text-orange-700',
+  1612→  urgent: 'bg-red-100 text-red-700',
+  1613→};
+  1614→
+  1615→function ComplaintsTab({ user }: { user: User }) {
+  1616→  const profile = user.caregiverProfile;
+  1617→  const [complaints, setComplaints] = useState<any[]>([]);
+  1618→  const [loading, setLoading] = useState(true);
+  1619→  const [error, setError] = useState('');
+  1620→
+  1621→  const fetchComplaints = useCallback(async () => {
+  1622→    if (!profile?.id) return;
+  1623→    setLoading(true);
+  1624→    setError('');
+  1625→    try {
+  1626→      const res = await api.complaints.list({ caregiverId: profile.id });
+  1627→      setComplaints(res.complaints || []);
+  1628→    } catch (err: any) {
+  1629→      setError(err.message || 'Failed to load complaints');
+  1630→    } finally {
+  1631→      setLoading(false);
+  1632→    }
+  1633→  }, [profile?.id]);
+  1634→
+  1635→  useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
+  1636→
+  1637→  if (error) return <ErrorState message={error} onRetry={fetchComplaints} />;
+  1638→
+  1639→  return (
+  1640→    <div className="space-y-6">
+  1641→      <div>
+  1642→        <h2 className="text-2xl font-bold text-gray-900">Complaints</h2>
+  1643→        <p className="text-sm text-gray-400 mt-1">View complaints filed against your services.</p>
+  1644→      </div>
+  1645→
+  1646→      {complaints.length === 0 ? (
+  1647→        <EmptyState
+  1648→          icon={<MessageCircle className="h-7 w-7" />}
+  1649→          title="No complaints"
+  1650→          description="You have no complaints filed against your services."
+  1651→        />
+  1652→      ) : (
+  1653→        <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
+  1654→          {complaints.map((c: any, i: number) => (
+  1655→            <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+  1656→              <Card className="rounded-2xl border-gray-100">
+  1657→                <CardContent className="p-4 sm:p-5">
+  1658→                  <div className="flex items-start justify-between gap-2 mb-2">
+  1659→                    <div className="min-w-0">
+  1660→                      <p className="text-sm font-semibold text-gray-800">{c.subject}</p>
+  1661→                      <p className="text-xs text-gray-400 mt-0.5">
+  1662→                        From: {c.family?.name || 'Family'} · {formatDate(c.createdAt)}
+  1663→                      </p>
+  1664→                    </div>
+  1665→                    <div className="flex items-center gap-2 shrink-0">
+  1666→                      {c.priority && <Badge className={`text-[10px] rounded-full ${priorityColors[c.priority] || ''}`}>{c.priority}</Badge>}
+  1667→                      <Badge variant="outline" className={`text-[10px] rounded-full ${complaintStatusColors[c.status] || ''}`}>{c.status?.replace(/_/g, ' ')}</Badge>
+  1668→                    </div>
+  1669→                  </div>
+  1670→                  <p className="text-sm text-gray-600 line-clamp-3">{c.description}</p>
+  1671→                  {c.resolution && (
+  1672→                    <div className="mt-3 bg-green-50 rounded-xl p-3 text-xs text-green-700">
+  1673→                      <p className="font-medium">Resolution:</p>
+  1674→                      <p className="mt-0.5">{c.resolution}</p>
+  1675→                    </div>
+  1676→                  )}
+  1677→                </CardContent>
+  1678→              </Card>
+  1679→            </motion.div>
+  1680→          ))}
+  1681→        </div>
+  1682→      )}
+  1683→    </div>
+  1684→  );
+  1685→}
+  1686→
+  1687→/* ============================================================ */
+  1688→/* REVIEWS TAB                                                   */
+  1689→/* ============================================================ */
+  1690→
+  1691→function ReviewsTab({ user }: { user: User }) {
+  1692→  const profile = user.caregiverProfile;
+  1693→  const [reviews, setReviews] = useState<Review[]>([]);
+  1694→  const [loading, setLoading] = useState(true);
+  1695→  const [error, setError] = useState('');
+  1696→
+  1697→  const fetchReviews = useCallback(async () => {
+  1698→    if (!profile?.id) return;
+  1699→    setLoading(true);
+  1700→    setError('');
+  1701→    try {
+  1702→      const res = await api.reviews.list({ caregiverId: profile.id });
+  1703→      const mapped = (res.reviews || []).map((r: any) => ({
+  1704→        ...r,
+  1705→        overallRating: r.rating,
+  1706→        familyName: r.family?.name,
+  1707→      }));
+  1708→      setReviews(mapped);
+  1709→    } catch (err: any) {
+  1710→      setError(err.message || 'Failed to load reviews');
+  1711→    } finally {
+  1712→      setLoading(false);
+  1713→    }
+  1714→  }, [profile?.id]);
+  1715→
+  1716→  useEffect(() => {
+  1717→    fetchReviews();
+  1718→  }, [fetchReviews]);
+  1719→
+  1720→  if (error) {
+  1721→    return <ErrorState message={error} onRetry={fetchReviews} />;
+  1722→  }
+  1723→
+  1724→  const avgRating =
+  1725→    reviews.length > 0
+  1726→      ? reviews.reduce((sum, r) => sum + r.overallRating, 0) / reviews.length
+  1727→      : 0;
+  1728→
+  1729→  const avgComm =
+  1730→    reviews.length > 0
+  1731→      ? reviews.reduce((sum, r) => sum + (r.communicationRating || 0), 0) / reviews.length
+  1732→      : 0;
+  1733→  const avgPunct =
+  1734→    reviews.length > 0
+  1735→      ? reviews.reduce((sum, r) => sum + (r.punctualityRating || 0), 0) / reviews.length
+  1736→      : 0;
+  1737→  const avgCare =
+  1738→    reviews.length > 0
+  1739→      ? reviews.reduce((sum, r) => sum + (r.careQualityRating || 0), 0) / reviews.length
+  1740→      : 0;
+  1741→
+  1742→  return (
+  1743→    <div className="space-y-6">
+  1744→      <div>
+  1745→        <h2 className="text-2xl font-bold text-gray-900">My Reviews</h2>
+  1746→        <p className="text-sm text-gray-400 mt-1">Feedback from the families you&apos;ve served.</p>
+  1747→      </div>
+  1748→
+  1749→      {reviews.length === 0 ? (
+  1750→        <EmptyState
+  1751→          icon={<Star className="h-7 w-7" />}
+  1752→          title="No reviews yet"
+  1753→          description="Once you complete bookings and families leave reviews, they will appear here."
+  1754→        />
+  1755→      ) : (
+  1756→        <>
+  1757→          {/* Rating Summary Card */}
+  1758→          <motion.div
+  1759→            initial={{ opacity: 0, y: 12 }}
+  1760→            animate={{ opacity: 1, y: 0 }}
+  1761→            transition={{ duration: 0.3 }}
+  1762→          >
+  1763→            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  1764→              <Card className="rounded-2xl border-gray-100">
+  1765→                <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+  1766→                  <p className="text-5xl font-bold text-gray-900">{avgRating.toFixed(1)}</p>
+  1767→                  <StarRating rating={avgRating} size="md" />
+  1768→                  <p className="text-sm text-gray-400 mt-2">
+  1769→                    Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+  1770→                  </p>
+  1771→                </CardContent>
+  1772→              </Card>
+  1773→
+  1774→              <Card className="lg:col-span-2 rounded-2xl border-gray-100">
+  1775→                <CardContent className="p-5 space-y-3">
+  1776→                  {[
+  1777→                    { label: 'Communication', value: avgComm, color: 'bg-forest-500' },
+  1778→                    { label: 'Punctuality', value: avgPunct, color: 'bg-lime-500' },
+  1779→                    { label: 'Care Quality', value: avgCare, color: 'bg-forest-700' },
+  1780→                  ].map((item) => (
+  1781→                    <div key={item.label} className="flex items-center gap-3">
+  1782→                      <span className="text-sm text-gray-600 w-28 shrink-0">{item.label}</span>
+  1783→                      <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+  1784→                        <motion.div
+  1785→                          className={`h-full rounded-full ${item.color}`}
+  1786→                          initial={{ width: 0 }}
+  1787→                          animate={{ width: `${(item.value / 5) * 100}%` }}
+  1788→                          transition={{ duration: 0.6, delay: 0.2 }}
+  1789→                        />
+  1790→                      </div>
+  1791→                      <span className="text-sm font-semibold text-gray-700 w-8 text-right">
+  1792→                        {item.value.toFixed(1)}
+  1793→                      </span>
+  1794→                    </div>
+  1795→                  ))}
+  1796→                </CardContent>
+  1797→              </Card>
+  1798→            </div>
+  1799→          </motion.div>
+  1800→
+  1801→          {/* Reviews List */}
+  1802→          <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
+  1803→            {reviews.map((review, i) => (
+  1804→              <motion.div
+  1805→                key={review.id}
+  1806→                initial={{ opacity: 0, y: 8 }}
+  1807→                animate={{ opacity: 1, y: 0 }}
+  1808→                transition={{ delay: i * 0.04 }}
+  1809→              >
+  1810→                <Card className="rounded-2xl border-gray-100">
+  1811→                  <CardContent className="p-5">
+  1812→                    <div className="flex items-start justify-between gap-3 mb-3">
+  1813→                      <div className="flex items-center gap-3">
+  1814→                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+  1815→                          <span className="text-sm font-bold text-forest-700">
+  1816→                            {(review.familyName || 'F')
+  1817→                              .split(' ')
+  1818→                              .map((n) => n[0])
+  1819→                              .join('')
+  1820→                              .toUpperCase()
+  1821→                              .slice(0, 2)}
+  1822→                          </span>
+  1823→                        </div>
+  1824→                        <div>
+  1825→                          <p className="text-sm font-semibold text-gray-800">
+  1826→                            {review.familyName || 'Family Member'}
+  1827→                          </p>
+  1828→                          <p className="text-xs text-gray-400">
+  1829→                            {formatDate(review.createdAt)}
+  1830→                          </p>
+  1831→                        </div>
+  1832→                      </div>
+  1833→                      <div className="flex items-center gap-1.5">
+  1834→                        <Star className="h-4 w-4 fill-lime-400 text-lime-400" />
+  1835→                        <span className="text-sm font-bold text-gray-900">
+  1836→                          {review.overallRating.toFixed(1)}
+  1837→                        </span>
+  1838→                      </div>
+  1839→                    </div>
+  1840→
+  1841→                    {/* Sub-ratings */}
+  1842→                    <div className="grid grid-cols-3 gap-3 mb-3">
+  1843→                      <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+  1844→                        <p className="text-[11px] text-gray-400 mb-0.5">Communication</p>
+  1845→                        <StarRating rating={review.communicationRating || 0} />
+  1846→                      </div>
+  1847→                      <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+  1848→                        <p className="text-[11px] text-gray-400 mb-0.5">Punctuality</p>
+  1849→                        <StarRating rating={review.punctualityRating || 0} />
+  1850→                      </div>
+  1851→                      <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+  1852→                        <p className="text-[11px] text-gray-400 mb-0.5">Care Quality</p>
+  1853→                        <StarRating rating={review.careQualityRating || 0} />
+  1854→                      </div>
+  1855→                    </div>
+  1856→
+  1857→                    {/* Comment */}
+  1858→                    {review.comment && (
+  1859→                      <p className="text-sm text-gray-600 leading-relaxed">
+  1860→                        {review.comment}
+  1861→                      </p>
+  1862→                    )}
+  1863→                  </CardContent>
+  1864→                </Card>
+  1865→              </motion.div>
+  1866→            ))}
+  1867→          </div>
+  1868→        </>
+  1869→      )}
+  1870→    </div>
+  1871→  );
+  1872→}
+  1873→
+  1874→/* ============================================================ */
+  1875→/* EARNINGS TAB                                                  */
+  1876→/* ============================================================ */
+  1877→function EarningsTab({ user }: { user: User }) {
+  1878→  const [payments, setPayments] = useState<any[]>([]);
+  1879→  const [loading, setLoading] = useState(true);
+  1880→  const [error, setError] = useState('');
+  1881→  const caregiverId = user.caregiverId || user.id;
+  1882→
+  1883→  const fetchPayments = useCallback(async () => {
+  1884→    setLoading(true);
+  1885→    setError('');
+  1886→    try {
+  1887→      const res = await api.payments.list(caregiverId, 'CAREGIVER');
+  1888→      setPayments(res.payments || []);
+  1889→    } catch (err: any) {
+  1890→      setError(err.message || 'Failed to load earnings');
+  1891→    } finally {
+  1892→      setLoading(false);
+  1893→    }
+  1894→  }, [caregiverId]);
+  1895→
+  1896→  useEffect(() => {
+  1897→    fetchPayments();
+  1898→  }, [fetchPayments]);
+  1899→
+  1900→  const totalEarnings = payments
+  1901→    .filter((p) => p.status === 'COMPLETED')
+  1902→    .reduce((sum, p) => sum + p.caregiverPayout, 0) / 100;
+  1903→  const pendingPayouts = payments
+  1904→    .filter((p) => p.status === 'PENDING')
+  1905→    .reduce((sum, p) => sum + p.caregiverPayout, 0) / 100;
+  1906→  const totalPlatformFee = payments
+  1907→    .filter((p) => p.status === 'COMPLETED')
+  1908→    .reduce((sum, p) => sum + p.platformFee, 0) / 100;
+  1909→  const completedPayments = payments.filter((p) => p.status === 'COMPLETED').length;
+  1910→
+  1911→  const statCards = [
+  1912→    {
+  1913→      label: 'Total Earnings',
+  1914→      value: `₹${totalEarnings.toLocaleString('en-IN')}`,
+  1915→      icon: <IndianRupee className='h-5 w-5' />,
+  1916→      color: 'bg-forest-50 text-forest-700',
+  1917→    },
+  1918→    {
+  1919→      label: 'Pending Payouts',
+  1920→      value: `₹${pendingPayouts.toLocaleString('en-IN')}`,
+  1921→      icon: <Clock className='h-5 w-5' />,
+  1922→      color: 'bg-yellow-50 text-yellow-700',
+  1923→    },
+  1924→    {
+  1925→      label: 'Platform Fees',
+  1926→      value: `₹${totalPlatformFee.toLocaleString('en-IN')}`,
+  1927→      icon: <Briefcase className='h-5 w-5' />,
+  1928→      color: 'bg-orange-50 text-orange-700',
+  1929→    },
+  1930→    {
+  1931→      label: 'Completed Payments',
+  1932→      value: completedPayments,
+  1933→      icon: <CheckCircle2 className='h-5 w-5' />,
+  1934→      color: 'bg-lime-50 text-lime-700',
+  1935→    },
+  1936→  ];
+  1937→
+  1938→  if (error) {
+  1939→    return (
+  1940→      <div className='flex flex-col items-center justify-center py-16 text-center'>
+  1941→        <div className='w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mb-3 text-red-400'>
+  1942→          <AlertCircle className='h-6 w-6' />
+  1943→        </div>
+  1944→        <h3 className='text-sm font-semibold text-gray-800 mb-1'>Failed to load earnings</h3>
+  1945→        <p className='text-xs text-gray-400 mb-3'>{error}</p>
+  1946→        <button
+  1947→          onClick={fetchPayments}
+  1948→          className='text-xs font-medium text-forest-700 hover:underline'
+  1949→        >
+  1950→          Try Again
+  1951→        </button>
+  1952→      </div>
+  1953→    );
+  1954→  }
+  1955→
+  1956→  return (
+  1957→    <div className='space-y-6'>
+  1958→      {/* Header */}
+  1959→      <div>
+  1960→        <h2 className='text-2xl font-bold text-gray-900'>Earnings</h2>
+  1961→        <p className='text-sm text-gray-400 mt-1'>
+  1962→          Track your earnings, payouts, and platform fee deductions.
+  1963→        </p>
+  1964→      </div>
+  1965→
+  1966→      {/* Stat Cards */}
+  1967→      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+  1968→        {statCards.map((stat, i) => (
+  1969→          <motion.div
+  1970→            key={stat.label}
+  1971→            initial={{ opacity: 0, y: 12 }}
+  1972→            animate={{ opacity: 1, y: 0 }}
+  1973→            transition={{ delay: i * 0.05 }}
+  1974→          >
+  1975→            <Card className='rounded-2xl border-gray-100 hover:shadow-md transition-shadow'>
+  1976→              <CardContent className='p-5'>
+  1977→                <div className='flex items-center justify-between'>
+  1978→                  <div>
+  1979→                    <p className='text-sm text-gray-500 font-medium'>{stat.label}</p>
+  1980→                    <p className='text-2xl font-bold text-gray-900 mt-1'>{stat.value}</p>
+  1981→                  </div>
+  1982→                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${stat.color}`}>
+  1983→                    {stat.icon}
+  1984→                  </div>
+  1985→                </div>
+  1986→              </CardContent>
+  1987→            </Card>
+  1988→          </motion.div>
+  1989→        ))}
+  1990→      </div>
+  1991→
+  1992→      {/* Fee Breakdown Info */}
+  1993→      <Card className='rounded-2xl border-forest-100 bg-forest-50/30'>
+  1994→        <CardContent className='p-4'>
+  1995→          <div className='flex items-start gap-3'>
+  1996→            <div className='w-9 h-9 rounded-xl bg-forest-100 flex items-center justify-center shrink-0'>
+  1997→              <Briefcase className='h-4 w-4 text-forest-600' />
+  1998→            </div>
+  1999→            <div>
+  2000→              <p className='text-sm font-semibold text-forest-900'>Fee Structure</p>
+  2001→              <p className='text-xs text-gray-500 mt-0.5'>
+  2002→                SevaSaathi charges a <span className='font-semibold text-orange-600'>15% platform fee</span> on
+  2003→                each booking. You receive 85% of the total booking amount directly
+  2004→                to your account.
+  2005→              </p>
+  2006→            </div>
+  2007→          </div>
+  2008→        </CardContent>
+  2009→      </Card>
+  2010→
+  2011→      {/* Payment History */}
+  2012→      <div>
+  2013→        <h3 className='text-base font-semibold text-gray-800 mb-3'>Earnings History</h3>
+  2014→        <PaymentHistory userId={caregiverId} role='CAREGIVER' />
+  2015→      </div>
+  2016→    </div>
+  2017→  );
+  2018→}
+  2019→
+  2020→/* ============================================================ */
+  2021→/* MAIN EXPORT                                                   */
+  2022→/* ============================================================ */
+  2023→
+  2024→export function CaregiverDashboard({ activeTab, user }: CaregiverDashboardProps) {
+  2025→  return (
+  2026→    <>
+  2027→      {activeTab === 'overview' && <OverviewTab user={user} />}
+  2028→      {activeTab === 'my-profile' && <ProfileTab user={user} />}
+  2029→      {activeTab === 'bookings' && <BookingsTab user={user} />}
+  2030→      {activeTab === 'earnings' && <EarningsTab user={user} />}
+  2031→      {activeTab === 'submit-report' && <SubmitReportTab user={user} />}
+  2032→      {activeTab === 'reviews' && <ReviewsTab user={user} />}
+  2033→      {activeTab === 'complaints' && <ComplaintsTab user={user} />}
+  2034→    </>
+  2035→  );
+  2036→}
+  2037→

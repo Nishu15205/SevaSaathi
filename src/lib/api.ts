@@ -194,6 +194,6 @@ export const api = {
         request<{ verification: any }>(`/api/admin/verifications/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     },
   },
-  verifyAadhar: (imageBase64: string) =>
-    request<{ verified: boolean; aadharNumber?: string; name?: string; dob?: string; gender?: string; address?: string; error?: string }>('/api/verify-aadhar', { method: 'POST', body: JSON.stringify({ image: imageBase64 }) }),
+  verifyAadhar: (aadharNumber: string, caregiverId?: string) =>
+    request<{ verified: boolean; aadharNumber?: string; error?: string }>('/api/verify-aadhar', { method: 'POST', body: JSON.stringify({ aadharNumber, caregiverId }) }),
 };

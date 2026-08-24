@@ -58,12 +58,20 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
       if (user) {
-        const dbUser = await db.user.findUnique({
-          where: { email: user.email! },
-        });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role;
+        // For credentials sign-in, look up DB user
+        if (account?.provider === "credentials") {
+          const dbUser = await db.user.findUnique({
+            where: { email: user.email! },
+          });
+          if (dbUser) {
+            token.sub = dbUser.id;
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } else {
+          // For Google / simulated sign-in, sub and id are already set in the token
+          token.sub = token.sub || (user as any).id;
+          token.id = token.id || (user as any).id;
         }
       }
       if (trigger === "update" && session) {
@@ -73,7 +81,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
+        (session.user as any).id = (token.sub || token.id) as string;
         (session.user as any).role = token.role as string;
       }
       return session;

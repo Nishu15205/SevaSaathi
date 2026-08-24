@@ -123,8 +123,12 @@ export async function GET(req: NextRequest) {
     // Step 4: Create a NextAuth-compatible JWT
     const jwtToken = await encode({
       token: {
-        sub: user.id, id: user.id, email: user.email,
-        name: user.name, picture: user.avatarUrl, role: user.role,
+        sub: user.id,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.avatarUrl,
+        role: user.role,
       },
       secret: process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi",
     });
@@ -135,13 +139,31 @@ export async function GET(req: NextRequest) {
       ? `/?auth=success&new=true&email=${encodeURIComponent(googleUser.email)}`
       : `/?auth=success`;
     const response = NextResponse.redirect(`${origin}${redirectPath}`);
-    response.cookies.set("next-auth.session-token", jwtToken, {
+
+    // Set cookie with both possible names to handle proxy scenarios
+    const nextAuthUrl = process.env.NEXTAUTH_URL || '';
+    const cookieSecure = nextAuthUrl.startsWith('https') || proto === 'https';
+    const cookieName = cookieSecure
+      ? '__Secure-next-auth.session-token'
+      : 'next-auth.session-token';
+
+    response.cookies.set(cookieName, jwtToken, {
       path: "/",
       httpOnly: true,
       sameSite: "lax",
-      secure: isSecure,
+      secure: cookieSecure,
       maxAge: 30 * 24 * 60 * 60,
     });
+    // Also set the non-secure variant so it works regardless of proxy header
+    if (cookieSecure) {
+      response.cookies.set('next-auth.session-token', jwtToken, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        maxAge: 30 * 24 * 60 * 60,
+      });
+    }
 
     console.log(`[google-cb] Session set for: ${googleUser.email}, isNew=${isNewUser}, redirect → ${origin}`);
 
