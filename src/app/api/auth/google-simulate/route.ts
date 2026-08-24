@@ -2,16 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { encode } from "next-auth/jwt";
 import { db } from "@/lib/db";
 
-export async function POST(req: NextRequest) {
+/**
+ * Simulated Google sign-in via redirect flow.
+ * GET: Validates params, creates/finds user, sets session cookie, redirects to /?auth=success
+ * This uses a full-page redirect (not AJAX) so cookies survive the proxy chain.
+ */
+export async function GET(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { email, name, role } = body;
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email");
+    const name = searchParams.get("name");
+    const role = searchParams.get("role") || "FAMILY";
+    const origin = searchParams.get("origin");
+
+    // Use client-provided origin for redirect (like google-go does)
+    const redirectBase = origin
+      ? origin.replace(/\/+$/, "")
+      : getOrigin(req);
 
     if (!email || !name) {
-      return NextResponse.json(
-        { error: "Email and name are required." },
-        { status: 400 }
-      );
+      return NextResponse.redirect(`${redirectBase}/?auth=error&message=${encodeURIComponent("Email and name are required.")}`);
     }
 
     const trimmedEmail = email.trim().toLowerCase();
@@ -19,15 +29,11 @@ export async function POST(req: NextRequest) {
     const userRole = (role === "CAREGIVER" || role === "FAMILY") ? role : "FAMILY";
 
     if (!trimmedEmail.includes("@")) {
-      return NextResponse.json(
-        { error: "Please enter a valid email address." },
-        { status: 400 }
-      );
+      return NextResponse.redirect(`${redirectBase}/?auth=error&message=${encodeURIComponent("Please enter a valid email address.")}`);
     }
 
-    // Find or create user (same logic as the real Google OAuth callback)
+    // Find or create user
     let user = await db.user.findUnique({ where: { email: trimmedEmail } });
-
     let isNewUser = false;
 
     if (!user) {
@@ -44,7 +50,6 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      // Update last login
       user = await db.user.update({
         where: { email: trimmedEmail },
         data: { lastLoginAt: new Date() },
@@ -52,10 +57,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        { error: "This account has been deactivated. Please contact support." },
-        { status: 403 }
-      );
+      return NextResponse.redirect(`${redirectBase}/?auth=error&message=${encodeURIComponent("This account has been deactivated.")}`);
     }
 
     // Create a NextAuth-compatible JWT token
@@ -72,42 +74,34 @@ export async function POST(req: NextRequest) {
       secret: process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi",
     });
 
-    // Build the response with session cookie
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatarUrl: user.avatarUrl,
-        isNewUser,
-      },
-    });
+    const redirectPath = isNewUser
+      ? `/?auth=success&new=true&email=${encodeURIComponent(user.email)}`
+      : `/?auth=success`;
+
+    const response = NextResponse.redirect(`${redirectBase}${redirectPath}`);
 
     // Set the NextAuth session cookie
+    const isSecure = origin?.startsWith("https") || req.headers.get("x-forwarded-proto") === "https";
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isSecure,
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60,
       path: "/",
     });
 
-    // Also set the CSRF token cookie (NextAuth expects this)
-    response.cookies.set("next-auth.csrf-token", "simulated", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
-
+    console.log(`[google-simulate] Session set for: ${user.email}, isNew=${isNewUser}, redirect → ${redirectBase}`);
     return response;
   } catch (err: any) {
     console.error("[google-simulate] Error:", err);
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    const origin = req.nextUrl.searchParams.get("origin") || getOrigin(req);
+    return NextResponse.redirect(`${origin}/?auth=error&message=${encodeURIComponent("Something went wrong. Please try again.")}`);
   }
+}
+
+/** Fallback: get origin from forwarded headers */
+function getOrigin(req: NextRequest): string {
+ const proto = req.headers.get("x-forwarded-proto") || "https";
+  const host = req.headers.get("host") || "localhost:3000";
+  return `${proto}://${host}`;
 }

@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
         sub: user.id, id: user.id, email: user.email,
         name: user.name, picture: user.avatarUrl, role: user.role,
       },
-      secret: process.env.NEXTAUTH_SECRET!,
+      secret: process.env.NEXTAUTH_SECRET || "dev-secret-for-sevasaathi",
     });
 
     // Step 5: Redirect with auth=success (include new user flag)

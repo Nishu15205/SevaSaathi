@@ -114,7 +114,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const [googleEmail, setGoogleEmail] = useState("");
   const [googleName, setGoogleName] = useState("");
   const [googleError, setGoogleError] = useState("");
-  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  // googleSubmitting removed - redirect-based flow doesn't need it
 
   /* ---- reset form fields when switching tabs ---- */
   useEffect(() => { setError(""); setLoginPassword(""); }, [tab]);
@@ -127,7 +127,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setRegName(""); setRegEmail(""); setRegPhone(""); setRegPassword(""); setRegRole("FAMILY");
     setResetOpen(false); setResetEmail(""); setResetNewPassword("");
     setResetLoading(false); setResetError(""); setResetDone(false);
-    setGoogleOpen(false); setGoogleEmail(""); setGoogleName(""); setGoogleError(""); setGoogleSubmitting(false);
+    setGoogleOpen(false); setGoogleEmail(""); setGoogleName(""); setGoogleError("");
     onClose();
   }, [onClose, defaultTab]);
 
@@ -150,28 +150,21 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setGoogleOpen(true);
   };
 
-  const handleGoogleSubmit = async (e: React.FormEvent) => {
+  const handleGoogleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!googleEmail.trim() || !googleName.trim()) { setGoogleError("Please enter your name and email."); return; }
     if (!googleEmail.trim().includes("@")) { setGoogleError("Please enter a valid email address."); return; }
-    setGoogleSubmitting(true); setGoogleError("");
-    try {
-      const res = await fetch("/api/auth/google-simulate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: googleEmail.trim(), name: googleName.trim(), role: tab === "register" ? regRole : undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setGoogleError(data.error || "Google sign-in failed."); return; }
-      const sessionRes = await fetch("/api/auth/session");
-      const sessionData = await sessionRes.json();
-      if (sessionData?.user) {
-        const u = sessionData.user as any;
-        setAuth({ id: u.id, email: u.email, name: u.name, phone: "", role: u.role, avatarUrl: u.image || null, subscription: "NONE" as any, patientProfiles: [], caregiverProfile: null });
-        setGoogleOpen(false);
-        toast({ title: "Welcome" + (data.user.isNewUser ? " to SevaSaathi!" : " back!") + " \ud83c\udf89", description: "Signed in as " + data.user.email });
-        handleClose();
-      } else { window.location.href = window.location.origin; }
-    } catch { setGoogleError("Something went wrong. Please try again."); } finally { setGoogleSubmitting(false); }
+    setGoogleError("");
+    // Use redirect-based flow so cookies survive the proxy chain
+    const origin = window.location.origin;
+    const role = tab === "register" ? regRole : "";
+    const params = new URLSearchParams({
+      email: googleEmail.trim(),
+      name: googleName.trim(),
+      origin,
+    });
+    if (role) params.set("role", role);
+    window.location.href = `/api/auth/google-simulate?${params.toString()}`;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -238,7 +231,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
 /* ================================================================ */
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-forest-200/40">
+      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-forest-200/40 max-h-[92vh] flex flex-col">
         <button onClick={handleClose} className="absolute top-3 right-3 z-50 rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Close">
           <X className="w-5 h-5" />
         </button>
@@ -274,7 +267,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
           </div>
         </div>
 
-        <div className="px-6 py-4 overflow-y-auto max-h-[55vh]">
+        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">
           <AnimatePresence mode="wait" custom={tab}>
             {tab === "login" && (
               <motion.div key="login" custom={tab} variants={contentVariants} initial="enter" animate="center" exit="exit" className="space-y-4">
@@ -434,8 +427,8 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
                 <form onSubmit={handleGoogleSubmit} className="space-y-2.5">
                   <Input type="text" placeholder="Full Name" value={googleName} onChange={(e) => setGoogleName(e.target.value)} className="rounded-lg" required />
                   <Input type="email" placeholder="Email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} className="rounded-lg" required />
-                  <Button type="submit" disabled={googleSubmitting} size="sm" className="w-full rounded-lg">
-                    {googleSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Continue
+                  <Button type="submit" size="sm" className="w-full rounded-lg">
+                    Continue
                   </Button>
                 </form>
               </div>

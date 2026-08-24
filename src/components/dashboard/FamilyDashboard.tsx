@@ -146,7 +146,7 @@ function LoadingCards({ count = 3 }: { count?: number }) {
 /* ============================================================ */
 function OverviewTab() {
   const user = useAuthStore((s) => s.user);
-  const [stats, setStats] = useState({ patients: 0, activeBookings: 0, reports: 0, pendingReviews: 0 });
+  const [stats, setStats] = useState({ patients: 0, activeBookings: 0, reports: 0, pendingReviews: 0, pendingPayment: 0 });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -164,7 +164,8 @@ function OverviewTab() {
       const patients = patientsRes.patients || [];
       const bookings = bookingsRes.bookings || [];
 
-      const activeBookings = bookings.filter((b: any) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(b.status));
+      const activeBookings = bookings.filter((b: any) => ['CONFIRMED', 'IN_PROGRESS'].includes(b.status));
+      const pendingPayment = bookings.filter((b: any) => b.status === 'PENDING' && !b.payment);
       const totalReports = bookings.reduce((acc: number, b: any) => acc + (b.careReports?.length || 0), 0);
       const completedWithoutReview = bookings.filter(
         (b: any) => b.status === 'COMPLETED' && (!b.reviews || b.reviews.length === 0)
@@ -175,6 +176,7 @@ function OverviewTab() {
         activeBookings: activeBookings.length,
         reports: totalReports,
         pendingReviews: completedWithoutReview,
+        pendingPayment: pendingPayment.length,
       });
       setRecentBookings(bookings.slice(0, 5));
     } catch (err: any) {
@@ -207,6 +209,16 @@ function OverviewTab() {
         </h2>
         <p className="text-sm text-gray-400 mt-1">{isNewUser ? "Get started with your care journey." : "Here's what's happening with your care requests."}</p>
       </div>
+
+      {stats.pendingPayment > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">{stats.pendingPayment} booking{stats.pendingPayment > 1 ? 's' : ''} awaiting payment</p>
+            <p className="text-xs text-amber-600">Go to My Bookings tab to complete payment.</p>
+          </div>
+        </div>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -795,10 +807,12 @@ function FindCaregiversTab() {
       setBookingModalOpen(false);
       setBookingCaregiver(null);
       setBookingForm({ patientId: '', shiftType: 'TWELVE_HOUR', startDate: '', endDate: '', startTime: '08:00', endTime: '20:00', familyNotes: '' });
-      // Auto-open payment dialog
-      setNewlyCreatedBooking(newBooking);
-      setPaymentAfterBooking(true);
-      toast.success('Booking created! Please complete payment to confirm.');
+      toast.success('Booking created! Redirecting to payment...');
+      // Delay opening payment dialog to avoid Radix Dialog animation conflict
+      setTimeout(() => {
+        setNewlyCreatedBooking(newBooking);
+        setPaymentAfterBooking(true);
+      }, 400);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create booking');
     } finally {
@@ -1050,7 +1064,7 @@ function FindCaregiversTab() {
               <Button type="button" variant="outline" onClick={() => setBookingModalOpen(false)} className="rounded-xl">Cancel</Button>
               <Button type="submit" disabled={bookingSubmitting} className="btn-black text-sm gap-2">
                 {bookingSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Confirm Booking
+                Confirm Booking & Pay
               </Button>
             </div>
           </form>
@@ -1062,7 +1076,7 @@ function FindCaregiversTab() {
         isOpen={paymentAfterBooking}
         onClose={() => { setPaymentAfterBooking(false); setNewlyCreatedBooking(null); }}
         booking={newlyCreatedBooking}
-        onSuccess={() => { setPaymentAfterBooking(false); setNewlyCreatedBooking(null); }}
+        onSuccess={() => { setPaymentAfterBooking(false); setNewlyCreatedBooking(null); toast.success('Booking confirmed! Your caregiver has been notified.'); }}
       />
     </div>
   );

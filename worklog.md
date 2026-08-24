@@ -325,3 +325,28 @@ Stage Summary:
 - Booking flow: Create → Payment Dialog auto-opens → Pay → Status changes to CONFIRMED
 - PENDING bookings show both "Pay Now" (green) and "Cancel" (red) buttons
 - If payment already exists on PENDING booking, shows "Payment processing..." text
+
+---
+Task ID: 5
+Agent: main
+Task: Fix Google OAuth not working, Create Account overflow, Payment popup mandatory
+
+Work Log:
+- **Google OAuth - NEXTAUTH_SECRET mismatch**: Found auth.ts used `process.env.NEXTAUTH_SECRET` (undefined) while google-simulate used fallback `"dev-secret-for-sevasaathi"`. Fixed all 3 files to use consistent fallback.
+- **Google OAuth - Redirect flow**: Changed google-simulate from POST+fetch (AJAX) to GET+redirect. The proxy chain (Alibaba LB → Caddy → Node proxy → Next.js) was stripping Set-Cookie headers from fetch responses. Redirect-based flow ensures cookies survive the proxy chain.
+- **Google OAuth - Origin mismatch**: google-simulate redirect was using internal hostname from headers (`ws-e-a-afd-bbed-jcrsryfcbu.cn-hongkong-vpc.fcapp.run`). Fixed to accept `origin` query param from client (window.location.origin).
+- **Google OAuth - LoginModal**: Changed handleGoogleSubmit from async fetch to `window.location.href` redirect with origin param.
+- **Proxy cookie fix**: Updated server-proxy.ts to properly forward Set-Cookie headers on redirect responses. The Fetch API's Headers.set() silently drops set-cookie (forbidden header). Fixed by using plain array of [key,value] pairs passed to Response constructor.
+- **Create Account overflow**: Changed LoginModal DialogContent from fixed max-h-[55vh] to flex layout with `max-h-[92vh] flex flex-col` and scrollable content area with `flex-1 min-h-0 overflow-y-auto`.
+- **Payment popup timing**: Added 400ms setTimeout before opening PaymentDialog after booking creation to avoid Radix Dialog animation conflict between booking modal close and payment dialog open.
+- **Payment popup UX**: Changed booking form button from "Confirm Booking" to "Confirm Booking & Pay". Added toast warning when user closes PaymentDialog without paying.
+- **Pending payment awareness**: Added `pendingPayment` stat to OverviewTab. Added amber warning banner for unpaid bookings. Changed active bookings count to exclude PENDING status.
+- **Environment**: Added NEXTAUTH_SECRET to dev server startup for consistent JWT encoding/decoding.
+
+Stage Summary:
+- Google OAuth (simulated): Fixed secret mismatch, redirect flow, origin handling, proxy cookie forwarding
+- Google OAuth (real): Will work when GOOGLE_CLIENT_ID/SECRET are added to .env (redirect URI already handled correctly)
+- Create Account: Better scroll layout with flex, button always accessible
+- Payment: 400ms delay avoids Dialog conflict, Pay Now in BookingsTab, pending payment warning on dashboard
+- Lint: Clean (0 errors, 0 warnings)
+- Note: External LB returning 403 during testing (infrastructure issue, not code)

@@ -71,17 +71,24 @@ serve({
 
       const res = await fetch(url.toString(), init);
 
-      const resHeaders = new Headers();
+      // Collect all headers, including set-cookie (which Headers.set() silently drops)
+      const headerPairs: [string, string][] = [];
       res.headers.forEach((v, k) => {
-        if (!["transfer-encoding"].includes(k.toLowerCase())) {
-          resHeaders.set(k, v);
+        const lk = k.toLowerCase();
+        if (lk === "set-cookie") {
+          // set-cookie can appear multiple times; preserve all occurrences
+          res.headers.getSetCookie?.().forEach((cookie) => {
+            headerPairs.push(["set-cookie", cookie]);
+          });
+        } else if (lk !== "transfer-encoding") {
+          headerPairs.push([k, v]);
         }
       });
 
       return new Response(res.body, {
         status: res.status,
         statusText: res.statusText,
-        headers: resHeaders,
+        headers: headerPairs,
       });
     } catch (e: any) {
       return new Response(

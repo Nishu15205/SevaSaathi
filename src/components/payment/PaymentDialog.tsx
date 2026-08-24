@@ -109,6 +109,11 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
 
   const handleClose = () => {
     if (step === 'verifying') return;
+    // Warn user that booking requires payment
+    if (step === 'upi') {
+      // Allow closing but notify
+      toast.error('Payment is required to confirm your booking. You can pay later from My Bookings tab.');
+    }
     setStep('upi');
     setPaymentResult(null);
     setErrorMsg('');
