@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { sendOtpEmail } from '@/lib/email'
+import { isBrevoConfigured } from '@/lib/brevo'
 
 // In-memory OTP store (for demo/sandbox - in production use Redis/DB)
 export const otpStore = new Map<string, { otp: string; expiresAt: number; purpose: string }>()
@@ -34,9 +35,11 @@ export async function POST(request: NextRequest) {
     // Store OTP
     otpStore.set(`${email}:${purpose}`, { otp, expiresAt, purpose })
 
-    // Try to send real email via Resend
-    const hasResendKey = !!process.env.RESEND_API_KEY
-    if (hasResendKey) {
+    // Check if email delivery is configured (Brevo or SMTP)
+    const brevoReady = await isBrevoConfigured()
+
+    if (brevoReady) {
+      // Real email delivery via Brevo
       await sendOtpEmail(email, otp, purpose)
       return NextResponse.json({
         message: `OTP sent to ${email}`,
@@ -44,8 +47,17 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Try sending anyway (might have SMTP configured)
+    const result = await sendOtpEmail(email, otp, purpose)
+    if (result.success && !result.error) {
+      return NextResponse.json({
+        message: `OTP sent to ${email}`,
+        expiresIn: '5 minutes',
+      })
+    }
+
     // Dev mode: return OTP in response
-    console.log(`\n📧 EMAIL OTP for ${email}: ${otp} (dev mode - add RESEND_API_KEY for real delivery)\n`)
+    console.log(`\n📧 EMAIL OTP for ${email}: ${otp} (dev mode - configure Brevo/SMTP for real delivery)\n`)
     return NextResponse.json({
       message: `OTP sent to ${email} (dev mode)`,
       otp,

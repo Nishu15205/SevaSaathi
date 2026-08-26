@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sendPhoneOtp, isSmsConfigured } from '@/lib/sms';
+import { isFirebaseConfigured } from '@/lib/firebase-admin';
 
+/**
+ * POST /api/auth/send-phone-otp
+ * 
+ * If Firebase is configured: returns { useFirebase: true } so the frontend
+ * can use Firebase client SDK for phone OTP.
+ * 
+ * If not configured: falls back to Fast2SMS / dev OTP.
+ */
 export async function POST(req: NextRequest) {
   let otp = '';
   try {
@@ -11,6 +19,17 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanPhone = phone.replace(/\s/g, '');
+
+    // Check if Firebase is configured for real phone OTP
+    const fbConfigured = await isFirebaseConfigured();
+    if (fbConfigured) {
+      return NextResponse.json({
+        message: 'Use Firebase for phone verification',
+        useFirebase: true,
+      });
+    }
+
+    // --- Fallback: Generate OTP + try Fast2SMS ---
     otp = String(Math.floor(100000 + Math.random() * 900000));
     const otpExpiry = Date.now() + 5 * 60 * 1000;
 
@@ -19,49 +38,49 @@ export async function POST(req: NextRequest) {
       data: { otpSecret: `${otp}:${otpExpiry}` },
     });
 
-    // Try real SMS delivery
-    const smsResult = await sendPhoneOtp(cleanPhone, otp);
+    // Try real SMS delivery via Fast2SMS
+    try {
+      const { sendPhoneOtp, isSmsConfigured } = await import('@/lib/sms');
+      const smsResult = await sendPhoneOtp(cleanPhone, otp);
 
-    if (smsResult.actuallyDelivered) {
-      return NextResponse.json({
-        message: 'OTP sent to your phone number',
-      });
-    }
+      if (smsResult.actuallyDelivered) {
+        return NextResponse.json({
+          message: 'OTP sent to your phone number',
+          useFirebase: false,
+        });
+      }
 
-    // SMS provider NOT configured → dev mode
-    const smsAvailable = await isSmsConfigured();
-    if (!smsAvailable) {
-      return NextResponse.json({
-        message: 'OTP sent to your phone number (dev mode)',
-        devOtp: otp,
-      });
-    }
+      const smsAvailable = await isSmsConfigured();
+      if (!smsAvailable) {
+        return NextResponse.json({
+          message: 'OTP sent to your phone number (dev mode)',
+          useFirebase: false,
+          devOtp: otp,
+        });
+      }
 
-    // SMS provider configured but delivery failed (e.g., DLT not done)
-    if (smsResult.error) {
-      console.warn(`⚠️ SMS delivery failed: ${smsResult.error}`);
-      return NextResponse.json({
-        message: `OTP sent (sandbox mode)`,
-        devOtp: otp,
-      });
+      if (smsResult.error) {
+        console.warn(`⚠️ SMS delivery failed: ${smsResult.error}`);
+        return NextResponse.json({
+          message: 'OTP sent (sandbox mode)',
+          useFirebase: false,
+          devOtp: otp,
+        });
+      }
+    } catch (err: any) {
+      console.warn(`⚠️ SMS provider error: ${err.message}`);
     }
 
     return NextResponse.json({
-      message: 'OTP sent to your phone number (dev mode)',
+      message: 'OTP sent (dev mode)',
+      useFirebase: false,
       devOtp: otp,
     });
   } catch (err: any) {
     console.error('Send phone OTP error:', err);
-    const smsAvailable = await isSmsConfigured();
-    if (!smsAvailable) {
-      return NextResponse.json({
-        message: 'OTP sent (dev mode)',
-        devOtp: otp,
-      });
-    }
-    console.warn(`⚠️ SMS provider error, falling back to dev mode: ${err.message}`);
     return NextResponse.json({
-      message: `OTP sent (sandbox mode)`,
+      message: 'OTP sent (dev mode)',
+      useFirebase: false,
       devOtp: otp,
     });
   }

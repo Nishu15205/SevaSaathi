@@ -35,14 +35,14 @@ export const api = {
         body: JSON.stringify({ email, otp, purpose }),
       }),
     sendPhoneOtp: (phone: string) =>
-      request<{ message: string; devOtp?: string }>('/api/auth/send-phone-otp', {
+      request<{ message: string; devOtp?: string; useFirebase?: boolean }>('/api/auth/send-phone-otp', {
         method: 'POST',
         body: JSON.stringify({ phone }),
       }),
-    verifyPhoneOtp: (phone: string, otp: string) =>
+    verifyPhoneOtp: (phone: string, otp: string, firebaseToken?: string) =>
       request<{ verified: boolean; message: string }>('/api/auth/verify-phone-otp', {
         method: 'POST',
-        body: JSON.stringify({ phone, otp }),
+        body: JSON.stringify({ phone, otp, firebaseToken }),
       }),
   },
   patients: {

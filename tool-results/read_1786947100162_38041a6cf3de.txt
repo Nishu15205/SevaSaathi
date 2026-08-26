@@ -1,0 +1,575 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react';
+     4→     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→     5→import {
+     6→     6→  Users, ShieldCheck, CalendarCheck, Star, AlertTriangle, IndianRupee,
+     7→     7→  CheckCircle2, XCircle, Loader2, Eye, ChevronDown, ChevronUp, MapPin,
+     8→     8→  Clock, BadgeCheck, Ban, FileText, TrendingUp, Activity, UserCog,
+     9→     9→  MessageSquare,
+    10→    10→} from 'lucide-react';
+    11→    11→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    12→    12→import { Button } from '@/components/ui/button';
+    13→    13→import { Badge } from '@/components/ui/badge';
+    14→    14→import { Skeleton } from '@/components/ui/skeleton';
+    15→    15→import { Input } from '@/components/ui/input';
+    16→    16→import { Progress } from '@/components/ui/progress';
+    17→    17→import { ScrollArea } from '@/components/ui/scroll-area';
+    18→    18→import { Textarea } from '@/components/ui/textarea';
+    19→    19→import { api } from '@/lib/api';
+    20→    20→import { useAuthStore } from '@/stores/authStore';
+    21→    21→import { toast } from 'sonner';
+    22→    22→
+    23→    23→const statusColors: Record<string, string> = {
+    24→    24→  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    25→    25→  CONFIRMED: 'bg-blue-100 text-blue-800 border-blue-200',
+    26→    26→  IN_PROGRESS: 'bg-green-100 text-green-800 border-green-200',
+    27→    27→  COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200',
+    28→    28→  CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+    29→    29→  NO_SHOW: 'bg-orange-100 text-orange-700 border-orange-200',
+    30→    30→  OPEN: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    31→    31→  RESOLVED: 'bg-green-100 text-green-800 border-green-200',
+    32→    32→  DISMISSED: 'bg-gray-100 text-gray-700 border-gray-200',
+    33→    33→  APPROVED: 'bg-green-100 text-green-800 border-green-200',
+    34→    34→  REJECTED: 'bg-red-100 text-red-700 border-red-200',
+    35→    35→};
+    36→    36→
+    37→    37→const docTypeBadge: Record<string, string> = {
+    38→    38→  AADHAAR: 'bg-indigo-100 text-indigo-800',
+    39→    39→  PAN: 'bg-purple-100 text-purple-800',
+    40→    40→  DRIVING_LICENSE: 'bg-cyan-100 text-cyan-800',
+    41→    41→  PASSPORT: 'bg-amber-100 text-amber-800',
+    42→    42→  VOTER_ID: 'bg-teal-100 text-teal-800',
+    43→    43→  CERTIFICATE: 'bg-emerald-100 text-emerald-800',
+    44→    44→};
+    45→    45→
+    46→    46→const fadeVariants = {
+    47→    47→  hidden: { opacity: 0, y: 12 },
+    48→    48→  visible: { opacity: 1, y: 0 },
+    49→    49→  exit: { opacity: 0, y: -12 },
+    50→    50→};
+    51→    51→
+    52→    52→/* ─────────── OVERVIEW TAB ─────────── */
+    53→    53→function OverviewTab() {
+    54→    54→  const [stats, setStats] = useState<any>(null);
+    55→    55→  const [loading, setLoading] = useState(true);
+    56→    56→
+    57→    57→  useEffect(() => {
+    58→    58→    (async () => {
+    59→    59→      try {
+    60→    60→        const data = await api.admin.dashboard();
+    61→    61→        setStats(data);
+    62→    62→      } catch {
+    63→    63→        toast.error('Failed to load dashboard stats');
+    64→    64→      } finally {
+    65→    65→        setLoading(false);
+    66→    66→      }
+    67→    67→    })();
+    68→    68→  }, []);
+    69→    69→
+    70→    70→  if (loading) {
+    71→    71→    return (
+    72→    72→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    73→    73→        {Array.from({ length: 6 }).map((_, i) => (
+    74→    74→          <Skeleton key={i} className="h-28 rounded-2xl" />
+    75→    75→        ))}
+    76→    76→      </div>
+    77→    77→    );
+    78→    78→  }
+    79→    79→
+    80→    80→  const statCards = [
+    81→    81→    { label: 'Total Users', value: stats?.totalUsers ?? 0, icon: Users },
+    82→    82→    { label: 'Total Caregivers', value: stats?.totalCaregivers ?? 0, icon: UserCog },
+    83→    83→    { label: 'Active Bookings', value: stats?.activeBookings ?? 0, icon: CalendarCheck },
+    84→    84→    { label: 'Completed Bookings', value: stats?.completedBookings ?? 0, icon: CheckCircle2 },
+    85→    85→    { label: 'Avg Rating', value: stats?.avgRating ?? '—', icon: Star, suffix: '' },
+    86→    86→    { label: 'Platform Revenue', value: stats?.platformRevenue ?? 0, icon: IndianRupee, prefix: '₹' },
+    87→    87→  ];
+    88→    88→
+    89→    89→  const bookingsByStatus = stats?.bookingsByStatus ?? {};
+    90→    90→  const complaintsByStatus = stats?.complaintsByStatus ?? {};
+    91→    91→  const caregiversByCity = stats?.caregiversByCity ?? [];
+    92→    92→  const maxBooking = Math.max(...Object.values(bookingsByStatus).map(Number), 1);
+    93→    93→  const maxComplaint = Math.max(...Object.values(complaintsByStatus).map(Number), 1);
+    94→    94→
+    95→    95→  const statusLabel: Record<string, string> = {
+    96→    96→    PENDING: 'Pending', CONFIRMED: 'Confirmed', IN_PROGRESS: 'In Progress',
+    97→    97→    COMPLETED: 'Completed', CANCELLED: 'Cancelled',
+    98→    98→    OPEN: 'Open', RESOLVED: 'Resolved', DISMISSED: 'Dismissed',
+    99→    99→  };
+   100→   100→
+   101→   101→  return (
+   102→   102→    <div className="space-y-6">
+   103→   103→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   104→   104→        {statCards.map((s) => (
+   105→   105→          <motion.div key={s.label} variants={fadeVariants} initial="hidden" animate="visible">
+   106→   106→            <Card className="rounded-2xl card-hover border-0 shadow-sm">
+   107→   107→              <CardContent className="p-5 flex items-center gap-4">
+   108→   108→                <div className="w-11 h-11 rounded-xl bg-[#14532d]/10 flex items-center justify-center shrink-0">
+   109→   109→                  <s.icon className="w-5 h-5 text-[#14532d]" />
+   110→   110→                </div>
+   111→   111→                <div>
+   112→   112→                  <p className="text-sm text-muted-foreground">{s.label}</p>
+   113→   113→                  <p className="text-2xl font-bold text-foreground">
+   114→   114→                    {s.prefix}{typeof s.value === 'number' ? s.value.toLocaleString('en-IN') : s.value}{s.suffix !== undefined ? s.suffix : ''}
+   115→   115→                  </p>
+   116→   116→                </div>
+   117→   117→              </CardContent>
+   118→   118→            </Card>
+   119→   119→          </motion.div>
+   120→   120→        ))}
+   121→   121→      </div>
+   122→   122→
+   123→   123→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   124→   124→        <Card className="rounded-2xl border-0 shadow-sm">
+   125→   125→          <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Bookings by Status</CardTitle></CardHeader>
+   126→   126→          <CardContent className="space-y-3">
+   127→   127→            {Object.entries(bookingsByStatus).map(([status, count]: [string, any]) => (
+   128→   128→              <div key={status} className="flex items-center gap-3">
+   129→   129→                <span className="text-sm text-muted-foreground w-28 shrink-0">{statusLabel[status] ?? status}</span>
+   130→   130→                <Progress value={(Number(count) / maxBooking) * 100} className="h-3 flex-1" />
+   131→   131→                <span className="text-sm font-medium w-10 text-right">{count}</span>
+   132→   132→              </div>
+   133→   133→            ))}
+   134→   134→            {Object.keys(bookingsByStatus).length === 0 && <p className="text-sm text-muted-foreground">No booking data yet.</p>}
+   135→   135→          </CardContent>
+   136→   136→        </Card>
+   137→   137→
+   138→   138→        <Card className="rounded-2xl border-0 shadow-sm">
+   139→   139→          <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Complaints by Status</CardTitle></CardHeader>
+   140→   140→          <CardContent className="space-y-3">
+   141→   141→            {Object.entries(complaintsByStatus).map(([status, count]: [string, any]) => (
+   142→   142→              <div key={status} className="flex items-center gap-3">
+   143→   143→                <span className="text-sm text-muted-foreground w-28 shrink-0">{statusLabel[status] ?? status}</span>
+   144→   144→                <Progress value={(Number(count) / maxComplaint) * 100} className="h-3 flex-1" />
+   145→   145→                <span className="text-sm font-medium w-10 text-right">{count}</span>
+   146→   146→              </div>
+   147→   147→            ))}
+   148→   148→            {Object.keys(complaintsByStatus).length === 0 && <p className="text-sm text-muted-foreground">No complaint data yet.</p>}
+   149→   149→          </CardContent>
+   150→   150→        </Card>
+   151→   151→      </div>
+   152→   152→
+   153→   153→      <Card className="rounded-2xl border-0 shadow-sm">
+   154→   154→        <CardHeader className="pb-3"><CardTitle className="text-base font-semibold flex items-center gap-2"><MapPin className="w-4 h-4 text-[#14532d]" />Caregivers by City</CardTitle></CardHeader>
+   155→   155→        <CardContent>
+   156→   156→          {caregiversByCity.length > 0 ? (
+   157→   157→            <div className="flex flex-wrap gap-3">
+   158→   158→              {caregiversByCity.map((c: any) => (
+   159→   159→                <div key={c.city} className="flex items-center gap-2 bg-muted/60 rounded-full px-4 py-2">
+   160→   160→                  <MapPin className="w-3.5 h-3.5 text-[#a3e635]" />
+   161→   161→                  <span className="text-sm font-medium">{c.city}</span>
+   162→   162→                  <Badge variant="secondary" className="rounded-full text-xs">{c.count}</Badge>
+   163→   163→                </div>
+   164→   164→              ))}
+   165→   165→            </div>
+   166→   166→          ) : (
+   167→   167→            <p className="text-sm text-muted-foreground">No city data available.</p>
+   168→   168→          )}
+   169→   169→        </CardContent>
+   170→   170→      </Card>
+   171→   171→    </div>
+   172→   172→  );
+   173→   173→}
+   174→   174→
+   175→   175→/* ─────────── USERS TAB ─────────── */
+   176→   176→function UsersTab() {
+   177→   177→  const [role, setRole] = useState<string>('');
+   178→   178→  const [users, setUsers] = useState<any[]>([]);
+   179→   179→  const [loading, setLoading] = useState(true);
+   180→   180→  const [page, setPage] = useState(1);
+   181→   181→  const [totalPages, setTotalPages] = useState(1);
+   182→   182→
+   183→   183→  const fetchUsers = useCallback(async () => {
+   184→   184→    setLoading(true);
+   185→   185→    try {
+   186→   186→      const res = await api.admin.users({ role: role || undefined, page, limit: 20 });
+   187→   187→      setUsers(res.users ?? []);
+   188→   188→      setTotalPages(res.pagination?.totalPages ?? 1);
+   189→   189→    } catch {
+   190→   190→      toast.error('Failed to load users');
+   191→   191→    } finally {
+   192→   192→      setLoading(false);
+   193→   193→    }
+   194→   194→  }, [role, page]);
+   195→   195→
+   196→   196→  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+   197→   197→
+   198→   198→  const roleFilters = [
+   199→   199→    { label: 'All', value: '' },
+   200→   200→    { label: 'Family', value: 'FAMILY' },
+   201→   201→    { label: 'Caregiver', value: 'CAREGIVER' },
+   202→   202→  ];
+   203→   203→
+   204→   204→  return (
+   205→   205→    <div className="space-y-4">
+   206→   206→      <div className="flex gap-2">
+   207→   207→        {roleFilters.map((f) => (
+   208→   208→          <Button
+   209→   209→            key={f.value}
+   210→   210→            variant={role === f.value ? 'default' : 'outline'}
+   211→   211→            size="sm"
+   212→   212→            className={role === f.value ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+   213→   213→            onClick={() => { setRole(f.value); setPage(1); }}
+   214→   214→          >
+   215→   215→            {f.label}
+   216→   216→          </Button>
+   217→   217→        ))}
+   218→   218→      </div>
+   219→   219→
+   220→   220→      {loading ? (
+   221→   221→        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+   222→   222→      ) : users.length === 0 ? (
+   223→   223→        <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-12 text-center text-muted-foreground">No users found.</CardContent></Card>
+   224→   224→      ) : (
+   225→   225→        <div className="space-y-3">
+   226→   226→          {users.map((u) => (
+   227→   227→            <motion.div key={u.id} variants={fadeVariants} initial="hidden" animate="visible">
+   228→   228→              <Card className="rounded-2xl card-hover border-0 shadow-sm">
+   229→   229→                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+   230→   230→                  <div className="flex-1 min-w-0">
+   231→   231→                    <div className="flex items-center gap-2 flex-wrap">
+   232→   232→                      <span className="font-semibold text-sm truncate">{u.name}</span>
+   233→   233→                      <Badge className={statusColors[u.role] ?? 'bg-gray-100 text-gray-700'}>{u.role}</Badge>
+   234→   234→                      {u.role === 'CAREGIVER' && u.isVerified && <BadgeCheck className="w-4 h-4 text-[#14532d]" />}
+   235→   235→                    </div>
+   236→   236→                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
+   237→   237→                      <span>{u.email}</span>
+   238→   238→                      <span>{u.phone}</span>
+   239→   239→                      <span>Joined {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+   240→   240→                    </div>
+   241→   241→                    {u.role === 'CAREGIVER' && (
+   242→   242→                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+   243→   243→                        {u.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{u.city}</span>}
+   244→   244→                        {u.rating != null && <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-500" />{Number(u.rating).toFixed(1)}</span>}
+   245→   245→                      </div>
+   246→   246→                    )}
+   247→   247→                    {u.role === 'FAMILY' && u.patientCount != null && (
+   248→   248→                      <div className="mt-1 text-xs text-muted-foreground"><Users className="w-3 h-3 inline mr-1" />{u.patientCount} patient{u.patientCount !== 1 ? 's' : ''}</div>
+   249→   249→                    )}
+   250→   250→                  </div>
+   251→   251→                </CardContent>
+   252→   252→              </Card>
+   253→   253→            </motion.div>
+   254→   254→          ))}
+   255→   255→        </div>
+   256→   256→      )}
+   257→   257→
+   258→   258→      {totalPages > 1 && (
+   259→   259→        <div className="flex justify-center gap-2 pt-2">
+   260→   260→          <Button variant="outline" size="sm" className="rounded-full" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+   261→   261→          <span className="flex items-center text-sm text-muted-foreground px-3">Page {page} of {totalPages}</span>
+   262→   262→          <Button variant="outline" size="sm" className="rounded-full" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+   263→   263→        </div>
+   264→   264→      )}
+   265→   265→    </div>
+   266→   266→  );
+   267→   267→}
+   268→   268→
+   269→   269→/* ─────────── VERIFICATIONS TAB ─────────── */
+   270→   270→function VerificationsTab() {
+   271→   271→  const [verifications, setVerifications] = useState<any[]>([]);
+   272→   272→  const [loading, setLoading] = useState(true);
+   273→   273→  const [rejecting, setRejecting] = useState<string | null>(null);
+   274→   274→  const [approving, setApproving] = useState<string | null>(null);
+   275→   275→  const [reasons, setReasons] = useState<Record<string, string>>({});
+   276→   276→
+   277→   277→  const fetchVerifications = useCallback(async () => {
+   278→   278→    setLoading(true);
+   279→   279→    try {
+   280→   280→      const res = await api.admin.verifications.list();
+   281→   281→      setVerifications(res.verifications ?? []);
+   282→   282→    } catch {
+   283→   283→      toast.error('Failed to load verifications');
+   284→   284→    } finally {
+   285→   285→      setLoading(false);
+   286→   286→    }
+   287→   287→  }, []);
+   288→   288→
+   289→   289→  useEffect(() => { fetchVerifications(); }, [fetchVerifications]);
+   290→   290→
+   291→   291→  const handleApprove = async (id: string) => {
+   292→   292→    setApproving(id);
+   293→   293→    try {
+   294→   294→      await api.admin.verifications.update(id, { status: 'APPROVED' });
+   295→   295→      toast.success('Verification approved successfully');
+   296→   296→      fetchVerifications();
+   297→   297→    } catch {
+   298→   298→      toast.error('Failed to approve verification');
+   299→   299→    } finally {
+   300→   300→      setApproving(null);
+   301→   301→    }
+   302→   302→  };
+   303→   303→
+   304→   304→  const handleReject = async (id: string) => {
+   305→   305→    const reason = reasons[id]?.trim();
+   306→   306→    if (!reason) { toast.error('Please provide a rejection reason'); return; }
+   307→   307→    setRejecting(id);
+   308→   308→    try {
+   309→   309→      await api.admin.verifications.update(id, { status: 'REJECTED', rejectionReason: reason });
+   310→   310→      toast.success('Verification rejected');
+   311→   311→      setReasons((prev) => { const n = { ...prev }; delete n[id]; return n; });
+   312→   312→      fetchVerifications();
+   313→   313→    } catch {
+   314→   314→      toast.error('Failed to reject verification');
+   315→   315→    } finally {
+   316→   316→      setRejecting(null);
+   317→   317→    }
+   318→   318→  };
+   319→   319→
+   320→   320→  if (loading) {
+   321→   321→    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
+   322→   322→  }
+   323→   323→
+   324→   324→  if (verifications.length === 0) {
+   325→   325→    return <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><ShieldCheck className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No pending verifications.</p></CardContent></Card>;
+   326→   326→  }
+   327→   327→
+   328→   328→  return (
+   329→   329→    <div className="space-y-3">
+   330→   330→      {verifications.map((v) => (
+   331→   331→        <motion.div key={v.id} variants={fadeVariants} initial="hidden" animate="visible">
+   332→   332→          <Card className="rounded-2xl card-hover border-0 shadow-sm">
+   333→   333→            <CardContent className="p-4 space-y-3">
+   334→   334→              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+   335→   335→                <div className="flex items-center gap-2 flex-wrap">
+   336→   336→                  <span className="font-semibold text-sm">{v.caregiver?.user?.name ?? 'Caregiver'}</span>
+   337→   337→                  <Badge className={docTypeBadge[v.docType] ?? 'bg-gray-100 text-gray-700'}>{v.docType ?? 'DOC'}</Badge>
+   338→   338→                </div>
+   339→   339→                <span className="text-xs text-muted-foreground flex items-center gap-1">
+   340→   340→                  <Clock className="w-3 h-3" />{v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+   341→   341→                </span>
+   342→   342→              </div>
+   343→   343→              {v.docNumber && <p className="text-xs text-muted-foreground font-mono bg-muted/50 rounded-lg px-3 py-1.5 w-fit">{v.docNumber}</p>}
+   344→   344→              <div className="flex items-center gap-2 pt-1">
+   345→   345→                <Button
+   346→   346→                  size="sm"
+   347→   347→                  className="bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full"
+   348→   348→                  disabled={approving === v.id}
+   349→   349→                  onClick={() => handleApprove(v.id)}
+   350→   350→                >
+   351→   351→                  {approving === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1" />Approve</>}
+   352→   352→                </Button>
+   353→   353→                <Button
+   354→   354→                  size="sm"
+   355→   355→                  variant="outline"
+   356→   356→                  className="text-red-600 border-red-200 hover:bg-red-50 rounded-full"
+   357→   357→                  disabled={rejecting === v.id}
+   358→   358→                  onClick={() => {
+   359→   359→                    if (!reasons[v.id]?.trim()) {
+   360→   360→                      setReasons((prev) => ({ ...prev, [v.id]: prev[v.id] ?? '' }));
+   361→   361→                    } else {
+   362→   362→                      handleReject(v.id);
+   363→   363→                    }
+   364→   364→                  }}
+   365→   365→                >
+   366→   366→                  {rejecting === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><XCircle className="w-4 h-4 mr-1" />Reject</>}
+   367→   367→                </Button>
+   368→   368→              </div>
+   369→   369→              {reasons[v.id] !== undefined && (
+   370→   370→                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="space-y-2">
+   371→   371→                  <Textarea
+   372→   372→                    placeholder="Enter rejection reason..."
+   373→   373→                    value={reasons[v.id]}
+   374→   374→                    onChange={(e) => setReasons((prev) => ({ ...prev, [v.id]: e.target.value }))}
+   375→   375→                    className="text-sm rounded-xl min-h-[60px] resize-none"
+   376→   376→                  />
+   377→   377→                  <Button size="sm" variant="destructive" className="rounded-full" disabled={rejecting === v.id} onClick={() => handleReject(v.id)}>
+   378→   378→                    {rejecting === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4 mr-1" />}Confirm Rejection
+   379→   379→                  </Button>
+   380→   380→                </motion.div>
+   381→   381→              )}
+   382→   382→            </CardContent>
+   383→   383→          </Card>
+   384→   384→        </motion.div>
+   385→   385→      ))}
+   386→   386→    </div>
+   387→   387→  );
+   388→   388→}
+   389→   389→
+   390→   390→/* ─────────── ALL BOOKINGS TAB ─────────── */
+   391→   391→function AllBookingsTab() {
+   392→   392→  const [bookings, setBookings] = useState<any[]>([]);
+   393→   393→  const [loading, setLoading] = useState(true);
+   394→   394→
+   395→   395→  useEffect(() => {
+   396→   396→    (async () => {
+   397→   397→      try {
+   398→   398→        const res = await api.admin.users({ role: 'CAREGIVER', limit: 10 });
+   399→   399→        const caregivers = res.users ?? [];
+   400→   400→        const allBookings: any[] = [];
+   401→   401→        await Promise.all(
+   402→   402→          caregivers.map(async (c: any) => {
+   403→   403→            try {
+   404→   404→              const caregiverId = c.caregiverProfile?.id;
+   405→   405→              if (!caregiverId) return;
+   406→   406→              const bRes = await api.bookings.list({ caregiverId });
+   407→   407→              allBookings.push(...(bRes.bookings ?? []).map((b: any) => ({
+   408→   408→                ...b,
+   409→   409→                caregiverName: b.caregiver?.user?.name ?? c.name,
+   410→   410→                patientName: b.patient?.name ?? 'Patient',
+   411→   411→                date: b.startDate,
+   412→   412→                amount: b.totalAmount,
+   413→   413→              })));
+   414→   414→            } catch { /* skip */ }
+   415→   415→          })
+   416→   416→        );
+   417→   417→        allBookings.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+   418→   418→        setBookings(allBookings);
+   419→   419→      } catch {
+   420→   420→        toast.error('Failed to load bookings');
+   421→   421→      } finally {
+   422→   422→        setLoading(false);
+   423→   423→      }
+   424→   424→    })();
+   425→   425→  }, []);
+   426→   426→
+   427→   427→  if (loading) {
+   428→   428→    return <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>;
+   429→   429→  }
+   430→   430→
+   431→   431→  return (
+   432→   432→    <div className="space-y-4">
+   433→   433→      <p className="text-sm text-muted-foreground">Showing recent platform bookings across caregivers.</p>
+   434→   434→      {bookings.length === 0 ? (
+   435→   435→        <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><CalendarCheck className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No bookings found.</p></CardContent></Card>
+   436→   436→      ) : (
+   437→   437→        <div className="space-y-3 max-h-[600px] overflow-y-auto">
+   438→   438→          {bookings.map((b) => (
+   439→   439→            <motion.div key={b.id} variants={fadeVariants} initial="hidden" animate="visible">
+   440→   440→              <Card className="rounded-2xl card-hover border-0 shadow-sm">
+   441→   441→                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+   442→   442→                  <div className="min-w-0 flex-1">
+   443→   443→                    <div className="flex items-center gap-2 flex-wrap">
+   444→   444→                      <span className="font-semibold text-sm">{b.patientName ?? 'Patient'}</span>
+   445→   445→                      <span className="text-muted-foreground text-xs">→</span>
+   446→   446→                      <span className="text-sm text-muted-foreground">{b.caregiverName ?? 'Caregiver'}</span>
+   447→   447→                    </div>
+   448→   448→                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+   449→   449→                      {b.date && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+   450→   450→                      {b.amount != null && <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{Number(b.amount).toLocaleString('en-IN')}</span>}
+   451→   451→                    </div>
+   452→   452→                  </div>
+   453→   453→                  <Badge className={statusColors[b.status] ?? 'bg-gray-100 text-gray-700'}>{b.status?.replace('_', ' ')}</Badge>
+   454→   454→                </CardContent>
+   455→   455→              </Card>
+   456→   456→            </motion.div>
+   457→   457→          ))}
+   458→   458→        </div>
+   459→   459→      )}
+   460→   460→    </div>
+   461→   461→  );
+   462→   462→}
+   463→   463→
+   464→   464→/* ─────────── COMPLAINTS TAB ─────────── */
+   465→   465→function ComplaintsTab() {
+   466→   466→  const [complaints, setComplaints] = useState<any[]>([]);
+   467→   467→  const [loading, setLoading] = useState(true);
+   468→   468→  const [dashboardStats, setDashboardStats] = useState<any>(null);
+   469→   469→
+   470→   470→  useEffect(() => {
+   471→   471→    (async () => {
+   472→   472→      try {
+   473→   473→        const [cRes, dRes] = await Promise.allSettled([
+   474→   474→          api.complaints.list({}),
+   475→   475→          api.admin.dashboard(),
+   476→   476→        ]);
+   477→   477→        if (cRes.status === 'fulfilled') setComplaints(cRes.value.complaints ?? []);
+   478→   478→        else {
+   479→   479→          const res = await api.admin.users({ limit: 10 });
+   480→   480→          const all: any[] = [];
+   481→   481→          await Promise.all((res.users ?? []).map(async (u: any) => {
+   482→   482→            try {
+   483→   483→              const cr = await api.complaints.list({ familyId: u.id });
+   484→   484→              all.push(...(cr.complaints ?? []));
+   485→   485→            } catch { /* skip */ }
+   486→   486→          }));
+   487→   487→          setComplaints(all);
+   488→   488→        }
+   489→   489→        if (dRes.status === 'fulfilled') setDashboardStats(dRes.value);
+   490→   490→      } catch {
+   491→   491→        toast.error('Failed to load complaints');
+   492→   492→      } finally {
+   493→   493→        setLoading(false);
+   494→   494→      }
+   495→   495→    })();
+   496→   496→  }, []);
+   497→   497→
+   498→   498→  const totalComplaints = dashboardStats?.complaintsByStatus
+   499→   499→    ? Object.values(dashboardStats.complaintsByStatus).reduce((a: number, b: any) => a + Number(b), 0)
+   500→   500→    : complaints.length;
+   501→   501→
+   502→   502→  if (loading) {
+   503→   503→    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
+   504→   504→  }
+   505→   505→
+   506→   506→  return (
+   507→   507→    <div className="space-y-4">
+   508→   508→      <div className="flex items-center gap-3">
+   509→   509→        <div className="w-10 h-10 rounded-xl bg-[#14532d]/10 flex items-center justify-center">
+   510→   510→          <MessageSquare className="w-5 h-5 text-[#14532d]" />
+   511→   511→        </div>
+   512→   512→        <div>
+   513→   513→          <p className="font-semibold text-sm">Complaints Management</p>
+   514→   514→          <p className="text-xs text-muted-foreground">{totalComplaints} total complaint{totalComplaints !== 1 ? 's' : ''} on the platform</p>
+   515→   515→        </div>
+   516→   516→      </div>
+   517→   517→
+   518→   518→      {complaints.length === 0 ? (
+   519→   519→        <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="py-16 text-center"><AlertTriangle className="w-12 h-12 mx-auto text-[#14532d]/30 mb-3" /><p className="text-muted-foreground">No complaints found.</p></CardContent></Card>
+   520→   520→      ) : (
+   521→   521→        <div className="space-y-3 max-h-[600px] overflow-y-auto">
+   522→   522→          {complaints.map((c) => (
+   523→   523→            <motion.div key={c.id} variants={fadeVariants} initial="hidden" animate="visible">
+   524→   524→              <Card className="rounded-2xl card-hover border-0 shadow-sm">
+   525→   525→                <CardContent className="p-4 space-y-2">
+   526→   526→                  <div className="flex items-center justify-between flex-wrap gap-2">
+   527→   527→                    <div className="flex items-center gap-2">
+   528→   528→                      <span className="font-semibold text-sm">{c.subject ?? 'Complaint'}</span>
+   529→   529→                      <Badge className={statusColors[c.status] ?? 'bg-gray-100 text-gray-700'}>{c.status}</Badge>
+   530→   530→                    </div>
+   531→   531→                    <span className="text-xs text-muted-foreground">{c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
+   532→   532→                  </div>
+   533→   533→                  {c.description && <p className="text-sm text-muted-foreground line-clamp-2">{c.description}</p>}
+   534→   534→                  {c.priority && <Badge variant="outline" className="text-xs rounded-full">{c.priority} priority</Badge>}
+   535→   535→                </CardContent>
+   536→   536→              </Card>
+   537→   537→            </motion.div>
+   538→   538→          ))}
+   539→   539→        </div>
+   540→   540→      )}
+   541→   541→    </div>
+   542→   542→  );
+   543→   543→}
+   544→   544→
+   545→   545→/* ─────────── MAIN COMPONENT ─────────── */
+   546→   546→export function AdminDashboard({ activeTab }: { activeTab: string }) {
+   547→   547→  const user = useAuthStore((s) => s.user);
+   548→   548→
+   549→   549→  return (
+   550→   550→    <div className="min-h-screen bg-background">
+   551→   551→      <ScrollArea className="h-full">
+   552→   552→        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+   553→   553→          <div className="flex items-center gap-3">
+   554→   554→            <div className="w-10 h-10 rounded-xl bg-[#14532d] flex items-center justify-center">
+   555→   555→              <ShieldCheck className="w-5 h-5 text-white" />
+   556→   556→            </div>
+   557→   557→            <div>
+   558→   558→              <h1 className="text-xl md:text-2xl font-bold">Admin Dashboard</h1>
+   559→   559→              <p className="text-sm text-muted-foreground">Welcome back, {user?.name ?? 'Admin'}</p>
+   560→   560→            </div>
+   561→   561→          </div>
+   562→   562→
+   563→   563→          <AnimatePresence mode="wait">
+   564→   564→            {activeTab === 'overview' && <motion.div key="overview" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><OverviewTab /></motion.div>}
+   565→   565→            {activeTab === 'users' && <motion.div key="users" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><UsersTab /></motion.div>}
+   566→   566→            {activeTab === 'verifications' && <motion.div key="verifications" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><VerificationsTab /></motion.div>}
+   567→   567→            {activeTab === 'all-bookings' && <motion.div key="all-bookings" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><AllBookingsTab /></motion.div>}
+   568→   568→            {activeTab === 'complaints' && <motion.div key="complaints" variants={fadeVariants} initial="hidden" animate="visible" exit="exit"><ComplaintsTab /></motion.div>}
+   569→   569→          </AnimatePresence>
+   570→   570→        </div>
+   571→   571→      </ScrollArea>
+   572→   572→    </div>
+   573→   573→  );
+   574→   574→}
+   575→   575→

@@ -1,0 +1,852 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from "react";
+     4→     4→import {
+     5→     5→  X,
+     6→     6→  Eye,
+     7→     7→  EyeOff,
+     8→     8→  Loader2,
+     9→     9→  Mail,
+    10→    10→  Lock,
+    11→    11→  User,
+    12→    12→  Phone,
+    13→    13→  Heart,
+    14→    14→  ShieldCheck,
+    15→    15→  ArrowRight,
+    16→    16→  KeyRound,
+    17→    17→  CheckCircle2,
+    18→    18→} from "lucide-react";
+    19→    19→import { motion, AnimatePresence } from "framer-motion";
+    20→    20→import { signIn } from "next-auth/react";
+    21→    21→import { toast } from "sonner";
+    22→    22→import { useAuthStore } from "@/stores/authStore";
+    23→    23→import { api } from "@/lib/api";
+    24→    24→import {
+    25→    25→  Dialog,
+    26→    26→  DialogContent,
+    27→    27→  DialogHeader,
+    28→    28→  DialogTitle,
+    29→    29→  DialogDescription,
+    30→    30→} from "@/components/ui/dialog";
+    31→    31→import { Input } from "@/components/ui/input";
+    32→    32→import { Label } from "@/components/ui/label";
+    33→    33→import { Button } from "@/components/ui/button";
+    34→    34→import { Separator } from "@/components/ui/separator";
+    35→    35→
+    36→    36→/* ------------------------------------------------------------------ */
+    37→    37→/*  Props                                                              */
+    38→    38→/* ------------------------------------------------------------------ */
+    39→    39→interface LoginModalProps {
+    40→    40→  isOpen: boolean;
+    41→    41→  onClose: () => void;
+    42→    42→  defaultTab?: string;
+    43→    43→}
+    44→    44→
+    45→    45→/* ------------------------------------------------------------------ */
+    46→    46→/*  Types                                                              */
+    47→    47→/* ------------------------------------------------------------------ */
+    48→    48→type Tab = "login" | "register";
+    49→    49→type UserRole = "FAMILY" | "CAREGIVER";
+    50→    50→
+    51→    51→/* ------------------------------------------------------------------ */
+    52→    52→/*  Google SVG icon                                                    */
+    53→    53→/* ------------------------------------------------------------------ */
+    54→    54→function GoogleIcon({ className }: { className?: string }) {
+    55→    55→  return (
+    56→    56→    <svg
+    57→    57→      viewBox="0 0 24 24"
+    58→    58→      width="20"
+    59→    59→      height="20"
+    60→    60→      className={className}
+    61→    61→    >
+    62→    62→      <path
+    63→    63→        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+    64→    64→        fill="#4285F4"
+    65→    65→      />
+    66→    66→      <path
+    67→    67→        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    68→    68→        fill="#34A853"
+    69→    69→      />
+    70→    70→      <path
+    71→    71→        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+    72→    72→        fill="#FBBC05"
+    73→    73→      />
+    74→    74→      <path
+    75→    75→        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+    76→    76→        fill="#EA4335"
+    77→    77→      />
+    78→    78→    </svg>
+    79→    79→  );
+    80→    80→}
+    81→    81→
+    82→    82→/* ------------------------------------------------------------------ */
+    83→    83→/*  Animation variants                                                 */
+    84→    84→/* ------------------------------------------------------------------ */
+    85→    85→const overlayVariants = {
+    86→    86→  hidden: { opacity: 0 },
+    87→    87→  visible: { opacity: 1 },
+    88→    88→  exit: { opacity: 0 },
+    89→    89→};
+    90→    90→
+    91→    91→const modalVariants = {
+    92→    92→  hidden: { opacity: 0, scale: 0.92, y: 20 },
+    93→    93→  visible: {
+    94→    94→    opacity: 1,
+    95→    95→    scale: 1,
+    96→    96→    y: 0,
+    97→    97→    transition: { type: "spring", stiffness: 350, damping: 30 },
+    98→    98→  },
+    99→    99→  exit: {
+   100→   100→    opacity: 0,
+   101→   101→    scale: 0.92,
+   102→   102→    y: 20,
+   103→   103→    transition: { duration: 0.2 },
+   104→   104→  },
+   105→   105→};
+   106→   106→
+   107→   107→const contentVariants = {
+   108→   108→  enter: (tab: string) => ({
+   109→   109→    x: tab === "register" ? 40 : -40,
+   110→   110→    opacity: 0,
+   111→   111→  }),
+   112→   112→  center: {
+   113→   113→    x: 0,
+   114→   114→    opacity: 1,
+   115→   115→    transition: { type: "spring", stiffness: 300, damping: 28 },
+   116→   116→  },
+   117→   117→  exit: (tab: string) => ({
+   118→   118→    x: tab === "register" ? -40 : 40,
+   119→   119→    opacity: 0,
+   120→   120→    transition: { duration: 0.15 },
+   121→   121→  }),
+   122→   122→};
+   123→   123→
+   124→   124→/* ================================================================== */
+   125→   125→/*  MAIN COMPONENT                                                     */
+   126→   126→/* ================================================================== */
+   127→   127→export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalProps) {
+   128→   128→  /* ---- state ---- */
+   129→   129→  const [tab, setTab] = useState<Tab>(defaultTab === "register" ? "register" : "login");
+   130→   130→  const [showPassword, setShowPassword] = useState(false);
+   131→   131→  const [loading, setLoading] = useState(false);
+   132→   132→  const [googleLoading, setGoogleLoading] = useState(false);
+   133→   133→  const [error, setError] = useState("");
+   134→   134→  const [resetOpen, setResetOpen] = useState(false);
+   135→   135→
+   136→   136→  // Login form
+   137→   137→  const [loginEmail, setLoginEmail] = useState("");
+   138→   138→  const [loginPassword, setLoginPassword] = useState("");
+   139→   139→
+   140→   140→  // Register form
+   141→   141→  const [regName, setRegName] = useState("");
+   142→   142→  const [regEmail, setRegEmail] = useState("");
+   143→   143→  const [regPhone, setRegPhone] = useState("");
+   144→   144→  const [regPassword, setRegPassword] = useState("");
+   145→   145→  const [regRole, setRegRole] = useState<UserRole>("FAMILY");
+   146→   146→
+   147→   147→  // Reset form (simplified — no OTP)
+   148→   148→  const [resetEmail, setResetEmail] = useState("");
+   149→   149→  const [resetNewPassword, setResetNewPassword] = useState("");
+   150→   150→  const [resetLoading, setResetLoading] = useState(false);
+   151→   151→  const [resetError, setResetError] = useState("");
+   152→   152→  const [resetDone, setResetDone] = useState(false);
+   153→   153→
+   154→   154→  const { setAuth } = useAuthStore();
+   155→   155→
+   156→   156→  /* ---- reset form fields when switching tabs ---- */
+   157→   157→  useEffect(() => {
+   158→   158→    setError("");
+   159→   159→    setLoginPassword("");
+   160→   160→  }, [tab]);
+   161→   161→
+   162→   162→  /* ---- reset entire state when modal closes ---- */
+   163→   163→  const handleClose = useCallback(() => {
+   164→   164→    setTab(defaultTab === "register" ? "register" : "login");
+   165→   165→    setError("");
+   166→   166→    setShowPassword(false);
+   167→   167→    setLoading(false);
+   168→   168→    setGoogleLoading(false);
+   169→   169→    setLoginEmail("");
+   170→   170→    setLoginPassword("");
+   171→   171→    setRegName("");
+   172→   172→    setRegEmail("");
+   173→   173→    setRegPhone("");
+   174→   174→    setRegPassword("");
+   175→   175→    setRegRole("FAMILY");
+   176→   176→    setResetOpen(false);
+   177→   177→    setResetEmail("");
+   178→   178→    setResetNewPassword("");
+   179→   179→    setResetLoading(false);
+   180→   180→    setResetError("");
+   181→   181→    setResetDone(false);
+   182→   182→    onClose();
+   183→   183→  }, [onClose, defaultTab]);
+   184→   184→
+   185→   185→  /* ================================================================ */
+   186→   186→  /*  HANDLERS                                                         */
+   187→   187→  /* ================================================================ */
+   188→   188→
+   189→   189→  /* ---- Google sign-in ---- */
+   190→   190→  const handleGoogleSignIn = async () => {
+   191→   191→    setGoogleLoading(true);
+   192→   192→    // Google OAuth requires a production domain with registered API credentials.
+   193→   193→    // In this environment the callback URL (localhost) is not accessible from your browser,
+   194→   194→    // so the OAuth flow cannot complete. Show a helpful message instead.
+   195→   195→    setTimeout(() => {
+   196→   196→      toast.error("Google Sign-In is not available in this environment.", {
+   197→   197→        duration: 6000,
+   198→   198→        description: "Please use email/password to login. Google login will work when deployed to production with a registered domain.",
+   199→   199→      });
+   200→   200→      setGoogleLoading(false);
+   201→   201→    }, 600);
+   202→   202→  };
+   203→   203→
+   204→   204→  /* ---- Email / password login ---- */
+   205→   205→  const handleLogin = async (e: React.FormEvent) => {
+   206→   206→    e.preventDefault();
+   207→   207→    if (!loginEmail.trim() || !loginPassword.trim()) {
+   208→   208→      setError("Please enter your email and password.");
+   209→   209→      return;
+   210→   210→    }
+   211→   211→    setLoading(true);
+   212→   212→    setError("");
+   213→   213→    try {
+   214→   214→      const result = await signIn("credentials", {
+   215→   215→        email: loginEmail.trim(),
+   216→   216→        password: loginPassword,
+   217→   217→        redirect: false,
+   218→   218→      });
+   219→   219→
+   220→   220→      if (result?.error) {
+   221→   221→        setError("Invalid email or password. Please try again.");
+   222→   222→        return;
+   223→   223→      }
+   224→   224→
+   225→   225→      // AuthSync in AuthProvider will automatically sync session → Zustand store
+   226→   226→      toast.success("Welcome back! 🎉");
+   227→   227→      handleClose();
+   228→   228→    } catch {
+   229→   229→      setError("Something went wrong. Please try again.");
+   230→   230→    } finally {
+   231→   231→      setLoading(false);
+   232→   232→    }
+   233→   233→  };
+   234→   234→
+   235→   235→  /* ---- Registration ---- */
+   236→   236→  const handleRegister = async (e: React.FormEvent) => {
+   237→   237→    e.preventDefault();
+   238→   238→    if (!regName.trim() || !regEmail.trim() || !regPhone.trim() || !regPassword.trim()) {
+   239→   239→      setError("Please fill in all fields.");
+   240→   240→      return;
+   241→   241→    }
+   242→   242→    if (regPassword.length < 6) {
+   243→   243→      setError("Password must be at least 6 characters.");
+   244→   244→      return;
+   245→   245→    }
+   246→   246→    setLoading(true);
+   247→   247→    setError("");
+   248→   248→    try {
+   249→   249→      // 1. Register
+   250→   250→      const regRes = await api.auth.register({
+   251→   251→        name: regName.trim(),
+   252→   252→        email: regEmail.trim(),
+   253→   253→        phone: regPhone.trim(),
+   254→   254→        password: regPassword,
+   255→   255→        role: regRole,
+   256→   256→      });
+   257→   257→
+   258→   258→      // 2. Auto-login with credentials
+   259→   259→      const loginResult = await signIn("credentials", {
+   260→   260→        email: regEmail.trim(),
+   261→   261→        password: regPassword,
+   262→   262→        redirect: false,
+   263→   263→      });
+   264→   264→
+   265→   265→      if (loginResult?.error) {
+   266→   266→        // Registration succeeded but auto-login failed — that's ok, just notify
+   267→   267→        toast.success("Account created! Please log in.");
+   268→   268→        setTab("login");
+   269→   269→        setLoginEmail(regEmail.trim());
+   270→   270→        return;
+   271→   271→      }
+   272→   272→
+   273→   273→      toast.success("Welcome to SevaSaathi! 🎉");
+   274→   274→      handleClose();
+   275→   275→    } catch (err: any) {
+   276→   276→      setError(err?.message || "Registration failed. Please try again.");
+   277→   277→    } finally {
+   278→   278→      setLoading(false);
+   279→   279→    }
+   280→   280→  };
+   281→   281→
+   282→   282→  /* ---- Reset password (simplified) ---- */
+   283→   283→  const handleReset = async (e: React.FormEvent) => {
+   284→   284→    e.preventDefault();
+   285→   285→    if (!resetEmail.trim() || !resetNewPassword.trim()) {
+   286→   286→      setResetError("Please enter your email and new password.");
+   287→   287→      return;
+   288→   288→    }
+   289→   289→    if (resetNewPassword.length < 6) {
+   290→   290→      setResetError("Password must be at least 6 characters.");
+   291→   291→      return;
+   292→   292→    }
+   293→   293→    setResetLoading(true);
+   294→   294→    setResetError("");
+   295→   295→    try {
+   296→   296→      const res = await fetch("/api/auth/reset-password", {
+   297→   297→        method: "POST",
+   298→   298→        headers: { "Content-Type": "application/json" },
+   299→   299→        body: JSON.stringify({ email: resetEmail.trim(), newPassword: resetNewPassword }),
+   300→   300→      });
+   301→   301→      const data = await res.json();
+   302→   302→      if (!res.ok) {
+   303→   303→        setResetError(data.error || "Failed to reset password.");
+   304→   304→        return;
+   305→   305→      }
+   306→   306→      setResetDone(true);
+   307→   307→      toast.success("Password reset successfully!");
+   308→   308→    } catch {
+   309→   309→      setResetError("Something went wrong. Please try again.");
+   310→   310→    } finally {
+   311→   311→      setResetLoading(false);
+   312→   312→    }
+   313→   313→  };
+   314→   314→
+   315→   315→  /* ================================================================ */
+   316→   316→  /*  RENDER                                                           */
+   317→   317→  /* ================================================================ */
+   318→   318→  return (
+   319→   319→    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+   320→   320→      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-forest-200/40">
+   321→   321→        {/* Custom X button to override default position */}
+   322→   322→        <button
+   323→   323→          onClick={handleClose}
+   324→   324→          className="absolute top-3 right-3 z-50 rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+   325→   325→          aria-label="Close"
+   326→   326→        >
+   327→   327→          <X className="w-5 h-5" />
+   328→   328→        </button>
+   329→   329→
+   330→   330→        <div className="px-6 pt-6 pb-2">
+   331→   331→          <DialogHeader className="space-y-1 mb-1">
+   332→   332→            <div className="flex items-center gap-2 justify-center">
+   333→   333→              <div className="w-9 h-9 rounded-xl bg-forest-900 flex items-center justify-center">
+   334→   334→                <Heart className="w-5 h-5 text-lime-400" />
+   335→   335→              </div>
+   336→   336→              <DialogTitle className="text-xl font-bold text-forest-900">
+   337→   337→                SevaSaathi
+   338→   338→              </DialogTitle>
+   339→   339→            </div>
+   340→   340→            <DialogDescription className="text-sm text-gray-500 mt-1">
+   341→   341→              {tab === "login"
+   342→   342→                ? "Sign in to your account"
+   343→   343→                : "Create your account to get started"}
+   344→   344→            </DialogDescription>
+   345→   345→          </DialogHeader>
+   346→   346→        </div>
+   347→   347→
+   348→   348→        {/* ---- Error banner ---- */}
+   349→   349→        <AnimatePresence>
+   350→   350→          {error && (
+   351→   351→            <motion.div
+   352→   352→              initial={{ height: 0, opacity: 0 }}
+   353→   353→              animate={{ height: "auto", opacity: 1 }}
+   354→   354→              exit={{ height: 0, opacity: 0 }}
+   355→   355→              className="overflow-hidden"
+   356→   356→            >
+   357→   357→              <div className="mx-6 mt-1 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+   358→   358→                <X className="w-4 h-4 flex-shrink-0" />
+   359→   359→                {error}
+   360→   360→              </div>
+   361→   361→            </motion.div>
+   362→   362→          )}
+   363→   363→        </AnimatePresence>
+   364→   364→
+   365→   365→        {/* ---- Tab switcher ---- */}
+   366→   366→        <div className="px-6 pt-3">
+   367→   367→          <div className="flex bg-gray-100 rounded-lg p-1">
+   368→   368→            <button
+   369→   369→              onClick={() => setTab("login")}
+   370→   370→              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+   371→   371→                tab === "login"
+   372→   372→                  ? "bg-white text-forest-900 shadow-sm"
+   373→   373→                  : "text-gray-500 hover:text-gray-700"
+   374→   374→              }`}
+   375→   375→            >
+   376→   376→              Sign In
+   377→   377→            </button>
+   378→   378→            <button
+   379→   379→              onClick={() => setTab("register")}
+   380→   380→              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+   381→   381→                tab === "register"
+   382→   382→                  ? "bg-white text-forest-900 shadow-sm"
+   383→   383→                  : "text-gray-500 hover:text-gray-700"
+   384→   384→              }`}
+   385→   385→            >
+   386→   386→              Create Account
+   387→   387→            </button>
+   388→   388→          </div>
+   389→   389→        </div>
+   390→   390→
+   391→   391→        {/* ---- Animated content ---- */}
+   392→   392→        <div className="px-6 py-4 overflow-hidden">
+   393→   393→          <AnimatePresence mode="wait" custom={tab}>
+   394→   394→            {/* ========== LOGIN TAB ========== */}
+   395→   395→            {tab === "login" && (
+   396→   396→              <motion.div
+   397→   397→                key="login"
+   398→   398→                custom={tab}
+   399→   399→                variants={contentVariants}
+   400→   400→                initial="enter"
+   401→   401→                animate="center"
+   402→   402→                exit="exit"
+   403→   403→                className="space-y-4"
+   404→   404→              >
+   405→   405→                {/* Google button */}
+   406→   406→                <button
+   407→   407→                  type="button"
+   408→   408→                  onClick={handleGoogleSignIn}
+   409→   409→                  disabled={googleLoading}
+   410→   410→                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+   411→   411→                >
+   412→   412→                  {googleLoading ? (
+   413→   413→                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+   414→   414→                  ) : (
+   415→   415→                    <GoogleIcon />
+   416→   416→                  )}
+   417→   417→                  Continue with Google
+   418→   418→                </button>
+   419→   419→
+   420→   420→                {/* Divider */}
+   421→   421→                <div className="flex items-center gap-3">
+   422→   422→                  <div className="flex-1 h-px bg-gray-200" />
+   423→   423→                  <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+   424→   424→                    or continue with email
+   425→   425→                  </span>
+   426→   426→                  <div className="flex-1 h-px bg-gray-200" />
+   427→   427→                </div>
+   428→   428→
+   429→   429→                {/* Email / password form */}
+   430→   430→                <form onSubmit={handleLogin} className="space-y-3">
+   431→   431→                  <div className="space-y-1.5">
+   432→   432→                    <Label htmlFor="login-email" className="text-sm font-medium text-gray-700">
+   433→   433→                      Email
+   434→   434→                    </Label>
+   435→   435→                    <div className="relative">
+   436→   436→                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   437→   437→                      <Input
+   438→   438→                        id="login-email"
+   439→   439→                        type="email"
+   440→   440→                        placeholder="you@example.com"
+   441→   441→                        value={loginEmail}
+   442→   442→                        onChange={(e) => setLoginEmail(e.target.value)}
+   443→   443→                        className="pl-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   444→   444→                        autoComplete="email"
+   445→   445→                        disabled={loading}
+   446→   446→                      />
+   447→   447→                    </div>
+   448→   448→                  </div>
+   449→   449→
+   450→   450→                  <div className="space-y-1.5">
+   451→   451→                    <div className="flex items-center justify-between">
+   452→   452→                      <Label htmlFor="login-password" className="text-sm font-medium text-gray-700">
+   453→   453→                        Password
+   454→   454→                      </Label>
+   455→   455→                      <button
+   456→   456→                        type="button"
+   457→   457→                        onClick={() => setResetOpen(true)}
+   458→   458→                        className="text-xs font-medium text-forest-700 hover:text-forest-900 transition-colors"
+   459→   459→                      >
+   460→   460→                        Forgot password?
+   461→   461→                      </button>
+   462→   462→                    </div>
+   463→   463→                    <div className="relative">
+   464→   464→                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   465→   465→                      <Input
+   466→   466→                        id="login-password"
+   467→   467→                        type={showPassword ? "text" : "password"}
+   468→   468→                        placeholder="Enter your password"
+   469→   469→                        value={loginPassword}
+   470→   470→                        onChange={(e) => setLoginPassword(e.target.value)}
+   471→   471→                        className="pl-10 pr-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   472→   472→                        autoComplete="current-password"
+   473→   473→                        disabled={loading}
+   474→   474→                      />
+   475→   475→                      <button
+   476→   476→                        type="button"
+   477→   477→                        onClick={() => setShowPassword(!showPassword)}
+   478→   478→                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+   479→   479→                        tabIndex={-1}
+   480→   480→                      >
+   481→   481→                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   482→   482→                      </button>
+   483→   483→                    </div>
+   484→   484→                  </div>
+   485→   485→
+   486→   486→                  <Button
+   487→   487→                    type="submit"
+   488→   488→                    disabled={loading}
+   489→   489→                    className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md"
+   490→   490→                  >
+   491→   491→                    {loading ? (
+   492→   492→                      <>
+   493→   493→                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+   494→   494→                        Signing in...
+   495→   495→                      </>
+   496→   496→                    ) : (
+   497→   497→                      <>
+   498→   498→                        Sign In
+   499→   499→                        <ArrowRight className="w-4 h-4 ml-2" />
+   500→   500→                      </>
+   501→   501→                    )}
+   502→   502→                  </Button>
+   503→   503→                </form>
+   504→   504→
+   505→   505→                {/* Switch to register */}
+   506→   506→                <p className="text-center text-sm text-gray-500 pt-1">
+   507→   507→                  Don&apos;t have an account?{" "}
+   508→   508→                  <button
+   509→   509→                    onClick={() => setTab("register")}
+   510→   510→                    className="font-semibold text-forest-700 hover:text-forest-900 transition-colors"
+   511→   511→                  >
+   512→   512→                    Create one
+   513→   513→                  </button>
+   514→   514→                </p>
+   515→   515→              </motion.div>
+   516→   516→            )}
+   517→   517→
+   518→   518→            {/* ========== REGISTER TAB ========== */}
+   519→   519→            {tab === "register" && (
+   520→   520→              <motion.div
+   521→   521→                key="register"
+   522→   522→                custom={tab}
+   523→   523→                variants={contentVariants}
+   524→   524→                initial="enter"
+   525→   525→                animate="center"
+   526→   526→                exit="exit"
+   527→   527→                className="space-y-4"
+   528→   528→              >
+   529→   529→                {/* Google button */}
+   530→   530→                <button
+   531→   531→                  type="button"
+   532→   532→                  onClick={handleGoogleSignIn}
+   533→   533→                  disabled={googleLoading}
+   534→   534→                  className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+   535→   535→                >
+   536→   536→                  {googleLoading ? (
+   537→   537→                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+   538→   538→                  ) : (
+   539→   539→                    <GoogleIcon />
+   540→   540→                  )}
+   541→   541→                  Sign up with Google
+   542→   542→                </button>
+   543→   543→
+   544→   544→                {/* Divider */}
+   545→   545→                <div className="flex items-center gap-3">
+   546→   546→                  <div className="flex-1 h-px bg-gray-200" />
+   547→   547→                  <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+   548→   548→                    or register with email
+   549→   549→                  </span>
+   550→   550→                  <div className="flex-1 h-px bg-gray-200" />
+   551→   551→                </div>
+   552→   552→
+   553→   553→                {/* Registration form */}
+   554→   554→                <form onSubmit={handleRegister} className="space-y-3">
+   555→   555→                  {/* Name */}
+   556→   556→                  <div className="space-y-1.5">
+   557→   557→                    <Label htmlFor="reg-name" className="text-sm font-medium text-gray-700">
+   558→   558→                      Full Name
+   559→   559→                    </Label>
+   560→   560→                    <div className="relative">
+   561→   561→                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   562→   562→                      <Input
+   563→   563→                        id="reg-name"
+   564→   564→                        type="text"
+   565→   565→                        placeholder="Your full name"
+   566→   566→                        value={regName}
+   567→   567→                        onChange={(e) => setRegName(e.target.value)}
+   568→   568→                        className="pl-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   569→   569→                        autoComplete="name"
+   570→   570→                        disabled={loading}
+   571→   571→                      />
+   572→   572→                    </div>
+   573→   573→                  </div>
+   574→   574→
+   575→   575→                  {/* Email */}
+   576→   576→                  <div className="space-y-1.5">
+   577→   577→                    <Label htmlFor="reg-email" className="text-sm font-medium text-gray-700">
+   578→   578→                      Email
+   579→   579→                    </Label>
+   580→   580→                    <div className="relative">
+   581→   581→                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   582→   582→                      <Input
+   583→   583→                        id="reg-email"
+   584→   584→                        type="email"
+   585→   585→                        placeholder="you@example.com"
+   586→   586→                        value={regEmail}
+   587→   587→                        onChange={(e) => setRegEmail(e.target.value)}
+   588→   588→                        className="pl-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   589→   589→                        autoComplete="email"
+   590→   590→                        disabled={loading}
+   591→   591→                      />
+   592→   592→                    </div>
+   593→   593→                  </div>
+   594→   594→
+   595→   595→                  {/* Phone */}
+   596→   596→                  <div className="space-y-1.5">
+   597→   597→                    <Label htmlFor="reg-phone" className="text-sm font-medium text-gray-700">
+   598→   598→                      Phone Number
+   599→   599→                    </Label>
+   600→   600→                    <div className="relative">
+   601→   601→                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   602→   602→                      <Input
+   603→   603→                        id="reg-phone"
+   604→   604→                        type="tel"
+   605→   605→                        placeholder="+91 98765 43210"
+   606→   606→                        value={regPhone}
+   607→   607→                        onChange={(e) => setRegPhone(e.target.value)}
+   608→   608→                        className="pl-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   609→   609→                        autoComplete="tel"
+   610→   610→                        disabled={loading}
+   611→   611→                      />
+   612→   612→                    </div>
+   613→   613→                  </div>
+   614→   614→
+   615→   615→                  {/* Role selector */}
+   616→   616→                  <div className="space-y-1.5">
+   617→   617→                    <Label className="text-sm font-medium text-gray-700">
+   618→   618→                      I am a
+   619→   619→                    </Label>
+   620→   620→                    <div className="grid grid-cols-2 gap-2">
+   621→   621→                      <button
+   622→   622→                        type="button"
+   623→   623→                        onClick={() => setRegRole("FAMILY")}
+   624→   624→                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-150 ${
+   625→   625→                          regRole === "FAMILY"
+   626→   626→                            ? "border-forest-500 bg-forest-50 text-forest-900"
+   627→   627→                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+   628→   628→                        }`}
+   629→   629→                      >
+   630→   630→                        <Heart className={`w-4 h-4 ${regRole === "FAMILY" ? "text-forest-600" : "text-gray-400"}`} />
+   631→   631→                        Family
+   632→   632→                      </button>
+   633→   633→                      <button
+   634→   634→                        type="button"
+   635→   635→                        onClick={() => setRegRole("CAREGIVER")}
+   636→   636→                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-150 ${
+   637→   637→                          regRole === "CAREGIVER"
+   638→   638→                            ? "border-forest-500 bg-forest-50 text-forest-900"
+   639→   639→                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+   640→   640→                        }`}
+   641→   641→                      >
+   642→   642→                        <ShieldCheck className={`w-4 h-4 ${regRole === "CAREGIVER" ? "text-forest-600" : "text-gray-400"}`} />
+   643→   643→                        Caregiver
+   644→   644→                      </button>
+   645→   645→                    </div>
+   646→   646→                  </div>
+   647→   647→
+   648→   648→                  {/* Password */}
+   649→   649→                  <div className="space-y-1.5">
+   650→   650→                    <Label htmlFor="reg-password" className="text-sm font-medium text-gray-700">
+   651→   651→                      Password
+   652→   652→                    </Label>
+   653→   653→                    <div className="relative">
+   654→   654→                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   655→   655→                      <Input
+   656→   656→                        id="reg-password"
+   657→   657→                        type={showPassword ? "text" : "password"}
+   658→   658→                        placeholder="At least 6 characters"
+   659→   659→                        value={regPassword}
+   660→   660→                        onChange={(e) => setRegPassword(e.target.value)}
+   661→   661→                        className="pl-10 pr-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   662→   662→                        autoComplete="new-password"
+   663→   663→                        disabled={loading}
+   664→   664→                      />
+   665→   665→                      <button
+   666→   666→                        type="button"
+   667→   667→                        onClick={() => setShowPassword(!showPassword)}
+   668→   668→                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+   669→   669→                        tabIndex={-1}
+   670→   670→                      >
+   671→   671→                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   672→   672→                      </button>
+   673→   673→                    </div>
+   674→   674→                  </div>
+   675→   675→
+   676→   676→                  <Button
+   677→   677→                    type="submit"
+   678→   678→                    disabled={loading}
+   679→   679→                    className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md"
+   680→   680→                  >
+   681→   681→                    {loading ? (
+   682→   682→                      <>
+   683→   683→                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+   684→   684→                        Creating account...
+   685→   685→                      </>
+   686→   686→                    ) : (
+   687→   687→                      <>
+   688→   688→                        Create Account
+   689→   689→                        <ArrowRight className="w-4 h-4 ml-2" />
+   690→   690→                      </>
+   691→   691→                    )}
+   692→   692→                  </Button>
+   693→   693→                </form>
+   694→   694→
+   695→   695→                {/* Switch to login */}
+   696→   696→                <p className="text-center text-sm text-gray-500 pt-1">
+   697→   697→                  Already have an account?{" "}
+   698→   698→                  <button
+   699→   699→                    onClick={() => setTab("login")}
+   700→   700→                    className="font-semibold text-forest-700 hover:text-forest-900 transition-colors"
+   701→   701→                  >
+   702→   702→                    Sign in
+   703→   703→                  </button>
+   704→   704→                </p>
+   705→   705→              </motion.div>
+   706→   706→            )}
+   707→   707→          </AnimatePresence>
+   708→   708→        </div>
+   709→   709→
+   710→   710→        {/* ---- Footer ---- */}
+   711→   711→        <div className="px-6 pb-5">
+   712→   712→          <p className="text-center text-[11px] text-gray-400 leading-relaxed">
+   713→   713→            By continuing, you agree to SevaSaathi&apos;s{" "}
+   714→   714→            <span className="underline cursor-pointer hover:text-gray-600">Terms of Service</span>
+   715→   715→            {" "}and{" "}
+   716→   716→            <span className="underline cursor-pointer hover:text-gray-600">Privacy Policy</span>
+   717→   717→          </p>
+   718→   718→        </div>
+   719→   719→      </DialogContent>
+   720→   720→
+   721→   721→      {/* ============================================================ */}
+   722→   722→      {/*  FORGOT PASSWORD DIALOG                                      */}
+   723→   723→      {/* ============================================================ */}
+   724→   724→      <Dialog open={resetOpen} onOpenChange={(open) => !open && setResetOpen(false)}>
+   725→   725→        <DialogContent className="sm:max-w-sm p-0 overflow-hidden border-forest-200/40">
+   726→   726→          <div className="px-6 pt-6 pb-2">
+   727→   727→            <DialogHeader>
+   728→   728→              <div className="flex items-center justify-center mb-2">
+   729→   729→                <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center">
+   730→   730→                  <KeyRound className="w-5 h-5 text-forest-700" />
+   731→   731→                </div>
+   732→   732→              </div>
+   733→   733→              <DialogTitle className="text-lg font-bold text-forest-900 text-center">
+   734→   734→                Reset Password
+   735→   735→              </DialogTitle>
+   736→   736→              <DialogDescription className="text-sm text-gray-500 text-center">
+   737→   737→                Enter your email and a new password to reset your account.
+   738→   738→              </DialogDescription>
+   739→   739→            </DialogHeader>
+   740→   740→          </div>
+   741→   741→
+   742→   742→          {/* Error */}
+   743→   743→          <AnimatePresence>
+   744→   744→            {resetError && (
+   745→   745→              <motion.div
+   746→   746→                initial={{ height: 0, opacity: 0 }}
+   747→   747→                animate={{ height: "auto", opacity: 1 }}
+   748→   748→                exit={{ height: 0, opacity: 0 }}
+   749→   749→                className="overflow-hidden"
+   750→   750→              >
+   751→   751→                <div className="mx-6 mt-1 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+   752→   752→                  <X className="w-4 h-4 flex-shrink-0" />
+   753→   753→                  {resetError}
+   754→   754→                </div>
+   755→   755→              </motion.div>
+   756→   756→            )}
+   757→   757→          </AnimatePresence>
+   758→   758→
+   759→   759→          {/* Success state */}
+   760→   760→          {resetDone ? (
+   761→   761→            <div className="px-6 py-8 text-center space-y-3">
+   762→   762→              <div className="flex justify-center">
+   763→   763→                <CheckCircle2 className="w-12 h-12 text-green-500" />
+   764→   764→              </div>
+   765→   765→              <p className="text-sm text-gray-700 font-medium">
+   766→   766→                Password reset successfully!
+   767→   767→              </p>
+   768→   768→              <p className="text-xs text-gray-500">
+   769→   769→                You can now sign in with your new password.
+   770→   770→              </p>
+   771→   771→              <Button
+   772→   772→                onClick={() => {
+   773→   773→                  setResetOpen(false);
+   774→   774→                  setResetDone(false);
+   775→   775→                }}
+   776→   776→                className="mt-2 bg-forest-900 hover:bg-forest-800 text-white font-medium rounded-lg"
+   777→   777→              >
+   778→   778→                Back to Sign In
+   779→   779→              </Button>
+   780→   780→            </div>
+   781→   781→          ) : (
+   782→   782→            <div className="px-6 py-4">
+   783→   783→              <form onSubmit={handleReset} className="space-y-3">
+   784→   784→                <div className="space-y-1.5">
+   785→   785→                  <Label htmlFor="reset-email" className="text-sm font-medium text-gray-700">
+   786→   786→                    Email
+   787→   787→                  </Label>
+   788→   788→                  <div className="relative">
+   789→   789→                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   790→   790→                    <Input
+   791→   791→                      id="reset-email"
+   792→   792→                      type="email"
+   793→   793→                      placeholder="you@example.com"
+   794→   794→                      value={resetEmail}
+   795→   795→                      onChange={(e) => setResetEmail(e.target.value)}
+   796→   796→                      className="pl-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   797→   797→                      autoComplete="email"
+   798→   798→                      disabled={resetLoading}
+   799→   799→                    />
+   800→   800→                  </div>
+   801→   801→                </div>
+   802→   802→
+   803→   803→                <div className="space-y-1.5">
+   804→   804→                  <Label htmlFor="reset-password" className="text-sm font-medium text-gray-700">
+   805→   805→                    New Password
+   806→   806→                  </Label>
+   807→   807→                  <div className="relative">
+   808→   808→                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   809→   809→                    <Input
+   810→   810→                      id="reset-password"
+   811→   811→                      type={showPassword ? "text" : "password"}
+   812→   812→                      placeholder="At least 6 characters"
+   813→   813→                      value={resetNewPassword}
+   814→   814→                      onChange={(e) => setResetNewPassword(e.target.value)}
+   815→   815→                      className="pl-10 pr-10 h-11 border-gray-300 focus:border-forest-500 focus:ring-forest-500"
+   816→   816→                      autoComplete="new-password"
+   817→   817→                      disabled={resetLoading}
+   818→   818→                    />
+   819→   819→                    <button
+   820→   820→                      type="button"
+   821→   821→                      onClick={() => setShowPassword(!showPassword)}
+   822→   822→                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+   823→   823→                      tabIndex={-1}
+   824→   824→                    >
+   825→   825→                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   826→   826→                    </button>
+   827→   827→                  </div>
+   828→   828→                </div>
+   829→   829→
+   830→   830→                <Button
+   831→   831→                  type="submit"
+   832→   832→                  disabled={resetLoading}
+   833→   833→                  className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md"
+   834→   834→                >
+   835→   835→                  {resetLoading ? (
+   836→   836→                    <>
+   837→   837→                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+   838→   838→                      Resetting...
+   839→   839→                    </>
+   840→   840→                  ) : (
+   841→   841→                    "Reset Password"
+   842→   842→                  )}
+   843→   843→                </Button>
+   844→   844→              </form>
+   845→   845→            </div>
+   846→   846→          )}
+   847→   847→        </DialogContent>
+   848→   848→      </Dialog>
+   849→   849→    </Dialog>
+   850→   850→  );
+   851→   851→}
+   852→   852→

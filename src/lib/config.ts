@@ -95,6 +95,14 @@ export async function seedConfigsFromEnv(): Promise<number> {
     { section: 'SMTP', key: 'PASS', envKey: 'SMTP_PASS', label: 'SMTP Password (App Password)', isSecret: true },
     // SMS
     { section: 'SMS', key: 'FAST2SMS_API_KEY', envKey: 'FAST2SMS_API_KEY', label: 'Fast2SMS API Key', isSecret: true },
+    // Brevo (Email)
+    { section: 'BREVO', key: 'API_KEY', envKey: 'BREVO_API_KEY', label: 'Brevo API Key', isSecret: true },
+    // Firebase (Phone Auth)
+    { section: 'FIREBASE', key: 'API_KEY', envKey: 'FIREBASE_API_KEY', label: 'Firebase API Key', isSecret: false },
+    { section: 'FIREBASE', key: 'AUTH_DOMAIN', envKey: 'FIREBASE_AUTH_DOMAIN', label: 'Firebase Auth Domain', isSecret: false },
+    { section: 'FIREBASE', key: 'PROJECT_ID', envKey: 'FIREBASE_PROJECT_ID', label: 'Firebase Project ID', isSecret: false },
+    { section: 'FIREBASE', key: 'CLIENT_EMAIL', envKey: 'FIREBASE_CLIENT_EMAIL', label: 'Firebase Admin Client Email', isSecret: true },
+    { section: 'FIREBASE', key: 'PRIVATE_KEY', envKey: 'FIREBASE_PRIVATE_KEY', label: 'Firebase Admin Private Key', isSecret: true },
     // Platform
     { section: 'PLATFORM', key: 'UPI_ID', envKey: 'PLATFORM_UPI_ID', label: 'Platform UPI ID', isSecret: false },
     { section: 'PLATFORM', key: 'UPI_NAME', envKey: 'PLATFORM_UPI_NAME', label: 'Platform UPI Display Name', isSecret: false },

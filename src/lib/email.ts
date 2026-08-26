@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { db } from './db';
 import { getSmtpHost, getSmtpPort, getSmtpUser, getSmtpPass } from './config';
+import { sendBrevoEmail, isBrevoConfigured, logEmailToDb } from './brevo';
 
 interface EmailOptions {
   to: string;
@@ -27,11 +28,26 @@ async function getTransporterAsync() {
 
 /**
  * Email service for SevaSaathi
- * - With SMTP credentials (from DB or env): Sends real emails via Gmail SMTP
- * - Without: Logs to console + database (dev mode)
+ * Priority:
+ * 1. Brevo API (if configured) — free 300 emails/day
+ * 2. SMTP (if configured) — Gmail/custom SMTP
+ * 3. Dev mode — log to console + database
  */
 export async function sendEmail({ to, subject, html, userId, type }: EmailOptions) {
   try {
+    // --- Try Brevo first ---
+    const brevoReady = await isBrevoConfigured();
+    if (brevoReady) {
+      const result = await sendBrevoEmail({ to, subject, html });
+      if (result.success) {
+        await logEmailToDb({ to, subject, html, status: 'sent', userId, type, externalId: result.messageId });
+        return { success: true, messageId: result.messageId };
+      }
+      // Brevo failed — fall through to SMTP
+      console.warn(`Brevo failed (${result.error}), falling back to SMTP...`);
+    }
+
+    // --- Try SMTP ---
     const transporter = await getTransporterAsync();
     const smtpUser = await getSmtpUser();
 
@@ -45,32 +61,23 @@ export async function sendEmail({ to, subject, html, userId, type }: EmailOption
 
       console.log(`\n📧 EMAIL SENT via SMTP -> ${to}`);
       console.log(`   Subject: ${subject}`);
-      console.log(`   Message ID: ${info.messageId}`);
-      console.log(`   Type: ${type || 'general'}\n`);
+      console.log(`   Message ID: ${info.messageId}\n`);
 
-      await db.emailLog.create({
-        data: { to, subject, body: html, status: 'sent', userId, type, externalId: info.messageId },
-      });
-
+      await logEmailToDb({ to, subject, html, status: 'sent', userId, type, externalId: info.messageId });
       return { success: true, messageId: info.messageId };
     }
 
-    // Development: Log to console and database
+    // --- Dev mode: Log to console and database ---
     console.log(`\n📧 EMAIL (DEV MODE) -> ${to}`);
     console.log(`   Subject: ${subject}`);
     console.log(`   Type: ${type || 'general'}`);
-    console.log(`   ⚠️ Configure SMTP in Admin > Credentials for real delivery\n`);
+    console.log(`   ⚠️ Configure Brevo API key in Admin > Settings for real delivery\n`);
 
-    await db.emailLog.create({
-      data: { to, subject, body: html, status: 'sent', userId, type },
-    });
-
+    await logEmailToDb({ to, subject, html, status: 'sent', userId, type });
     return { success: true };
   } catch (err: any) {
     console.error('Email send error:', err?.message || err);
-    await db.emailLog.create({
-      data: { to, subject, body: html, status: 'failed', userId, type },
-    }).catch(() => {});
+    await logEmailToDb({ to, subject, html, status: 'failed', userId, type }).catch(() => {});
     return { success: false, error: err?.message || 'Failed to send email' };
   }
 }

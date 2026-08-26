@@ -639,3 +639,28 @@ Stage Summary:
 - Phone verification: One-click auto-verify, no OTP dialog, no Dev OTP text
 - Phone number: Masked (******8046) everywhere
 - Single verification banner (no duplicates)
+---
+Task ID: 7
+Agent: main
+Task: Integrate Brevo for email and Firebase for phone OTP
+
+Work Log:
+- Installed firebase and firebase-admin npm packages
+- Created src/lib/brevo.ts — Brevo REST API v3 email service
+- Updated src/lib/email.ts — Brevo as primary email provider, SMTP as fallback
+- Created src/lib/firebase-admin.ts — Firebase Admin SDK (lazy init, server-only)
+- Created src/app/api/auth/firebase-config/route.ts — Public Firebase config endpoint
+- Updated src/app/api/auth/send-phone-otp/route.ts — Returns useFirebase flag when configured
+- Updated src/app/api/auth/verify-phone-otp/route.ts — Supports Firebase token verification
+- Updated src/app/api/auth/send-otp/route.ts — Uses Brevo for real email OTP delivery
+- Created src/hooks/useFirebasePhoneAuth.ts — Client-side Firebase phone auth hook
+- Updated src/components/dashboard/PhoneVerification.tsx — Firebase OTP flow + fallback
+- Updated src/lib/api.ts — Added firebaseToken param to verifyPhoneOtp
+- Updated src/lib/config.ts — Added Brevo and Firebase config entries for admin settings
+- Updated .env.production.example with Brevo and Firebase env vars
+
+Stage Summary:
+- Brevo integration: 300 emails/day free via REST API, falls back to SMTP if Brevo fails
+- Firebase integration: Real phone OTP via Firebase Auth, client SDK sends SMS + reCAPTCHA, server verifies ID token
+- Admin can configure all Brevo/Firebase credentials from Settings page (no code changes needed)
+- Fallback: If neither is configured, dev mode works as before
