@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2,
   Loader2,
-  IndianRupee,
   Shield,
   XCircle,
   CreditCard,
@@ -30,7 +29,7 @@ interface PaymentDialogProps {
   onSuccess?: () => void;
 }
 
-type PaymentStep = 'init' | 'loading' | 'checkout' | 'verifying' | 'success' | 'failed';
+type PaymentStep = 'init' | 'loading' | 'failed';
 
 // Razorpay types for the global script
 interface RazorpayOptions {
@@ -82,6 +81,14 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
   const [step, setStep] = useState<PaymentStep>('init');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const onCloseRef = useRef(onClose);
+  const onSuccessRef = useRef(onSuccess);
+  const bookingRef = useRef(booking);
+
+  // Keep refs fresh
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { onSuccessRef.current = onSuccess; }, [onSuccess]);
+  useEffect(() => { bookingRef.current = booking; }, [booking]);
 
   const totalAmount = booking?.totalAmount || 0;
   const platformFee = Math.round(totalAmount * 0.10);
@@ -92,7 +99,7 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
     : 'N/A';
   const paymentRef = booking ? `SS-${booking.id.slice(-8).toUpperCase()}` : '';
 
-  // Reset state when dialog opens/closes
+  // Reset state when dialog opens
   useEffect(() => {
     if (isOpen) {
       setStep('init');
@@ -101,7 +108,8 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
   }, [isOpen]);
 
   const openRazorpayCheckout = useCallback(async () => {
-    if (!booking) return;
+    const currentBooking = bookingRef.current;
+    if (!currentBooking) return;
     setLoading(true);
     setStep('loading');
 
@@ -110,19 +118,23 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
       await loadRazorpayScript();
 
       // 2. Create order from backend
-      const amount = totalAmount / 100; // API expects in rupees, backend converts to paise
-      const res = await api.payments.createOrder(booking.id, amount);
+      const amount = totalAmount / 100;
+      const res = await api.payments.createOrder(currentBooking.id, amount);
 
       if (!res.isReal) {
-        // Fallback: Razorpay not configured on server
         toast.error('Payment gateway not configured. Please contact support.');
         setStep('failed');
         setLoading(false);
         return;
       }
 
-      // 3. Open Razorpay Checkout
-      const options: RazorpayOptions = {
+      // 3. Close OUR dialog so Razorpay's own checkout is the only overlay
+      // This completely avoids the z-index / pointer-events conflict
+      onCloseRef.current();
+      setLoading(false);
+
+      // 4. Open Razorpay Checkout (it has its own full-screen UI)
+      const rzpOptions: RazorpayOptions = {
         key: res.key,
         amount: res.amount,
         currency: res.currency,
@@ -132,72 +144,45 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
         prefill: res.prefill,
         theme: { color: '#14532d' },
         handler: async (response: RazorpayResponse) => {
-          setStep('verifying');
           try {
+            toast.loading('Verifying payment...', { id: 'payment-verifying' });
             const verifyRes = await api.payments.verify({
-              bookingId: booking.id,
+              bookingId: currentBooking.id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpayOrderId: response.razorpay_order_id,
               razorpaySignature: response.razorpay_signature,
             });
+            toast.dismiss('payment-verifying');
             if (verifyRes.success) {
-              setStep('success');
               toast.success('Payment confirmed! Booking is now active.');
-              onSuccess?.();
+              onSuccessRef.current?.();
             } else {
               throw new Error(verifyRes.message || 'Payment verification failed');
             }
           } catch (err: any) {
-            setStep('failed');
-            setErrorMsg(err.message || 'Verification failed. Please contact support.');
+            toast.dismiss('payment-verifying');
+            toast.error(err.message || 'Payment verification failed. Please contact support.');
           }
-          setLoading(false);
         },
         modal: {
           ondismiss: () => {
-            setStep('init');
-            setLoading(false);
+            // User closed Razorpay without paying — do nothing, they can try again
           },
         },
       };
 
-      const rzp = new window.Razorpay(options);
+      const rzp = new window.Razorpay(rzpOptions);
       rzp.open();
-      setStep('checkout');
-      setLoading(false);
     } catch (err: any) {
       console.error('Payment error:', err);
       setStep('failed');
       setErrorMsg(err.message || 'Failed to initialize payment. Please try again.');
       setLoading(false);
     }
-  }, [booking, totalAmount, onSuccess]);
-
-  // When Razorpay checkout is open, our dialog overlay+content block clicks on it.
-  // This effect injects CSS to push Razorpay above our dialog and make our dialog non-interactive.
-  useEffect(() => {
-    if (step !== 'checkout') return;
-    const id = 'rzp-zindex-fix';
-    if (document.getElementById(id)) return;
-    const style = document.createElement('style');
-    style.id = id;
-    style.textContent = `
-      .razorpay-backdrop { z-index: 99999 !important; }
-      .razorpay-container { z-index: 100000 !important; }
-      .razorpay-overlay { z-index: 99999 !important; }
-      /* Make our entire dialog tree non-interactive so Razorpay can receive clicks */
-      [data-radix-dialog-overlay] { pointer-events: none !important; }
-      [data-radix-dialog-content] { pointer-events: none !important; }
-      [data-slot="dialog-overlay"] { pointer-events: none !important; }
-      [data-slot="dialog-content"] { pointer-events: none !important; }
-      [data-slot="dialog-portal"] { pointer-events: none !important; }
-    `;
-    document.head.appendChild(style);
-    return () => { document.getElementById(id)?.remove(); };
-  }, [step]);
+  }, [totalAmount]);
 
   const handleClose = () => {
-    if (step === 'verifying' || step === 'checkout') return;
+    if (step === 'loading') return;
     setStep('init');
     setErrorMsg('');
     onClose();
@@ -206,7 +191,7 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
   if (!booking) return null;
 
   return (
-    <Dialog open={isOpen} modal={step !== 'checkout'} onOpenChange={(open) => { if (!open) handleClose(); }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
         <AnimatePresence mode="wait">
           {/* STEP: Payment Init / Ready to Pay */}
@@ -322,85 +307,6 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
               <Loader2 className="h-10 w-10 text-forest-900 animate-spin mb-4" />
               <h3 className="text-lg font-bold text-gray-900">Preparing Payment...</h3>
               <p className="text-sm text-gray-500 mt-1">Connecting to Razorpay</p>
-            </motion.div>
-          )}
-
-          {/* STEP: Razorpay Checkout is Open */}
-          {step === 'checkout' && (
-            <motion.div
-              key="checkout"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center py-20 px-6"
-            >
-              <div className="w-16 h-16 rounded-full bg-forest-50 flex items-center justify-center mb-4">
-                <CreditCard className="h-8 w-8 text-forest-900" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">Complete Payment</h3>
-              <p className="text-sm text-gray-500 mt-1 text-center max-w-xs">
-                Please complete the payment in the Razorpay window. Do not close this page.
-              </p>
-              <div className="mt-4 bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold text-forest-900">
-                {'\u20B9'}{totalAmount.toLocaleString('en-IN')}
-              </div>
-            </motion.div>
-          )}
-
-          {/* STEP: Verifying Payment */}
-          {step === 'verifying' && (
-            <motion.div
-              key="verifying"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center py-20 px-6"
-            >
-              <Loader2 className="h-10 w-10 text-forest-900 animate-spin mb-4" />
-              <h3 className="text-lg font-bold text-gray-900">Verifying Payment...</h3>
-              <p className="text-sm text-gray-500 mt-1">Please wait while we confirm</p>
-            </motion.div>
-          )}
-
-          {/* STEP: Success */}
-          {step === 'success' && (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="flex flex-col items-center justify-center py-14 px-6"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-5"
-              >
-                <CheckCircle2 className="h-10 w-10 text-green-500" />
-              </motion.div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">Payment Successful! {'\u2713'}</h3>
-              <p className="text-sm text-gray-500 mb-6">Your care booking is now confirmed</p>
-              <div className="w-full bg-gray-50 rounded-xl p-4 mb-5 text-sm space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Amount Paid</span>
-                  <span className="font-semibold text-green-700">{'\u20B9'}{totalAmount.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Reference</span>
-                  <span className="font-mono text-xs text-gray-600">{paymentRef}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Method</span>
-                  <span className="text-gray-600">Razorpay</span>
-                </div>
-              </div>
-              <Button
-                onClick={handleClose}
-                className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white rounded-xl font-semibold cursor-pointer"
-              >
-                Done
-              </Button>
             </motion.div>
           )}
 
