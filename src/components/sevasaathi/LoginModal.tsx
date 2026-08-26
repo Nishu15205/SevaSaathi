@@ -112,6 +112,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const [resetVerifying, setResetVerifying] = useState(false);
   const [resetCountdown, setResetCountdown] = useState(0);
   const [resetOtpVerified, setResetOtpVerified] = useState(false);
+  const [resetToken, setResetToken] = useState("");
 
   const { setAuth } = useAuthStore();
   const { toast } = useToast();
@@ -143,6 +144,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setResetLoading(false); setResetError(""); setResetDone(false);
     setResetStep('email'); setResetOtp(""); setResetOtpSending(false);
     setResetVerifying(false); setResetCountdown(0); setResetOtpVerified(false);
+    setResetToken("");
     setGoogleOpen(false); setGoogleEmail(""); setGoogleName(""); setGoogleError("");
     onClose();
   }, [onClose, defaultTab]);
@@ -257,6 +259,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
       const data = await res.json();
       if (!res.ok) { setResetError(data.error || "Invalid OTP. Please try again."); return; }
       setResetOtpVerified(true);
+      setResetToken(data.resetToken || "");
       setResetStep("new-password");
     } catch { setResetError("Something went wrong. Please try again."); } finally { setResetVerifying(false); }
   };
@@ -265,12 +268,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     e.preventDefault();
     if (!resetNewPassword.trim()) { setResetError("Please enter your new password."); return; }
     if (resetNewPassword.length < 6) { setResetError("Password must be at least 6 characters."); return; }
+    if (!resetToken) { setResetError("Reset session expired. Please start over."); setResetStep('email'); return; }
     setResetLoading(true); setResetError("");
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail.trim(), newPassword: resetNewPassword, otpVerified: true }),
+        body: JSON.stringify({ email: resetEmail.trim(), newPassword: resetNewPassword, resetToken }),
       });
       const data = await res.json();
       if (!res.ok) { setResetError(data.error || "Failed to reset password."); return; }

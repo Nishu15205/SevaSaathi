@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { otpStore } from '../send-otp/route'
+import { randomUUID } from 'crypto'
+import { otpStore, resetTokenStore } from '../send-otp/route'
 
 const verifyOtpSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -49,9 +50,20 @@ export async function POST(request: NextRequest) {
     // OTP verified - delete it so it can't be reused
     otpStore.delete(key)
 
+    // If this is for password reset, issue a server-side reset token
+    let resetToken: string | undefined
+    if (purpose === 'RESET_PASSWORD') {
+      resetToken = randomUUID()
+      resetTokenStore.set(resetToken, {
+        email,
+        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes to set new password
+      })
+    }
+
     return NextResponse.json({
       message: 'OTP verified successfully',
       verified: true,
+      resetToken,
     })
   } catch (error) {
     console.error('Verify OTP error:', error)

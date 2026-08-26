@@ -173,8 +173,8 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
     }
   }, [booking, totalAmount, onSuccess]);
 
-  // When Razorpay checkout is open, our dialog overlay blocks clicks on it.
-  // This effect injects CSS to push Razorpay above our dialog.
+  // When Razorpay checkout is open, our dialog overlay+content block clicks on it.
+  // This effect injects CSS to push Razorpay above our dialog and make our dialog non-interactive.
   useEffect(() => {
     if (step !== 'checkout') return;
     const id = 'rzp-zindex-fix';
@@ -185,8 +185,12 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
       .razorpay-backdrop { z-index: 99999 !important; }
       .razorpay-container { z-index: 100000 !important; }
       .razorpay-overlay { z-index: 99999 !important; }
-      /* Make our dialog overlay non-interactive so Razorpay can receive clicks */
+      /* Make our entire dialog tree non-interactive so Razorpay can receive clicks */
       [data-radix-dialog-overlay] { pointer-events: none !important; }
+      [data-radix-dialog-content] { pointer-events: none !important; }
+      [data-slot="dialog-overlay"] { pointer-events: none !important; }
+      [data-slot="dialog-content"] { pointer-events: none !important; }
+      [data-slot="dialog-portal"] { pointer-events: none !important; }
     `;
     document.head.appendChild(style);
     return () => { document.getElementById(id)?.remove(); };
@@ -202,7 +206,7 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
   if (!booking) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
+    <Dialog open={isOpen} modal={step !== 'checkout'} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
         <AnimatePresence mode="wait">
           {/* STEP: Payment Init / Ready to Pay */}

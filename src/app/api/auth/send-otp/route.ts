@@ -5,6 +5,9 @@ import { sendOtpEmail } from '@/lib/email'
 // In-memory OTP store (for demo/sandbox - in production use Redis/DB)
 export const otpStore = new Map<string, { otp: string; expiresAt: number; purpose: string }>()
 
+// Server-side reset tokens — issued only after OTP is verified server-side
+export const resetTokenStore = new Map<string, { email: string; expiresAt: number }>()
+
 const sendOtpSchema = z.object({
   email: z.string().email('Invalid email address'),
   purpose: z.enum(['REGISTER', 'RESET_PASSWORD']),

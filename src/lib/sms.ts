@@ -13,6 +13,26 @@ export interface SmsResult {
   error?: string;
 }
 
+// Error messages from Fast2SMS that indicate account/compliance issues (not transient)
+const DLT_ERROR_PATTERNS = [
+  'website verification',
+  'dlt',
+  'template',
+  'sender id',
+  'senderid',
+  'account',
+  'approved',
+  'permission',
+  'blocked',
+  'suspended',
+  'inactive',
+];
+
+function isDltOrAccountError(errorMsg: string): boolean {
+  const lower = errorMsg.toLowerCase();
+  return DLT_ERROR_PATTERNS.some(p => lower.includes(p));
+}
+
 async function sendViaFast2SMS(phone: string, otp: string, apiKey: string): Promise<SmsResult> {
   const cleanPhone = phone.replace(/[^0-9]/g, '');
   
@@ -37,15 +57,27 @@ async function sendViaFast2SMS(phone: string, otp: string, apiKey: string): Prom
     return { success: true, actuallyDelivered: true, messageId: data.message_id?.toString() };
   }
 
-  throw new Error(data.message || 'Fast2SMS error');
+  const errorMsg = data.message || 'Fast2SMS error';
+
+  // If it's a DLT/compliance error, mark it specially so callers can fall back to dev mode
+  if (isDltOrAccountError(errorMsg)) {
+    return { success: false, actuallyDelivered: false, error: errorMsg };
+  }
+
+  throw new Error(errorMsg);
 }
 
 export async function sendPhoneOtp(phone: string, otp: string): Promise<SmsResult> {
   const apiKey = await getFast2SmsApiKey();
 
   if (apiKey) {
-    const result = await sendViaFast2SMS(phone, otp, apiKey);
-    return result;
+    try {
+      const result = await sendViaFast2SMS(phone, otp, apiKey);
+      return result;
+    } catch (err: any) {
+      // Transient network error — let caller handle it
+      throw err;
+    }
   }
 
   // No API key → dev mode
