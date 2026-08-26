@@ -1,0 +1,44 @@
+# ============================================
+# SevaSaathi — Docker Compose for VPS Deployment
+# ============================================
+# Usage:
+#   1. Copy .env.production.example to .env and fill values
+#   2. docker compose up -d --build
+#   3. docker compose exec app bun run db:push
+#   4. docker compose exec app bun run seed
+#   5. Visit http://your-server-ip:3000
+#
+# For custom domain + HTTPS, use Caddy/Nginx reverse proxy
+# ============================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sevasaathi-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    volumes:
+      # Persistent SQLite database — survives container restarts
+      - sevasaathi-data:/app/data
+      # Persistent uploads
+      - sevasaathi-uploads:/app/upload
+    environment:
+      # Docker overrides DATABASE_URL to use volume path
+      - DATABASE_URL=file:/app/data/sevasaathi.db
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  sevasaathi-data:
+    driver: local
+  sevasaathi-uploads:
+    driver: local

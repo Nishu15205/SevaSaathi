@@ -1,0 +1,15 @@
+.next
+node_modules
+dev.log
+server.log
+db/*.db
+db/*.db-journal
+upload/*
+.git
+.env*
+!/.env.production.example
+*.md
+agent-ctx/
+tool-results/
+.DS_Store
+*.tsbuildinfo
