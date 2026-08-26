@@ -73,9 +73,9 @@ const modalVariants = {
 };
 const contentVariants = {
   enter: (tab: string) => ({ x: tab === "register" ? 40 : -40, opacity: 0 }),
-  center: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 28 } },
+  center: { x: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 300, damping: 28 } },
   exit: (tab: string) => ({ x: tab === "register" ? -40 : 40, opacity: 0, transition: { duration: 0.15 } }),
-};
+} as const;
 
 /* ================================================================== */
 /*  MAIN COMPONENT                                                     */
@@ -197,7 +197,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         const sessionData = await sessionRes.json();
         if (sessionData?.user) {
           const u = sessionData.user as any;
-          setAuth({ id: u.id || "", email: u.email || "", name: u.name || "", phone: "", role: u.role || "FAMILY", avatarUrl: u.image || null, subscription: "NONE", patientProfiles: [], caregiverProfile: null });
+          setAuth({ id: u.id || "", email: u.email || "", name: u.name || "", phone: "", role: u.role || "FAMILY", avatarUrl: u.image || null, subscription: "NONE", patientProfiles: [], caregiverProfile: undefined });
         }
       } catch { /* AuthSync will pick it up */ }
       toast({ title: "Welcome back! \ud83c\udf89", description: "You have successfully logged in." });
@@ -222,7 +222,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         const sessionData = await sessionRes.json();
         if (sessionData?.user) {
           const u = sessionData.user as any;
-          setAuth({ id: u.id || "", email: u.email || "", name: u.name || "", phone: regPhone.trim(), role: u.role || regRole, avatarUrl: u.image || null, subscription: "NONE", patientProfiles: [], caregiverProfile: null });
+          setAuth({ id: u.id || "", email: u.email || "", name: u.name || "", phone: regPhone.trim(), role: u.role || regRole, avatarUrl: u.image || null, subscription: "NONE", patientProfiles: [], caregiverProfile: undefined });
         }
       } catch { /* AuthSync will pick it up */ }
       toast({ title: "Welcome to SevaSaathi! \ud83c\udf89", description: "Your account has been created." });

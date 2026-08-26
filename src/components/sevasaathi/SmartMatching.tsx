@@ -175,7 +175,7 @@ export default function SmartMatching({ onOpenLogin }: { onOpenLogin: () => void
                     transition={{
                       delay: 0.3 + index * 0.15,
                       duration: 0.4,
-                      ease: "easeOut",
+                      ease: "easeOut" as const,
                     }}
                   >
                     <div className="flex gap-4 pb-8">

@@ -36,6 +36,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Account is deactivated' }, { status: 403 })
     }
 
+    if (!user.passwordHash) {
+      return NextResponse.json({ error: 'No password set. Use login with Google or reset password.' }, { status: 400 })
+    }
+
     const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash)
     if (!isPasswordValid) {
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })

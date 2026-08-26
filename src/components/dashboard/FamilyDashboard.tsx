@@ -1494,17 +1494,17 @@ function ReviewsTab() {
     fetchBookings();
   }, [fetchBookings]);
 
-  const updateRating = (bookingId: string, field: string, value: number | string) => {
+  const updateRating = (bookingId: string, field: string, value: any) => {
     setRatings((prev) => ({
       ...prev,
       [bookingId]: {
+        ...prev[bookingId],
         rating: 5,
         communication: 5,
         punctuality: 5,
         careQuality: 5,
         comment: '',
         tags: [],
-        ...prev[bookingId],
         [field]: value,
       },
     }));

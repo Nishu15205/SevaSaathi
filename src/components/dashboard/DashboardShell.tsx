@@ -11,7 +11,6 @@ import {
   FileText,
   Star,
   AlertTriangle,
-  User,
   LogOut,
   Menu,
   X,

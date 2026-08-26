@@ -37,6 +37,12 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "examples",
+    "prisma/seed.ts",
+    "skills",
+    "server-proxy.ts",
+    "start-dev.mjs",
+    "mini-services"
   ]
 }

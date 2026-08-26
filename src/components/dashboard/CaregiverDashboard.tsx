@@ -1829,7 +1829,7 @@ function EarningsTab({ user }: { user: User }) {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const caregiverId = user.caregiverId || user.id;
+  const caregiverId = (user as any).caregiverId || user.id;
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);

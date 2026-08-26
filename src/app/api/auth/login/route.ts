@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!user.passwordHash) {
+      return NextResponse.json({ error: 'No password set for this account. Use Google login or reset password.' }, { status: 400 })
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
     if (!isPasswordValid) {
       return NextResponse.json(

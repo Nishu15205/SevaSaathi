@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { sendPhoneOtp, isSmsConfigured } from '@/lib/sms';
 
 export async function POST(req: NextRequest) {
+  let otp = '';
   try {
     const { phone } = await req.json();
     if (!phone || !/^\+?[6-9]\d{9,14}$/.test(phone.replace(/\s/g, ''))) {
@@ -10,8 +11,8 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanPhone = phone.replace(/\s/g, '');
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+    otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpExpiry = Date.now() + 5 * 60 * 1000;
 
     await db.user.updateMany({
       where: { phone: cleanPhone },
@@ -22,13 +23,12 @@ export async function POST(req: NextRequest) {
     const smsResult = await sendPhoneOtp(cleanPhone, otp);
 
     if (smsResult.actuallyDelivered) {
-      // Real SMS sent successfully — no dev OTP shown
       return NextResponse.json({
         message: 'OTP sent to your phone number',
       });
     }
 
-    // SMS provider NOT configured → dev mode, show dev OTP
+    // SMS provider NOT configured → dev mode
     const smsAvailable = await isSmsConfigured();
     if (!smsAvailable) {
       return NextResponse.json({
@@ -37,37 +37,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // SMS provider configured but delivery returned a structured error (e.g., DLT not done)
-    // Fall back to dev mode so the app remains usable for testing
+    // SMS provider configured but delivery failed (e.g., DLT not done)
     if (smsResult.error) {
-      console.warn(`⚠️ SMS delivery failed (provider configured): ${smsResult.error}`);
-      console.warn(`   Falling back to dev mode. Fix: ${smsResult.error}`);
+      console.warn(`⚠️ SMS delivery failed: ${smsResult.error}`);
       return NextResponse.json({
-        message: `OTP sent (sandbox mode — SMS provider error: ${smsResult.error})`,
+        message: `OTP sent (sandbox mode)`,
         devOtp: otp,
       });
     }
 
-    // Should not reach here, but just in case
     return NextResponse.json({
       message: 'OTP sent to your phone number (dev mode)',
       devOtp: otp,
     });
   } catch (err: any) {
     console.error('Send phone OTP error:', err);
-    // Distinguish between dev mode (show OTP) and provider failure (hide OTP)
     const smsAvailable = await isSmsConfigured();
     if (!smsAvailable) {
-      // Dev mode — no provider, return the OTP for testing
       return NextResponse.json({
         message: 'OTP sent (dev mode)',
         devOtp: otp,
       });
     }
-    // Provider configured but errored — fall back to dev mode for testing
     console.warn(`⚠️ SMS provider error, falling back to dev mode: ${err.message}`);
     return NextResponse.json({
-      message: `OTP sent (sandbox mode — ${err.message})`,
+      message: `OTP sent (sandbox mode)`,
       devOtp: otp,
     });
   }

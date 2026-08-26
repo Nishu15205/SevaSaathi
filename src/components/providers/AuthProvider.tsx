@@ -46,7 +46,7 @@ function AuthSync() {
             avatarUrl: u.image || null,
             subscription: "NONE" as any,
             patientProfiles: [],
-            caregiverProfile: null,
+            caregiverProfile: undefined,
           });
         }
       }
