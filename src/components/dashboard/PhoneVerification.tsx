@@ -37,6 +37,7 @@ function OtpDialog({
   const [otpSending, setOtpSending] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [smsConfigured, setSmsConfigured] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const sendOtp = useCallback(async () => {
@@ -46,7 +47,7 @@ function OtpDialog({
       const res = await api.auth.sendPhoneOtp(phone);
       setCountdown(60);
       if (res.devOtp) {
-        toast.info(`Dev OTP: ${res.devOtp}`);
+        toast.info('Test OTP: ' + res.devOtp + ' (SMS not configured)');
       } else {
         toast.success('OTP sent to ' + phone);
       }
@@ -56,6 +57,14 @@ function OtpDialog({
       setOtpSending(false);
     }
   }, [phone]);
+
+  // Check if SMS is configured
+  useEffect(() => {
+    fetch('/api/auth/sms-configured')
+      .then((r) => r.json())
+      .then((data: { configured: boolean }) => setSmsConfigured(data.configured))
+      .catch(() => { /* default to false */ });
+  }, []);
 
   // Auto-send OTP when dialog opens
   useEffect(() => {
@@ -182,10 +191,17 @@ function OtpDialog({
             </Button>
           </div>
 
-          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50">
-            <Info className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-blue-600 leading-relaxed">In dev mode, the OTP is shown in a toast notification. In production, it will be sent via SMS to your phone.</p>
-          </div>
+          {smsConfigured ? (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-green-50">
+              <Info className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-green-700 leading-relaxed">A 6-digit OTP has been sent to your phone via SMS. Please check your messages.</p>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50">
+              <Info className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-amber-700 leading-relaxed">OTP is shown in the toast notification for testing. Configure SMS credentials in Admin settings for real delivery.</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -295,10 +311,6 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             <Smartphone className="h-4 w-4" />
             Verify Phone Number
           </Button>
-          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50">
-            <Info className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-blue-600 leading-relaxed">In dev mode, the OTP is shown in a toast notification. In production, it will be sent via SMS.</p>
-          </div>
         </div>
       </div>
 

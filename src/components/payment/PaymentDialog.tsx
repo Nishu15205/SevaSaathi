@@ -173,6 +173,25 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
     }
   }, [booking, totalAmount, onSuccess]);
 
+  // When Razorpay checkout is open, our dialog overlay blocks clicks on it.
+  // This effect injects CSS to push Razorpay above our dialog.
+  useEffect(() => {
+    if (step !== 'checkout') return;
+    const id = 'rzp-zindex-fix';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      .razorpay-backdrop { z-index: 99999 !important; }
+      .razorpay-container { z-index: 100000 !important; }
+      .razorpay-overlay { z-index: 99999 !important; }
+      /* Make our dialog overlay non-interactive so Razorpay can receive clicks */
+      [data-radix-dialog-overlay] { pointer-events: none !important; }
+    `;
+    document.head.appendChild(style);
+    return () => { document.getElementById(id)?.remove(); };
+  }, [step]);
+
   const handleClose = () => {
     if (step === 'verifying' || step === 'checkout') return;
     setStep('init');

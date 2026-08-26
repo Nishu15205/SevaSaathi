@@ -105,6 +105,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState("");
   const [resetDone, setResetDone] = useState(false);
+  // 3-step reset flow
+  const [resetStep, setResetStep] = useState<'email' | 'otp' | 'new-password'>('email');
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetOtpSending, setResetOtpSending] = useState(false);
+  const [resetVerifying, setResetVerifying] = useState(false);
+  const [resetCountdown, setResetCountdown] = useState(0);
+  const [resetOtpVerified, setResetOtpVerified] = useState(false);
 
   const { setAuth } = useAuthStore();
   const { toast } = useToast();
@@ -115,6 +122,13 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const [googleName, setGoogleName] = useState("");
   const [googleError, setGoogleError] = useState("");
   // googleSubmitting removed - redirect-based flow doesn't need it
+
+  /* ---- OTP countdown timer ---- */
+  useEffect(() => {
+    if (resetCountdown <= 0) return;
+    const timer = setTimeout(() => setResetCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resetCountdown]);
 
   /* ---- reset form fields when switching tabs ---- */
   useEffect(() => { setError(""); setLoginPassword(""); }, [tab]);
@@ -127,6 +141,8 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     setRegName(""); setRegEmail(""); setRegPhone(""); setRegPassword(""); setRegRole("FAMILY");
     setResetOpen(false); setResetEmail(""); setResetNewPassword("");
     setResetLoading(false); setResetError(""); setResetDone(false);
+    setResetStep('email'); setResetOtp(""); setResetOtpSending(false);
+    setResetVerifying(false); setResetCountdown(0); setResetOtpVerified(false);
     setGoogleOpen(false); setGoogleEmail(""); setGoogleName(""); setGoogleError("");
     onClose();
   }, [onClose, defaultTab]);
@@ -212,13 +228,50 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
     } catch (err: any) { setError(err?.message || "Registration failed. Please try again."); } finally { setLoading(false); }
   };
 
+  const handleResetSendOtp = async () => {
+    if (!resetEmail.trim() || !resetEmail.trim().includes("@")) { setResetError("Please enter a valid email address."); return; }
+    setResetOtpSending(true); setResetError("");
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim(), purpose: "RESET_PASSWORD" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setResetError(data.error || "Failed to send OTP."); return; }
+      setResetStep("otp");
+      setResetCountdown(60);
+      toast({ title: "OTP Sent", description: "Check your email for the 6-digit code." });
+    } catch { setResetError("Something went wrong. Please try again."); } finally { setResetOtpSending(false); }
+  };
+
+  const handleResetVerifyOtp = async () => {
+    if (!resetOtp.trim() || resetOtp.trim().length !== 6) { setResetError("Please enter the 6-digit OTP."); return; }
+    setResetVerifying(true); setResetError("");
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim(), otp: resetOtp.trim(), purpose: "RESET_PASSWORD" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setResetError(data.error || "Invalid OTP. Please try again."); return; }
+      setResetOtpVerified(true);
+      setResetStep("new-password");
+    } catch { setResetError("Something went wrong. Please try again."); } finally { setResetVerifying(false); }
+  };
+
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail.trim() || !resetNewPassword.trim()) { setResetError("Please enter your email and new password."); return; }
+    if (!resetNewPassword.trim()) { setResetError("Please enter your new password."); return; }
     if (resetNewPassword.length < 6) { setResetError("Password must be at least 6 characters."); return; }
     setResetLoading(true); setResetError("");
     try {
-      const res = await fetch("/api/auth/reset-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: resetEmail.trim(), newPassword: resetNewPassword }) });
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim(), newPassword: resetNewPassword, otpVerified: true }),
+      });
       const data = await res.json();
       if (!res.ok) { setResetError(data.error || "Failed to reset password."); return; }
       setResetDone(true);
@@ -391,21 +444,77 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
           {resetOpen && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <div className="px-6 pb-6 pt-2 border-t border-gray-100 mt-2">
-                <div className="flex items-center gap-2 mb-3">
-                  <KeyRound className="w-4 h-4 text-forest-700" />
-                  <h4 className="text-sm font-semibold text-gray-800">Reset Password</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-forest-700" />
+                    <h4 className="text-sm font-semibold text-gray-800">Reset Password</h4>
+                  </div>
+                  {/* Step indicators */
+                  !resetDone && (
+                    <div className="flex items-center gap-1">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${resetStep === 'email' ? 'bg-forest-100 text-forest-800' : 'bg-gray-100 text-gray-400'}`}>1</span>
+                      <span className="text-xs text-gray-300">/</span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${resetStep === 'otp' ? 'bg-forest-100 text-forest-800' : 'bg-gray-100 text-gray-400'}`}>2</span>
+                      <span className="text-xs text-gray-300">/</span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${resetStep === 'new-password' ? 'bg-forest-100 text-forest-800' : 'bg-gray-100 text-gray-400'}`}>3</span>
+                    </div>
+                  )}
                 </div>
                 {resetDone ? (
-                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-xl">
-                    <CheckCircle2 className="w-4 h-4" /> Password has been reset. You can now sign in.
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-xl">
+                      <CheckCircle2 className="w-4 h-4" /> Password has been reset successfully!
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setResetOpen(false); setResetStep('email'); setResetOtpVerified(false); setResetDone(false); }}
+                      className="w-full text-center text-sm font-semibold text-forest-700 hover:text-forest-900 py-1"
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                ) : resetStep === 'email' ? (
+                  <div className="space-y-2.5">
+                    {resetError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{resetError}</p>}
+                    <p className="text-xs text-gray-500">Enter your email address to receive a verification code.</p>
+                    <Input type="email" placeholder="Your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="rounded-lg" />
+                    <Button type="button" onClick={handleResetSendOtp} disabled={resetOtpSending} size="sm" className="w-full rounded-lg">
+                      {resetOtpSending ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Sending...</> : <>Send OTP</>}
+                    </Button>
+                  </div>
+                ) : resetStep === 'otp' ? (
+                  <div className="space-y-2.5">
+                    {resetError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{resetError}</p>}
+                    <p className="text-xs text-gray-500">Enter the 6-digit code sent to <span className="font-medium text-gray-700">{resetEmail}</span></p>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="6-digit OTP"
+                      value={resetOtp}
+                      onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 6) setResetOtp(v); }}
+                      className="rounded-lg text-center text-lg tracking-widest font-mono"
+                    />
+                    <Button type="button" onClick={handleResetVerifyOtp} disabled={resetVerifying || resetOtp.length !== 6} size="sm" className="w-full rounded-lg">
+                      {resetVerifying ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Verifying...</> : <>Verify OTP</>}
+                    </Button>
+                    <div className="text-center">
+                      {resetCountdown > 0 ? (
+                        <span className="text-xs text-gray-400">Resend in {resetCountdown}s</span>
+                      ) : (
+                        <button type="button" onClick={handleResetSendOtp} disabled={resetOtpSending} className="text-xs font-medium text-forest-700 hover:text-forest-900">
+                          {resetOtpSending ? "Sending..." : "Resend OTP"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <form onSubmit={handleReset} className="space-y-2.5">
                     {resetError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{resetError}</p>}
-                    <Input type="email" placeholder="Your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="rounded-lg" required />
+                    <p className="text-xs text-gray-500">OTP verified. Enter your new password below.</p>
                     <Input type="password" placeholder="New password (min 6 chars)" value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="rounded-lg" required />
                     <Button type="submit" disabled={resetLoading} size="sm" className="w-full rounded-lg">
-                      {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Reset Password
+                      {resetLoading ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Resetting...</> : <>Reset Password</>}
                     </Button>
                   </form>
                 )}
