@@ -775,3 +775,19 @@ Stage Summary:
 - User MUST enter the actual 6-digit OTP received on their phone
 - No more auto-verify, no dev mode, no skipFirebase bypass
 - Both OverviewTab banner and ProfileTab PhoneVerificationSection use the same Firebase flow
+
+---
+Task ID: fix-multiple-issues
+Agent: main
+Task: Fix profile loading, admin accounts, phone OTP input
+
+Work Log:
+- ProfileTab stuck on 'Setting up your profile...' spinner: Removed `creating` state that was set true on profile creation but never reset. The auth store update now immediately re-renders the profile without intermediate spinner.
+- Admin 3 profiles: Found 3 ADMIN users (Priya Verma/operations@, Rajesh/admin@, Amit/support@). Deleted Priya and Amit, kept only admin@sevasaathi.in.
+- Phone OTP: Already fixed in previous session (Firebase-only flow). The 'number maanga nahi' issue was from old auto-verify code that didn't show OTP input.
+- Email OTP: Brevo API accepted emails successfully (logs show message IDs from smtp-relay.mailin.fr). Not a code issue - Brevo sender domain (noreply@sevasaathi.in) needs verification in Brevo dashboard, or emails going to spam.
+
+Stage Summary:
+- Profile loading spinner removed - profile tab now shows content immediately after creation
+- 2 duplicate admin accounts deleted, only admin@sevasaathi.in remains
+- Email delivery requires Brevo dashboard configuration (sender domain verification)

@@ -958,26 +958,15 @@ function WithdrawalForm({ caregiverId, userId, availableBalance }: { caregiverId
 
 function ProfileTab({ user }: { user: User }) {
   const profile = user.caregiverProfile;
-  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const skills = parseJsonSafe(profile?.skills);
   const languages = parseJsonSafe(profile?.languages);
-
-  if (creating) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-forest-600" />
-        <p className="text-sm text-gray-500">Setting up your profile...</p>
-      </div>
-    );
-  }
 
   if (!profile) {
     return (
       <CreateProfileForm
         userId={user.id}
         onCreated={(createdProfile: any) => {
-          setCreating(true);
           if (createdProfile) {
             const current = useAuthStore.getState().user;
             if (current) {
