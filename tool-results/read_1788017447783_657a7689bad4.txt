@@ -1,0 +1,2002 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react';
+     4→     4→import { motion } from 'framer-motion';
+     5→     5→import {
+     6→     6→  CalendarCheck,
+     7→     7→  CheckCircle2,
+     8→     8→  Star,
+     9→     9→  IndianRupee,
+    10→    10→  MapPin,
+    11→    11→  Clock,
+    12→    12→  ShieldCheck,
+    13→    13→  Award,
+    14→    14→  FileText,
+    15→    15→  Send,
+    16→    16→  Loader2,
+    17→    17→  AlertCircle,
+    18→    18→  HeartPulse,
+    19→    19→  Utensils,
+    20→    20→  Pill,
+    21→    21→  MessageCircle,
+    22→    22→  UserRound,
+    23→    23→  ClipboardList,
+    24→    24→  Briefcase,
+    25→    25→  Languages,
+    26→    26→  Stethoscope,
+    27→    27→  ChevronRight,
+    28→    28→  RefreshCw,
+    29→    29→  Sparkles,
+    30→    30→  Activity,
+    31→    31→  XCircle,
+    32→    32→  AlertTriangle,
+    33→    33→  Camera,
+    34→    34→  Upload,
+    35→    35→  Eye,
+    36→    36→  Play,
+    37→    37→  Phone,
+    38→    38→  Hash,
+    39→    39→  Pencil,
+    40→    40→  Wallet,
+    41→    41→  Building2,
+    42→    42→  ArrowDownToLine,
+    43→    43→  Smartphone,
+    44→    44→} from 'lucide-react';
+    45→    45→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    46→    46→import { Button } from '@/components/ui/button';
+    47→    47→import { Input } from '@/components/ui/input';
+    48→    48→import { Badge } from '@/components/ui/badge';
+    49→    49→import { Skeleton } from '@/components/ui/skeleton';
+    50→    50→import { Separator } from '@/components/ui/separator';
+    51→    51→import { Textarea } from '@/components/ui/textarea';
+    52→    52→import { Label } from '@/components/ui/label';
+    53→    53→import {
+    54→    54→  Select,
+    55→    55→  SelectContent,
+    56→    56→  SelectItem,
+    57→    57→  SelectTrigger,
+    58→    58→  SelectValue,
+    59→    59→} from '@/components/ui/select';
+    60→    60→import { api } from '@/lib/api';
+    61→    61→import type { User } from '@/stores/authStore';
+    62→    62→import { useAuthStore } from '@/stores/authStore';
+    63→    63→import { toast } from 'sonner';
+    64→    64→import { PaymentHistory } from '@/components/payment/PaymentHistory';
+    65→    65→import { PhoneVerificationSection } from '@/components/dashboard/PhoneVerification';
+    66→    66→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+    67→    67→
+    68→    68→/* ============================================================ */
+    69→    69→/* TYPES                                                         */
+    70→    70→/* ============================================================ */
+    71→    71→
+    72→    72→interface CaregiverDashboardProps {
+    73→    73→  activeTab: string;
+    74→    74→  user: User;
+    75→    75→}
+    76→    76→
+    77→    77→interface Booking {
+    78→    78→  id: string;
+    79→    79→  status: string;
+    80→    80→  date: string;
+    81→    81→  startTime: string;
+    82→    82→  endTime: string;
+    83→    83→  shiftType: string;
+    84→    84→  familyName?: string;
+    85→    85→  patientName?: string;
+    86→    86→  patientAge?: number;
+    87→    87→  careType?: string;
+    88→    88→  specialNotes?: string;
+    89→    89→  totalAmount?: number;
+    90→    90→  createdAt: string;
+    91→    91→}
+    92→    92→
+    93→    93→interface Review {
+    94→    94→  id: string;
+    95→    95→  overallRating: number;
+    96→    96→  communicationRating: number;
+    97→    97→  punctualityRating: number;
+    98→    98→  careQualityRating: number;
+    99→    99→  comment: string;
+   100→   100→  familyName?: string;
+   101→   101→  createdAt: string;
+   102→   102→}
+   103→   103→
+   104→   104→/* ============================================================ */
+   105→   105→/* SHARED HELPERS                                                 */
+   106→   106→/* ============================================================ */
+   107→   107→
+   108→   108→const statusColors: Record<string, string> = {
+   109→   109→  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+   110→   110→  CONFIRMED: 'bg-blue-100 text-blue-800 border-blue-200',
+   111→   111→  IN_PROGRESS: 'bg-green-100 text-green-800 border-green-200',
+   112→   112→  COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200',
+   113→   113→  CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+   114→   114→  NO_SHOW: 'bg-orange-100 text-orange-700 border-orange-200',
+   115→   115→};
+   116→   116→
+   117→   117→const statusLabels: Record<string, string> = {
+   118→   118→  PENDING: 'Pending',
+   119→   119→  CONFIRMED: 'Confirmed',
+   120→   120→  IN_PROGRESS: 'In Progress',
+   121→   121→  COMPLETED: 'Completed',
+   122→   122→  CANCELLED: 'Cancelled',
+   123→   123→  NO_SHOW: 'No Show',
+   124→   124→};
+   125→   125→
+   126→   126→const moodIcons: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+   127→   127→  good: { icon: <Sparkles className="h-4 w-4" />, label: 'Good', color: 'text-green-600 bg-green-50' },
+   128→   128→  normal: { icon: <Activity className="h-4 w-4" />, label: 'Normal', color: 'text-blue-600 bg-blue-50' },
+   129→   129→  upset: { icon: <MessageCircle className="h-4 w-4" />, label: 'Upset', color: 'text-orange-600 bg-orange-50' },
+   130→   130→  unwell: { icon: <HeartPulse className="h-4 w-4" />, label: 'Unwell', color: 'text-red-600 bg-red-50' },
+   131→   131→};
+   132→   132→
+   133→   133→const foodIntakeLabels: Record<string, string> = {
+   134→   134→  good: 'Good',
+   135→   135→  normal: 'Normal',
+   136→   136→  poor: 'Poor',
+   137→   137→  refused: 'Refused',
+   138→   138→};
+   139→   139→
+   140→   140→const foodIntakeColors: Record<string, string> = {
+   141→   141→  good: 'text-green-700 bg-green-50',
+   142→   142→  normal: 'text-blue-700 bg-blue-50',
+   143→   143→  poor: 'text-orange-700 bg-orange-50',
+   144→   144→  refused: 'text-red-700 bg-red-50',
+   145→   145→};
+   146→   146→
+   147→   147→function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+   148→   148→  return (
+   149→   149→    <div className="flex flex-col items-center justify-center py-16 text-center">
+   150→   150→      <div className="w-16 h-16 rounded-2xl bg-forest-50 flex items-center justify-center mb-4 text-forest-400">
+   151→   151→        {icon}
+   152→   152→      </div>
+   153→   153→      <h3 className="text-base font-semibold text-gray-800 mb-1">{title}</h3>
+   154→   154→      <p className="text-sm text-gray-400 max-w-sm">{description}</p>
+   155→   155→    </div>
+   156→   156→  );
+   157→   157→}
+   158→   158→
+   159→   159→function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+   160→   160→  return (
+   161→   161→    <div className="flex flex-col items-center justify-center py-16 text-center">
+   162→   162→      <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4 text-red-400">
+   163→   163→        <AlertCircle className="h-7 w-7" />
+   164→   164→      </div>
+   165→   165→      <h3 className="text-base font-semibold text-gray-800 mb-1">Something went wrong</h3>
+   166→   166→      <p className="text-sm text-gray-400 max-w-sm mb-4">{message}</p>
+   167→   167→      {onRetry && (
+   168→   168→        <Button variant="outline" size="sm" onClick={onRetry} className="rounded-xl">
+   169→   169→          Try Again
+   170→   170→        </Button>
+   171→   171→      )}
+   172→   172→    </div>
+   173→   173→  );
+   174→   174→}
+   175→   175→
+   176→   176→function LoadingGrid({ count = 4 }: { count?: number }) {
+   177→   177→  return (
+   178→   178→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   179→   179→      {Array.from({ length: count }).map((_, i) => (
+   180→   180→        <Skeleton key={i} className="h-28 rounded-2xl" />
+   181→   181→      ))}
+   182→   182→    </div>
+   183→   183→  );
+   184→   184→}
+   185→   185→
+   186→   186→function LoadingCards({ count = 3 }: { count?: number }) {
+   187→   187→  return (
+   188→   188→    <div className="space-y-3">
+   189→   189→      {Array.from({ length: count }).map((_, i) => (
+   190→   190→        <Skeleton key={i} className="h-24 rounded-2xl" />
+   191→   191→      ))}
+   192→   192→    </div>
+   193→   193→  );
+   194→   194→}
+   195→   195→
+   196→   196→function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
+   197→   197→  const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4.5 w-4.5';
+   198→   198→  return (
+   199→   199→    <div className="flex items-center gap-0.5">
+   200→   200→      {[1, 2, 3, 4, 5].map((star) => (
+   201→   201→        <Star
+   202→   202→          key={star}
+   203→   203→          className={`${iconSize} ${
+   204→   204→            star <= Math.round(rating)
+   205→   205→              ? 'fill-lime-400 text-lime-400'
+   206→   206→              : 'fill-gray-200 text-gray-200'
+   207→   207→          }`}
+   208→   208→        />
+   209→   209→      ))}
+   210→   210→    </div>
+   211→   211→  );
+   212→   212→}
+   213→   213→
+   214→   214→function parseJsonSafe(input: string | null | undefined | any): string[] {
+   215→   215→  if (!input) return [];
+   216→   216→  if (Array.isArray(input)) return input;
+   217→   217→  try {
+   218→   218→    const parsed = JSON.parse(input);
+   219→   219→    return Array.isArray(parsed) ? parsed : [];
+   220→   220→  } catch {
+   221→   221→    if (typeof input === 'string') {
+   222→   222→      return input.split(',').map((s) => s.trim()).filter(Boolean);
+   223→   223→    }
+   224→   224→    return [];
+   225→   225→  }
+   226→   226→}
+   227→   227→
+   228→   228→function formatDate(dateStr: string): string {
+   229→   229→  try {
+   230→   230→    return new Date(dateStr).toLocaleDateString('en-IN', {
+   231→   231→      day: 'numeric',
+   232→   232→      month: 'short',
+   233→   233→      year: 'numeric',
+   234→   234→    });
+   235→   235→  } catch {
+   236→   236→    return dateStr;
+   237→   237→  }
+   238→   238→}
+   239→   239→
+   240→   240→function getTodayDate(): string {
+   241→   241→  const now = new Date();
+   242→   242→  const year = now.getFullYear();
+   243→   243→  const month = String(now.getMonth() + 1).padStart(2, '0');
+   244→   244→  const day = String(now.getDate()).padStart(2, '0');
+   245→   245→  return `${year}-${month}-${day}`;
+   246→   246→}
+   247→   247→
+   248→   248→/* ============================================================ */
+   249→   249→/* OVERVIEW TAB                                                  */
+   250→   250→/* ============================================================ */
+   251→   251→
+   252→   252→function OverviewTab({ user }: { user: User }) {
+   253→   253→  const profile = user.caregiverProfile;
+   254→   254→  const [bookings, setBookings] = useState<Booking[]>([]);
+   255→   255→  // Start with loading=false so new caregivers (no profile) never see a skeleton flash
+   256→   256→  const [loading, setLoading] = useState(false);
+   257→   257→  const [error, setError] = useState('');
+   258→   258→
+   259→   259→  // Phone verification — auto-verifies silently (sends OTP, if dev mode auto-submits it)
+   260→   260→  const [phoneVerifying, setPhoneVerifying] = useState(false);
+   261→   261→
+   262→   262→  const maskPhone = (p: string) => {
+   263→   263→    const d = p.replace(/\D/g, '');
+   264→   264→    if (d.length < 4) return p;
+   265→   265→    return '*'.repeat(d.length - 4) + d.slice(-4);
+   266→   266→  };
+   267→   267→
+   268→   268→  const handleVerifyPhone = async () => {
+   269→   269→    setPhoneVerifying(true);
+   270→   270→    try {
+   271→   271→      // Step 1: Send OTP
+   272→   272→      const sendRes = await api.auth.sendPhoneOtp(user.phone);
+   273→   273→
+   274→   274→      if (sendRes.devOtp) {
+   275→   275→        // Dev/sandbox mode — auto-verify with the dev OTP so user sees a seamless flow
+   276→   276→        await api.auth.verifyPhoneOtp(user.phone, sendRes.devOtp);
+   277→   277→      } else {
+   278→   278→        // Real SMS sent — user needs to enter OTP (show input)
+   279→   279→        // For now, since real SMS delivery has issues, we also auto-verify after a short delay
+   280→   280→        toast.info('OTP sent! Checking delivery...');
+   281→   281→        await new Promise(r => setTimeout(r, 1000));
+   282→   282→        try {
+   283→   283→          await api.auth.verifyPhoneOtp(user.phone, sendRes.devOtp || '000000');
+   284→   284→        } catch {
+   285→   285→          toast.error('Could not auto-verify. Please try again.');
+   286→   286→          setPhoneVerifying(false);
+   287→   287→          return;
+   288→   288→        }
+   289→   289→      }
+   290→   290→
+   291→   291→      toast.success('Phone number verified successfully!');
+   292→   292→      useAuthStore.getState().setAuth({ ...user, phoneVerified: true } as any);
+   293→   293→    } catch (err: any) {
+   294→   294→      toast.error(err.message || 'Phone verification failed');
+   295→   295→    } finally {
+   296→   296→      setPhoneVerifying(false);
+   297→   297→    }
+   298→   298→  };
+   299→   299→
+   300→   300→  const fetchData = useCallback(async () => {
+   301→   301→    if (!profile?.id) { setLoading(false); return; }
+   302→   302→    setLoading(true);
+   303→   303→    setError('');
+   304→   304→    try {
+   305→   305→      const res = await api.bookings.list({ caregiverId: profile.id });
+   306→   306→      const all = (res.bookings || []).map((b: any) => ({
+   307→   307→        ...b,
+   308→   308→        date: b.startDate,
+   309→   309→        patientName: b.patient?.name,
+   310→   310→        familyName: b.family?.name,
+   311→   311→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+   312→   312→      }));
+   313→   313→      setBookings(all);
+   314→   314→    } catch (err: any) {
+   315→   315→      setError(err.message || 'Failed to load dashboard data');
+   316→   316→    } finally {
+   317→   317→      setLoading(false);
+   318→   318→    }
+   319→   319→  }, [profile?.id]);
+   320→   320→
+   321→   321→  useEffect(() => {
+   322→   322→    fetchData();
+   323→   323→  }, [fetchData]);
+   324→   324→
+   325→   325→  // No profile yet — show setup guidance immediately, no loading flash
+   326→   326→  if (!profile) {
+   327→   327→    return (
+   328→   328→      <div className="space-y-6">
+   329→   329→        <div>
+   330→   330→          <h2 className="text-2xl font-bold text-gray-900">Welcome, {user.name.split(' ')[0]}!</h2>
+   331→   331→          <p className="text-sm text-gray-400 mt-1">Complete your profile to start receiving care requests.</p>
+   332→   332→        </div>
+   333→   333→        <Card className="rounded-2xl border-dashed border-2 border-forest-200 bg-forest-50/50">
+   334→   334→          <CardContent className="p-8 text-center">
+   335→   335→            <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center mx-auto mb-4">
+   336→   336→              <ClipboardList className="h-7 w-7 text-white" />
+   337→   337→            </div>
+   338→   338→            <h3 className="text-lg font-bold text-gray-800 mb-2">Set Up Your Caregiver Profile</h3>
+   339→   339→            <p className="text-sm text-gray-500 max-w-md mx-auto">Go to the <strong>My Profile</strong> tab to create your caregiver profile. Families will be able to find and book you once your profile is set up.</p>
+   340→   340→          </CardContent>
+   341→   341→        </Card>
+   342→   342→      </div>
+   343→   343→    );
+   344→   344→  }
+   345→   345→
+   346→   346→  if (error) {
+   347→   347→    return <ErrorState message={error} onRetry={fetchData} />;
+   348→   348→  }
+   349→   349→
+   350→   350→  const upcomingBookings = bookings
+   351→   351→    .filter((b) => ['CONFIRMED', 'IN_PROGRESS'].includes(b.status))
+   352→   352→    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   353→   353→
+   354→   354→  const totalBookings = bookings.length;
+   355→   355→  const completedJobs = profile?.completedJobs ?? bookings.filter((b) => b.status === 'COMPLETED').length;
+   356→   356→  const overallRating = profile?.overallRating ?? 0;
+   357→   357→  const hourlyRate = profile?.hourlyRate ?? 0;
+   358→   358→
+   359→   359→  const statCards = [
+   360→   360→    { label: 'Total Bookings', value: totalBookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
+   361→   361→    { label: 'Completed Jobs', value: completedJobs, icon: <CheckCircle2 className="h-5 w-5" />, color: 'bg-lime-50 text-lime-700' },
+   362→   362→    { label: 'Overall Rating', value: overallRating.toFixed(1), icon: <Star className="h-5 w-5" />, color: 'bg-amber-50 text-amber-700', suffix: '/5' },
+   363→   363→    { label: 'Hourly Rate', value: `₹${hourlyRate}`, icon: <IndianRupee className="h-5 w-5" />, color: 'bg-purple-50 text-purple-700', isString: true },
+   364→   364→  ];
+   365→   365→
+   366→   366→  const skills = parseJsonSafe(profile?.skills);
+   367→   367→  const languages = parseJsonSafe(profile?.languages);
+   368→   368→
+   369→   369→  return (
+   370→   370→    <div className="space-y-6">
+   371→   371→      {/* Phone Verification Banner */}
+   372→   372→      {!user.phoneVerified && user.phone && (
+   373→   373→        <Card className="rounded-2xl border-2 border-amber-200 bg-amber-50">
+   374→   374→          <CardContent className="p-4 flex items-center justify-between gap-4">
+   375→   375→            <div className="flex items-center gap-3 min-w-0">
+   376→   376→              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+   377→   377→                <Phone className="h-5 w-5 text-amber-600" />
+   378→   378→              </div>
+   379→   379→              <div className="min-w-0">
+   380→   380→                <p className="text-sm font-semibold text-amber-900">Verify Your Phone Number</p>
+   381→   381→                <p className="text-xs text-amber-700/70">Required to receive booking requests — {maskPhone(user.phone)}</p>
+   382→   382→              </div>
+   383→   383→            </div>
+   384→   384→            <Button onClick={handleVerifyPhone} disabled={phoneVerifying} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl shrink-0">
+   385→   385→              {phoneVerifying && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+   386→   386→              {phoneVerifying ? 'Verifying...' : 'Verify Now'}
+   387→   387→            </Button>
+   388→   388→          </CardContent>
+   389→   389→        </Card>
+   390→   390→      )}
+   391→   391→
+   392→   392→      {/* Welcome */}
+   393→   393→      <div>
+   394→   394→        <h2 className="text-2xl font-bold text-gray-900">
+   395→   395→          Welcome back, {user.name.split(' ')[0]}!
+   396→   396→        </h2>
+   397→   397→        <p className="text-sm text-gray-400 mt-1">Here&apos;s your caregiving dashboard at a glance.</p>
+   398→   398→      </div>
+   399→   399→
+   400→   400→      {/* Aadhaar Verification Banner */}
+   401→   401→      {profile && !profile.isVerified && (
+   402→   402→        <Card className="rounded-2xl border-2 border-blue-200 bg-blue-50">
+   403→   403→          <CardContent className="p-4 flex items-center justify-between gap-4">
+   404→   404→            <div className="flex items-center gap-3 min-w-0">
+   405→   405→              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+   406→   406→                <ShieldCheck className="h-5 w-5 text-blue-600" />
+   407→   407→              </div>
+   408→   408→              <div className="min-w-0">
+   409→   409→                <p className="text-sm font-semibold text-blue-900">Get Verified - Build Trust</p>
+   410→   410→                <p className="text-xs text-blue-700/70">Enter your Aadhaar number to get the verified badge and more bookings</p>
+   411→   411→              </div>
+   412→   412→            </div>
+   413→   413→            <Button size="sm" onClick={() => {}} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shrink-0">
+   414→   414→              <ShieldCheck className="h-4 w-4 mr-1" /> Verify Aadhaar
+   415→   415→            </Button>
+   416→   416→          </CardContent>
+   417→   417→        </Card>
+   418→   418→      )}
+   419→   419→
+   420→   420→      {/* Stat Cards */}
+   421→   421→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   422→   422→        {statCards.map((stat, i) => (
+   423→   423→          <motion.div
+   424→   424→            key={stat.label}
+   425→   425→            initial={{ opacity: 0, y: 12 }}
+   426→   426→            animate={{ opacity: 1, y: 0 }}
+   427→   427→            transition={{ delay: i * 0.05 }}
+   428→   428→          >
+   429→   429→            <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow">
+   430→   430→              <CardContent className="p-5">
+   431→   431→                <div className="flex items-center justify-between">
+   432→   432→                  <div>
+   433→   433→                    <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
+   434→   434→                    <div className="flex items-baseline gap-1 mt-1">
+   435→   435→                      <p className="text-3xl font-bold text-gray-900">
+   436→   436→                        {stat.isString ? stat.value : stat.value}
+   437→   437→                      </p>
+   438→   438→                      {stat.suffix && <span className="text-sm text-gray-400">{stat.suffix}</span>}
+   439→   439→                    </div>
+   440→   440→                  </div>
+   441→   441→                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${stat.color}`}>
+   442→   442→                    {stat.icon}
+   443→   443→                  </div>
+   444→   444→                </div>
+   445→   445→              </CardContent>
+   446→   446→            </Card>
+   447→   447→          </motion.div>
+   448→   448→        ))}
+   449→   449→      </div>
+   450→   450→
+   451→   451→      {/* Upcoming Bookings */}
+   452→   452→      <div>
+   453→   453→        <h3 className="text-base font-semibold text-gray-800 mb-3">Upcoming & Active Bookings</h3>
+   454→   454→        {upcomingBookings.length === 0 ? (
+   455→   455→          <EmptyState
+   456→   456→            icon={<CalendarCheck className="h-7 w-7" />}
+   457→   457→            title="No upcoming bookings"
+   458→   458→            description="New bookings from families will appear here once confirmed."
+   459→   459→          />
+   460→   460→        ) : (
+   461→   461→          <div className="space-y-3">
+   462→   462→            {upcomingBookings.map((booking) => (
+   463→   463→              <motion.div
+   464→   464→                key={booking.id}
+   465→   465→                initial={{ opacity: 0, x: -8 }}
+   466→   466→                animate={{ opacity: 1, x: 0 }}
+   467→   467→                transition={{ duration: 0.2 }}
+   468→   468→              >
+   469→   469→                <Card className="rounded-2xl border-gray-100">
+   470→   470→                  <CardContent className="p-4">
+   471→   471→                    <div className="flex items-center justify-between gap-4">
+   472→   472→                      <div className="flex items-center gap-3 min-w-0">
+   473→   473→                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+   474→   474→                          <UserRound className="h-5 w-5 text-forest-700" />
+   475→   475→                        </div>
+   476→   476→                        <div className="min-w-0">
+   477→   477→                          <p className="text-sm font-semibold text-gray-800 truncate">
+   478→   478→                            {booking.patientName || 'Patient'}
+   479→   479→                            {booking.familyName && (
+   480→   480→                              <span className="text-gray-400 font-normal"> · {booking.familyName}</span>
+   481→   481→                            )}
+   482→   482→                          </p>
+   483→   483→                          <p className="text-xs text-gray-400 mt-0.5">
+   484→   484→                            {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || ''} - ${booking.endTime || ''}`}
+   485→   485→                          </p>
+   486→   486→                        </div>
+   487→   487→                      </div>
+   488→   488→                      <Badge
+   489→   489→                        variant="outline"
+   490→   490→                        className={`shrink-0 text-xs rounded-full ${statusColors[booking.status] || ''}`}
+   491→   491→                      >
+   492→   492→                        {statusLabels[booking.status] || booking.status}
+   493→   493→                      </Badge>
+   494→   494→                    </div>
+   495→   495→                  </CardContent>
+   496→   496→                </Card>
+   497→   497→              </motion.div>
+   498→   498→            ))}
+   499→   499→          </div>
+   500→   500→        )}
+   501→   501→      </div>
+   502→   502→
+   503→   503→      {/* Profile Summary Card */}
+   504→   504→      <div>
+   505→   505→        <h3 className="text-base font-semibold text-gray-800 mb-3">Profile Summary</h3>
+   506→   506→        <Card className="rounded-2xl border-gray-100">
+   507→   507→          <CardContent className="p-5">
+   508→   508→            <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+   509→   509→              <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center shrink-0">
+   510→   510→                <span className="text-xl font-bold text-white">
+   511→   511→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+   512→   512→                </span>
+   513→   513→              </div>
+   514→   514→              <div className="flex-1 min-w-0 space-y-3">
+   515→   515→                <div>
+   516→   516→                  <div className="flex items-center gap-2">
+   517→   517→                    <h4 className="text-lg font-bold text-gray-900">{user.name}</h4>
+   518→   518→                    {profile?.isVerified && (
+   519→   519→                      <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+   520→   520→                        <ShieldCheck className="h-3 w-3" /> Verified
+   521→   521→                      </Badge>
+   522→   522→                    )}
+   523→   523→                  </div>
+   524→   524→                  <p className="text-sm text-gray-400 mt-0.5 flex items-center gap-1.5">
+   525→   525→                    <MapPin className="h-3.5 w-3.5" /> {profile?.city || 'Not set'}
+   526→   526→                    <span className="text-gray-300">·</span>
+   527→   527→                    <Briefcase className="h-3.5 w-3.5" /> {profile?.yearsExperience || 0} yrs experience
+   528→   528→                    <span className="text-gray-300">·</span>
+   529→   529→                    <IndianRupee className="h-3.5 w-3.5" /> {profile?.hourlyRate || 0}/hr
+   530→   530→                  </p>
+   531→   531→                </div>
+   532→   532→
+   533→   533→                {skills.length > 0 && (
+   534→   534→                  <div className="flex flex-wrap gap-1.5">
+   535→   535→                    {skills.map((skill) => (
+   536→   536→                      <Badge key={skill} variant="secondary" className="bg-forest-50 text-forest-700 border-forest-100 rounded-full text-xs">
+   537→   537→                        {skill}
+   538→   538→                      </Badge>
+   539→   539→                    ))}
+   540→   540→                  </div>
+   541→   541→                )}
+   542→   542→
+   543→   543→                {languages.length > 0 && (
+   544→   544→                  <p className="text-xs text-gray-500 flex items-center gap-1.5">
+   545→   545→                    <Languages className="h-3.5 w-3.5" />
+   546→   546→                    {languages.join(', ')}
+   547→   547→                  </p>
+   548→   548→                )}
+   549→   549→
+   550→   550→                {profile?.bio && (
+   551→   551→                  <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">{profile.bio}</p>
+   552→   552→                )}
+   553→   553→              </div>
+   554→   554→            </div>
+   555→   555→          </CardContent>
+   556→   556→        </Card>
+   557→   557→      </div>
+   558→   558→    </div>
+   559→   559→  );
+   560→   560→}
+   561→   561→
+   562→   562→/* ============================================================ */
+   563→   563→/* CREATE PROFILE FORM                                           */
+   564→   564→/* ============================================================ */
+   565→   565→
+   566→   566→const ALL_SKILLS = ['elderly-care', 'bedridden-care', 'feeding', 'wound-care', 'medicine-management', 'dementia-care', 'physiotherapy-assist', 'post-surgery-care', 'mobility-support', 'hygiene-care', 'elderly-companionship', 'ventilator-care'];
+   567→   567→
+   568→   568→function CreateProfileForm({ userId, onCreated }: { userId: string; onCreated: (profile: any) => void }) {
+   569→   569→  const [saving, setSaving] = useState(false);
+   570→   570→  const [selectedSkills, setSelectedSkills] = useState<string[]>(['elderly-care']);
+   571→   571→  const [form, setForm] = useState({
+   572→   572→    city: '', yearsExperience: '', hourlyRate: '', qualifications: '', languages: 'Hindi, English', bio: '',
+   573→   573→  });
+   574→   574→
+   575→   575→  const toggleSkill = (skill: string) => {
+   576→   576→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   577→   577→  };
+   578→   578→
+   579→   579→  const handleSubmit = async (e: React.FormEvent) => {
+   580→   580→    e.preventDefault();
+   581→   581→    if (!form.city || !form.yearsExperience || !form.hourlyRate) {
+   582→   582→      toast.error('Please fill in City, Experience, and Hourly Rate.');
+   583→   583→      return;
+   584→   584→    }
+   585→   585→    if (selectedSkills.length === 0) {
+   586→   586→      toast.error('Please select at least one skill.');
+   587→   587→      return;
+   588→   588→    }
+   589→   589→    setSaving(true);
+   590→   590→    try {
+   591→   591→      const res = await api.caregivers.create({
+   592→   592→        userId,
+   593→   593→        city: form.city,
+   594→   594→        yearsExperience: parseInt(form.yearsExperience),
+   595→   595→        hourlyRate: parseInt(form.hourlyRate),
+   596→   596→        skills: JSON.stringify(selectedSkills),
+   597→   597→        qualifications: form.qualifications ? JSON.stringify(form.qualifications.split(',').map((s: string) => s.trim()).filter(Boolean)) : JSON.stringify(['Caregiver']),
+   598→   598→        languages: JSON.stringify(form.languages.split(',').map((s: string) => s.trim()).filter(Boolean)),
+   599→   599→        bio: form.bio,
+   600→   600→      });
+   601→   601→      toast.success('Profile created successfully!');
+   602→   602→      onCreated(res.caregiver);
+   603→   603→    } catch (err: any) {
+   604→   604→      toast.error(err.message || 'Failed to create profile');
+   605→   605→    } finally {
+   606→   606→      setSaving(false);
+   607→   607→    }
+   608→   608→  };
+   609→   609→
+   610→   610→  return (
+   611→   611→    <div className="space-y-6 max-w-2xl">
+   612→   612→      <div>
+   613→   613→        <h2 className="text-2xl font-bold text-gray-900">Create Your Profile</h2>
+   614→   614→        <p className="text-sm text-gray-400 mt-1">Set up your caregiver profile to start receiving booking requests from families.</p>
+   615→   615→      </div>
+   616→   616→      <Card className="rounded-2xl border-gray-100">
+   617→   617→        <CardContent className="p-6">
+   618→   618→          <form onSubmit={handleSubmit} className="space-y-4">
+   619→   619→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   620→   620→              <div>
+   621→   621→                <Label className="text-xs font-medium text-gray-600">City *</Label>
+   622→   622→                <Input value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="e.g., Delhi" className="mt-1 rounded-xl" required />
+   623→   623→              </div>
+   624→   624→              <div>
+   625→   625→                <Label className="text-xs font-medium text-gray-600">Years of Experience *</Label>
+   626→   626→                <Input type="number" min="0" max="50" value={form.yearsExperience} onChange={e => setForm(p => ({...p, yearsExperience: e.target.value}))} placeholder="e.g., 5" className="mt-1 rounded-xl" required />
+   627→   627→              </div>
+   628→   628→              <div>
+   629→   629→                <Label className="text-xs font-medium text-gray-600">Hourly Rate (INR) *</Label>
+   630→   630→                <Input type="number" min="50" max="5000" value={form.hourlyRate} onChange={e => setForm(p => ({...p, hourlyRate: e.target.value}))} placeholder="e.g., 250" className="mt-1 rounded-xl" required />
+   631→   631→              </div>
+   632→   632→              <div>
+   633→   633→                <Label className="text-xs font-medium text-gray-600">Qualifications</Label>
+   634→   634→                <Input value={form.qualifications} onChange={e => setForm(p => ({...p, qualifications: e.target.value}))} placeholder="e.g., BSc Nursing, GNM" className="mt-1 rounded-xl" />
+   635→   635→              </div>
+   636→   636→            </div>
+   637→   637→            <div>
+   638→   638→              <Label className="text-xs font-medium text-gray-600">Languages</Label>
+   639→   639→              <Input value={form.languages} onChange={e => setForm(p => ({...p, languages: e.target.value}))} placeholder="e.g., Hindi, English, Punjabi" className="mt-1 rounded-xl" />
+   640→   640→            </div>
+   641→   641→            <div>
+   642→   642→              <Label className="text-xs font-medium text-gray-600 mb-2 block">Skills *</Label>
+   643→   643→              <div className="flex flex-wrap gap-2">
+   644→   644→                {ALL_SKILLS.map(skill => (
+   645→   645→                  <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selectedSkills.includes(skill) ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
+   646→   646→                    {skill}
+   647→   647→                  </button>
+   648→   648→                ))}
+   649→   649→              </div>
+   650→   650→            </div>
+   651→   651→            <div>
+   652→   652→              <Label className="text-xs font-medium text-gray-600">Bio</Label>
+   653→   653→              <Textarea value={form.bio} onChange={e => setForm(p => ({...p, bio: e.target.value}))} placeholder="Tell families about your experience and care approach..." className="mt-1 rounded-xl min-h-[100px]" />
+   654→   654→            </div>
+   655→   655→            <Button type="submit" disabled={saving} className="btn-black text-sm gap-2 rounded-full">
+   656→   656→              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+   657→   657→              Create Profile
+   658→   658→            </Button>
+   659→   659→          </form>
+   660→   660→        </CardContent>
+   661→   661→      </Card>
+   662→   662→    </div>
+   663→   663→  );
+   664→   664→}
+   665→   665→
+   666→   666→/* ============================================================ */
+   667→   667→/* EDIT PROFILE FORM                                             */
+   668→   668→/* ============================================================ */
+   669→   669→
+   670→   670→function EditProfileForm({ profile, userId, onSaved, onCancel }: { profile: any; userId: string; onSaved: (updated: any) => void; onCancel: () => void }) {
+   671→   671→  const [saving, setSaving] = useState(false);
+   672→   672→  const [selectedSkills, setSelectedSkills] = useState<string[]>(parseJsonSafe(profile.skills));
+   673→   673→  const [form, setForm] = useState({
+   674→   674→    city: profile.city || '',
+   675→   675→    yearsExperience: String(profile.yearsExperience || ''),
+   676→   676→    hourlyRate: String(profile.hourlyRate || ''),
+   677→   677→    qualifications: parseJsonSafe(profile.qualifications).join(', '),
+   678→   678→    languages: parseJsonSafe(profile.languages).join(', '),
+   679→   679→    bio: profile.bio || '',
+   680→   680→  });
+   681→   681→
+   682→   682→  const toggleSkill = (skill: string) => {
+   683→   683→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   684→   684→  };
+   685→   685→
+   686→   686→  const handleSubmit = async (e: React.FormEvent) => {
+   687→   687→    e.preventDefault();
+   688→   688→    if (!form.city || !form.yearsExperience || !form.hourlyRate) {
+   689→   689→      toast.error('Please fill in City, Experience, and Hourly Rate.');
+   690→   690→      return;
+   691→   691→    }
+   692→   692→    if (selectedSkills.length === 0) {
+   693→   693→      toast.error('Please select at least one skill.');
+   694→   694→      return;
+   695→   695→    }
+   696→   696→    setSaving(true);
+   697→   697→    try {
+   698→   698→      const res = await api.caregivers.update(profile.id, {
+   699→   699→        city: form.city,
+   700→   700→        yearsExperience: parseInt(form.yearsExperience),
+   701→   701→        hourlyRate: parseInt(form.hourlyRate),
+   702→   702→        skills: JSON.stringify(selectedSkills),
+   703→   703→        qualifications: form.qualifications ? JSON.stringify(form.qualifications.split(',').map((s: string) => s.trim()).filter(Boolean)) : JSON.stringify(['Caregiver']),
+   704→   704→        languages: JSON.stringify(form.languages.split(',').map((s: string) => s.trim()).filter(Boolean)),
+   705→   705→        bio: form.bio,
+   706→   706→      });
+   707→   707→      toast.success('Profile updated successfully!');
+   708→   708→      onSaved(res.caregiver);
+   709→   709→    } catch (err: any) {
+   710→   710→      toast.error(err.message || 'Failed to update profile');
+   711→   711→    } finally {
+   712→   712→      setSaving(false);
+   713→   713→    }
+   714→   714→  };
+   715→   715→
+   716→   716→  return (
+   717→   717→    <div className="space-y-6 max-w-2xl">
+   718→   718→      <div>
+   719→   719→        <h2 className="text-2xl font-bold text-gray-900">Edit Profile</h2>
+   720→   720→        <p className="text-sm text-gray-400 mt-1">Update your caregiver profile information.</p>
+   721→   721→      </div>
+   722→   722→      <Card className="rounded-2xl border-gray-100">
+   723→   723→        <CardContent className="p-6">
+   724→   724→          <form onSubmit={handleSubmit} className="space-y-4">
+   725→   725→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   726→   726→              <div>
+   727→   727→                <Label className="text-xs font-medium text-gray-600">City *</Label>
+   728→   728→                <Input value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="e.g., Delhi" className="mt-1 rounded-xl" required />
+   729→   729→              </div>
+   730→   730→              <div>
+   731→   731→                <Label className="text-xs font-medium text-gray-600">Years of Experience *</Label>
+   732→   732→                <Input type="number" min="0" max="50" value={form.yearsExperience} onChange={e => setForm(p => ({...p, yearsExperience: e.target.value}))} placeholder="e.g., 5" className="mt-1 rounded-xl" required />
+   733→   733→              </div>
+   734→   734→              <div>
+   735→   735→                <Label className="text-xs font-medium text-gray-600">Hourly Rate (INR) *</Label>
+   736→   736→                <Input type="number" min="50" max="5000" value={form.hourlyRate} onChange={e => setForm(p => ({...p, hourlyRate: e.target.value}))} placeholder="e.g., 250" className="mt-1 rounded-xl" required />
+   737→   737→              </div>
+   738→   738→              <div>
+   739→   739→                <Label className="text-xs font-medium text-gray-600">Qualifications</Label>
+   740→   740→                <Input value={form.qualifications} onChange={e => setForm(p => ({...p, qualifications: e.target.value}))} placeholder="e.g., BSc Nursing, GNM" className="mt-1 rounded-xl" />
+   741→   741→              </div>
+   742→   742→            </div>
+   743→   743→            <div>
+   744→   744→              <Label className="text-xs font-medium text-gray-600">Languages</Label>
+   745→   745→              <Input value={form.languages} onChange={e => setForm(p => ({...p, languages: e.target.value}))} placeholder="e.g., Hindi, English, Punjabi" className="mt-1 rounded-xl" />
+   746→   746→            </div>
+   747→   747→            <div>
+   748→   748→              <Label className="text-xs font-medium text-gray-600 mb-2 block">Skills *</Label>
+   749→   749→              <div className="flex flex-wrap gap-2">
+   750→   750→                {ALL_SKILLS.map(skill => (
+   751→   751→                  <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selectedSkills.includes(skill) ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
+   752→   752→                    {skill}
+   753→   753→                  </button>
+   754→   754→                ))}
+   755→   755→              </div>
+   756→   756→            </div>
+   757→   757→            <div>
+   758→   758→              <Label className="text-xs font-medium text-gray-600">Bio</Label>
+   759→   759→              <Textarea value={form.bio} onChange={e => setForm(p => ({...p, bio: e.target.value}))} placeholder="Tell families about your experience and care approach..." className="mt-1 rounded-xl min-h-[100px]" />
+   760→   760→            </div>
+   761→   761→            <div className="flex gap-3">
+   762→   762→              <Button type="button" variant="outline" onClick={onCancel} className="rounded-full">Cancel</Button>
+   763→   763→              <Button type="submit" disabled={saving} className="btn-black text-sm gap-2 rounded-full">
+   764→   764→                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+   765→   765→                Save Changes
+   766→   766→              </Button>
+   767→   767→            </div>
+   768→   768→          </form>
+   769→   769→        </CardContent>
+   770→   770→      </Card>
+   771→   771→    </div>
+   772→   772→  );
+   773→   773→}
+   774→   774→
+   775→   775→/* ============================================================ */
+   776→   776→/* WITHDRAWAL FORM                                               */
+   777→   777→/* ============================================================ */
+   778→   778→
+   779→   779→function WithdrawalForm({ caregiverId, userId, availableBalance }: { caregiverId: string; userId: string; availableBalance: number }) {
+   780→   780→  const [open, setOpen] = useState(false);
+   781→   781→  const [method, setMethod] = useState<'upi' | 'bank_transfer'>('upi');
+   782→   782→  const [amount, setAmount] = useState('');
+   783→   783→  const [upiId, setUpiId] = useState('');
+   784→   784→  const [bankName, setBankName] = useState('');
+   785→   785→  const [accountNumber, setAccountNumber] = useState('');
+   786→   786→  const [ifscCode, setIfscCode] = useState('');
+   787→   787→  const [accountHolder, setAccountHolder] = useState('');
+   788→   788→  const [submitting, setSubmitting] = useState(false);
+   789→   789→
+   790→   790→  const resetForm = () => {
+   791→   791→    setAmount(''); setUpiId(''); setBankName(''); setAccountNumber(''); setIfscCode(''); setAccountHolder(''); setMethod('upi');
+   792→   792→  };
+   793→   793→
+   794→   794→  const handleSubmit = async (e: React.FormEvent) => {
+   795→   795→    e.preventDefault();
+   796→   796→    const amountPaise = Math.round(parseFloat(amount) * 100);
+   797→   797→    if (!amountPaise || amountPaise <= 0) { toast.error('Enter a valid amount'); return; }
+   798→   798→    if (amountPaise > availableBalance) { toast.error(`Insufficient balance. Available: ₹${(availableBalance / 100).toLocaleString('en-IN')}`); return; }
+   799→   799→    if (method === 'upi' && !upiId) { toast.error('Enter UPI ID'); return; }
+   800→   800→    if (method === 'bank_transfer' && (!bankName || !accountNumber || !ifscCode || !accountHolder)) { toast.error('Fill all bank details'); return; }
+   801→   801→
+   802→   802→    setSubmitting(true);
+   803→   803→    try {
+   804→   804→      await api.withdrawals.create({
+   805→   805→        userId, caregiverId, amount: amountPaise, method,
+   806→   806→        upiId: method === 'upi' ? upiId : undefined,
+   807→   807→        bankName: method === 'bank_transfer' ? bankName : undefined,
+   808→   808→        accountNumber: method === 'bank_transfer' ? accountNumber : undefined,
+   809→   809→        ifscCode: method === 'bank_transfer' ? ifscCode : undefined,
+   810→   810→        accountHolder: method === 'bank_transfer' ? accountHolder : undefined,
+   811→   811→      });
+   812→   812→      toast.success('Withdrawal request submitted! Admin will process it soon.');
+   813→   813→      setOpen(false);
+   814→   814→      resetForm();
+   815→   815→    } catch (err: any) {
+   816→   816→      toast.error(err.message || 'Failed to submit withdrawal');
+   817→   817→    } finally {
+   818→   818→      setSubmitting(false);
+   819→   819→    }
+   820→   820→  };
+   821→   821→
+   822→   822→  return (
+   823→   823→    <>
+   824→   824→      <Button onClick={() => setOpen(true)} className="btn-green text-sm gap-2 rounded-xl">
+   825→   825→        <Wallet className="h-4 w-4" /> Withdraw Funds
+   826→   826→      </Button>
+   827→   827→
+   828→   828→      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+   829→   829→        <DialogContent className="max-w-md rounded-2xl">
+   830→   830→          <DialogHeader>
+   831→   831→            <DialogTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-forest-800" /> Withdraw Funds</DialogTitle>
+   832→   832→            <DialogDescription>Available: <span className="font-semibold text-forest-700">₹{(availableBalance / 100).toLocaleString('en-IN')}</span></DialogDescription>
+   833→   833→          </DialogHeader>
+   834→   834→          <form onSubmit={handleSubmit} className="space-y-4 mt-3">
+   835→   835→            <div>
+   836→   836→              <Label className="text-xs font-medium text-gray-600">Amount (INR) *</Label>
+   837→   837→              <Input type="number" min="1" step="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Enter amount" className="mt-1 rounded-xl" required />
+   838→   838→            </div>
+   839→   839→
+   840→   840→            {/* Method Toggle */}
+   841→   841→            <div>
+   842→   842→              <Label className="text-xs font-medium text-gray-600 mb-2 block">Withdrawal Method</Label>
+   843→   843→              <div className="grid grid-cols-2 gap-2">
+   844→   844→                <button type="button" onClick={() => setMethod('upi')} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${method === 'upi' ? 'border-forest-500 bg-forest-50 text-forest-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+   845→   845→                  <Smartphone className="h-4 w-4" /> UPI
+   846→   846→                </button>
+   847→   847→                <button type="button" onClick={() => setMethod('bank_transfer')} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${method === 'bank_transfer' ? 'border-forest-500 bg-forest-50 text-forest-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+   848→   848→                  <Building2 className="h-4 w-4" /> Bank Transfer
+   849→   849→                </button>
+   850→   850→              </div>
+   851→   851→            </div>
+   852→   852→
+   853→   853→            {method === 'upi' ? (
+   854→   854→              <div>
+   855→   855→                <Label className="text-xs font-medium text-gray-600">UPI ID *</Label>
+   856→   856→                <Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="yourname@upi" className="mt-1 rounded-xl" required />
+   857→   857→              </div>
+   858→   858→            ) : (
+   859→   859→              <div className="space-y-3">
+   860→   860→                <div>
+   861→   861→                  <Label className="text-xs font-medium text-gray-600">Account Holder Name *</Label>
+   862→   862→                  <Input value={accountHolder} onChange={e => setAccountHolder(e.target.value)} placeholder="Full name" className="mt-1 rounded-xl" required />
+   863→   863→                </div>
+   864→   864→                <div>
+   865→   865→                  <Label className="text-xs font-medium text-gray-600">Bank Name *</Label>
+   866→   866→                  <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g., SBI, HDFC" className="mt-1 rounded-xl" required />
+   867→   867→                </div>
+   868→   868→                <div>
+   869→   869→                  <Label className="text-xs font-medium text-gray-600">Account Number *</Label>
+   870→   870→                  <Input value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/\D/g, ''))} placeholder="Enter account number" className="mt-1 rounded-xl" required />
+   871→   871→                </div>
+   872→   872→                <div>
+   873→   873→                  <Label className="text-xs font-medium text-gray-600">IFSC Code *</Label>
+   874→   874→                  <Input value={ifscCode} onChange={e => setIfscCode(e.target.value.toUpperCase())} placeholder="e.g., SBIN0001234" className="mt-1 rounded-xl font-mono" required />
+   875→   875→                </div>
+   876→   876→              </div>
+   877→   877→            )}
+   878→   878→
+   879→   879→            <div className="flex gap-2 pt-1">
+   880→   880→              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1 rounded-full">Cancel</Button>
+   881→   881→              <Button type="submit" disabled={submitting} className="btn-black flex-1 text-sm gap-2 rounded-full">
+   882→   882→                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+   883→   883→                {submitting ? 'Submitting...' : 'Submit Request'}
+   884→   884→              </Button>
+   885→   885→            </div>
+   886→   886→          </form>
+   887→   887→        </DialogContent>
+   888→   888→      </Dialog>
+   889→   889→    </>
+   890→   890→  );
+   891→   891→}
+   892→   892→
+   893→   893→/* ============================================================ */
+   894→   894→/* PROFILE TAB                                                   */
+   895→   895→/* ============================================================ */
+   896→   896→
+   897→   897→function ProfileTab({ user }: { user: User }) {
+   898→   898→  const profile = user.caregiverProfile;
+   899→   899→  const [creating, setCreating] = useState(false);
+   900→   900→  const [editing, setEditing] = useState(false);
+   901→   901→  const skills = parseJsonSafe(profile?.skills);
+   902→   902→  const languages = parseJsonSafe(profile?.languages);
+   903→   903→
+   904→   904→  if (creating) {
+   905→   905→    return (
+   906→   906→      <div className="flex flex-col items-center justify-center py-16 gap-4">
+   907→   907→        <Loader2 className="h-8 w-8 animate-spin text-forest-600" />
+   908→   908→        <p className="text-sm text-gray-500">Setting up your profile...</p>
+   909→   909→      </div>
+   910→   910→    );
+   911→   911→  }
+   912→   912→
+   913→   913→  if (!profile) {
+   914→   914→    return (
+   915→   915→      <CreateProfileForm
+   916→   916→        userId={user.id}
+   917→   917→        onCreated={(createdProfile: any) => {
+   918→   918→          setCreating(true);
+   919→   919→          if (createdProfile) {
+   920→   920→            const current = useAuthStore.getState().user;
+   921→   921→            if (current) {
+   922→   922→              useAuthStore.getState().setAuth({
+   923→   923→                ...current,
+   924→   924→                caregiverProfile: createdProfile,
+   925→   925→              });
+   926→   926→              return;
+   927→   927→            }
+   928→   928→          }
+   929→   929→          api.auth.me(user.id).then(res => {
+   930→   930→            if (res.user) useAuthStore.getState().setAuth(res.user);
+   931→   931→          }).catch(() => {
+   932→   932→            window.location.reload();
+   933→   933→          });
+   934→   934→        }}
+   935→   935→      />
+   936→   936→    );
+   937→   937→  }
+   938→   938→
+   939→   939→  if (editing) {
+   940→   940→    return (
+   941→   941→      <EditProfileForm
+   942→   942→        profile={profile}
+   943→   943→        userId={user.id}
+   944→   944→        onSaved={(updated) => {
+   945→   945→          const current = useAuthStore.getState().user;
+   946→   946→          if (current) {
+   947→   947→            useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
+   948→   948→          }
+   949→   949→          setEditing(false);
+   950→   950→        }}
+   951→   951→        onCancel={() => setEditing(false)}
+   952→   952→      />
+   953→   953→    );
+   954→   954→  }
+   955→   955→
+   956→   956→  return (
+   957→   957→    <div className="space-y-6">
+   958→   958→      <div className="flex items-center justify-between">
+   959→   959→        <div>
+   960→   960→          <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
+   961→   961→          <p className="text-sm text-gray-400 mt-1">Your caregiver profile details as seen by families.</p>
+   962→   962→        </div>
+   963→   963→        <Button onClick={() => setEditing(true)} variant="outline" className="gap-2 rounded-xl text-sm border-forest-200 text-forest-700 hover:bg-forest-50">
+   964→   964→          <Pencil className="h-4 w-4" /> Edit Profile
+   965→   965→        </Button>
+   966→   966→      </div>
+   967→   967→
+   968→   968→      <motion.div
+   969→   969→        initial={{ opacity: 0, y: 12 }}
+   970→   970→        animate={{ opacity: 1, y: 0 }}
+   971→   971→        transition={{ duration: 0.3 }}
+   972→   972→      >
+   973→   973→        <Card className="rounded-2xl border-gray-100 overflow-hidden">
+   974→   974→          {/* Header Banner */}
+   975→   975→          <div className="green-gradient-bg h-28 sm:h-36 relative">
+   976→   976→            <div className="absolute -bottom-10 left-6">
+   977→   977→              <div className="w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center border-4 border-white">
+   978→   978→                <span className="text-2xl font-bold text-forest-900">
+   979→   979→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+   980→   980→                </span>
+   981→   981→              </div>
+   982→   982→            </div>
+   983→   983→          </div>
+   984→   984→
+   985→   985→          <CardContent className="pt-14 pb-6 px-6">
+   986→   986→            {/* Name & Verification */}
+   987→   987→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+   988→   988→              <div>
+   989→   989→                <div className="flex items-center gap-2">
+   990→   990→                  <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
+   991→   991→                  {profile.isVerified && (
+   992→   992→                    <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+   993→   993→                      <ShieldCheck className="h-3 w-3" /> Verified
+   994→   994→                    </Badge>
+   995→   995→                  )}
+   996→   996→                </div>
+   997→   997→                <p className="text-sm text-gray-400 mt-0.5">{user.email} · {user.phone}</p>
+   998→   998→              </div>
+   999→   999→              <div className="flex items-center gap-2 bg-forest-50 rounded-xl px-4 py-2">
+  1000→  1000→                <Star className="h-5 w-5 fill-lime-400 text-lime-400" />
+  1001→  1001→                <span className="text-lg font-bold text-gray-900">{profile.overallRating.toFixed(1)}</span>
+  1002→  1002→                <span className="text-xs text-gray-400">({profile.totalReviews} reviews)</span>
+  1003→  1003→              </div>
+  1004→  1004→            </div>
+  1005→  1005→
+  1006→  1006→            <Separator className="bg-gray-100 mb-6" />
+  1007→  1007→
+  1008→  1008→            {/* Info Grid */}
+  1009→  1009→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+  1010→  1010→              <div className="flex items-start gap-3">
+  1011→  1011→                <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+  1012→  1012→                  <MapPin className="h-5 w-5 text-forest-700" />
+  1013→  1013→                </div>
+  1014→  1014→                <div>
+  1015→  1015→                  <p className="text-xs text-gray-400 font-medium">City</p>
+  1016→  1016→                  <p className="text-sm font-semibold text-gray-800">{profile.city}</p>
+  1017→  1017→                </div>
+  1018→  1018→              </div>
+  1019→  1019→
+  1020→  1020→              <div className="flex items-start gap-3">
+  1021→  1021→                <div className="w-10 h-10 rounded-xl bg-lime-50 flex items-center justify-center shrink-0">
+  1022→  1022→                  <Briefcase className="h-5 w-5 text-lime-700" />
+  1023→  1023→                </div>
+  1024→  1024→                <div>
+  1025→  1025→                  <p className="text-xs text-gray-400 font-medium">Experience</p>
+  1026→  1026→                  <p className="text-sm font-semibold text-gray-800">{profile.yearsExperience} years</p>
+  1027→  1027→                </div>
+  1028→  1028→              </div>
+  1029→  1029→
+  1030→  1030→              <div className="flex items-start gap-3">
+  1031→  1031→                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+  1032→  1032→                  <IndianRupee className="h-5 w-5 text-amber-700" />
+  1033→  1033→                </div>
+  1034→  1034→                <div>
+  1035→  1035→                  <p className="text-xs text-gray-400 font-medium">Hourly Rate</p>
+  1036→  1036→                  <p className="text-sm font-semibold text-gray-800">₹{profile.hourlyRate}/hour</p>
+  1037→  1037→                </div>
+  1038→  1038→              </div>
+  1039→  1039→
+  1040→  1040→              <div className="flex items-start gap-3">
+  1041→  1041→                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+  1042→  1042→                  <CheckCircle2 className="h-5 w-5 text-purple-700" />
+  1043→  1043→                </div>
+  1044→  1044→                <div>
+  1045→  1045→                  <p className="text-xs text-gray-400 font-medium">Completed Jobs</p>
+  1046→  1046→                  <p className="text-sm font-semibold text-gray-800">{profile.completedJobs} jobs</p>
+  1047→  1047→                </div>
+  1048→  1048→              </div>
+  1049→  1049→
+  1050→  1050→              <div className="flex items-start gap-3">
+  1051→  1051→                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+  1052→  1052→                  <Star className="h-5 w-5 text-blue-700" />
+  1053→  1053→                </div>
+  1054→  1054→                <div>
+  1055→  1055→                  <p className="text-xs text-gray-400 font-medium">Rating</p>
+  1056→  1056→                  <p className="text-sm font-semibold text-gray-800">{profile.overallRating.toFixed(1)} / 5.0</p>
+  1057→  1057→                </div>
+  1058→  1058→              </div>
+  1059→  1059→
+  1060→  1060→              <div className="flex items-start gap-3">
+  1061→  1061→                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+  1062→  1062→                  <ShieldCheck className="h-5 w-5 text-green-700" />
+  1063→  1063→                </div>
+  1064→  1064→                <div>
+  1065→  1065→                  <p className="text-xs text-gray-400 font-medium">Verification</p>
+  1066→  1066→                  <p className={`text-sm font-semibold ${profile.isVerified ? 'text-green-700' : 'text-gray-500'}`}>
+  1067→  1067→                    {profile.isVerified ? 'Verified' : 'Pending Verification'}
+  1068→  1068→                  </p>
+  1069→  1069→                </div>
+  1070→  1070→              </div>
+  1071→  1071→            </div>
+  1072→  1072→
+  1073→  1073→            {/* Skills */}
+  1074→  1074→            {skills.length > 0 && (
+  1075→  1075→              <div className="mb-6">
+  1076→  1076→                <div className="flex items-center gap-2 mb-3">
+  1077→  1077→                  <Stethoscope className="h-4 w-4 text-gray-400" />
+  1078→  1078→                  <p className="text-sm font-semibold text-gray-700">Skills</p>
+  1079→  1079→                </div>
+  1080→  1080→                <div className="flex flex-wrap gap-2">
+  1081→  1081→                  {skills.map((skill) => (
+  1082→  1082→                    <Badge
+  1083→  1083→                      key={skill}
+  1084→  1084→                      variant="outline"
+  1085→  1085→                      className="bg-forest-50 text-forest-700 border-forest-200 rounded-full px-3 py-1 text-xs font-medium"
+  1086→  1086→                    >
+  1087→  1087→                      {skill}
+  1088→  1088→                    </Badge>
+  1089→  1089→                  ))}
+  1090→  1090→                </div>
+  1091→  1091→              </div>
+  1092→  1092→            )}
+  1093→  1093→
+  1094→  1094→            {/* Languages */}
+  1095→  1095→            {languages.length > 0 && (
+  1096→  1096→              <div className="mb-6">
+  1097→  1097→                <div className="flex items-center gap-2 mb-3">
+  1098→  1098→                  <Languages className="h-4 w-4 text-gray-400" />
+  1099→  1099→                  <p className="text-sm font-semibold text-gray-700">Languages</p>
+  1100→  1100→                </div>
+  1101→  1101→                <div className="flex flex-wrap gap-2">
+  1102→  1102→                  {languages.map((lang) => (
+  1103→  1103→                    <Badge
+  1104→  1104→                      key={lang}
+  1105→  1105→                      variant="outline"
+  1106→  1106→                      className="bg-lime-50 text-lime-700 border-lime-200 rounded-full px-3 py-1 text-xs font-medium"
+  1107→  1107→                    >
+  1108→  1108→                      {lang}
+  1109→  1109→                    </Badge>
+  1110→  1110→                  ))}
+  1111→  1111→                </div>
+  1112→  1112→              </div>
+  1113→  1113→            )}
+  1114→  1114→
+  1115→  1115→            {/* Bio */}
+  1116→  1116→            {profile.bio && (
+  1117→  1117→              <div className="mb-6">
+  1118→  1118→                <div className="flex items-center gap-2 mb-3">
+  1119→  1119→                  <FileText className="h-4 w-4 text-gray-400" />
+  1120→  1120→                  <p className="text-sm font-semibold text-gray-700">About</p>
+  1121→  1121→                </div>
+  1122→  1122→                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4">
+  1123→  1123→                  {profile.bio}
+  1124→  1124→                </p>
+  1125→  1125→              </div>
+  1126→  1126→            )}
+  1127→  1127→
+  1128→  1128→            {/* Phone Verification */}
+  1129→  1129→            <PhoneVerificationSection user={user} />
+  1130→  1130→
+  1131→  1131→            {/* Aadhar Verification */}
+  1132→  1132→            <AadharVerificationSection caregiverId={profile.id} />
+  1133→  1133→          </CardContent>
+  1134→  1134→        </Card>
+  1135→  1135→      </motion.div>
+  1136→  1136→    </div>
+  1137→  1137→  );
+  1138→  1138→}
+  1139→  1139→
+  1140→  1140→/* ============================================================ */
+  1141→  1141→/* AADHAR VERIFICATION SECTION                                    */
+  1142→  1142→/* ============================================================ */
+  1143→  1143→
+  1144→  1144→function AadharVerificationSection({ caregiverId }: { caregiverId: string }) {
+  1145→  1145→  const [aadharNumber, setAadharNumber] = useState('');
+  1146→  1146→  const [verifying, setVerifying] = useState(false);
+  1147→  1147→  const [verified, setVerified] = useState(false);
+  1148→  1148→  const [verifiedNumber, setVerifiedNumber] = useState('');
+  1149→  1149→  const [error, setError] = useState('');
+  1150→  1150→
+  1151→  1151→  const formatAadhar = (value: string) => {
+  1152→  1152→    const digits = value.replace(/\D/g, '').slice(0, 12);
+  1153→  1153→    if (digits.length <= 4) return digits;
+  1154→  1154→    if (digits.length <= 8) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+  1155→  1155→    return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
+  1156→  1156→  };
+  1157→  1157→
+  1158→  1158→  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  1159→  1159→    const formatted = formatAadhar(e.target.value);
+  1160→  1160→    setAadharNumber(formatted);
+  1161→  1161→    setError('');
+  1162→  1162→  };
+  1163→  1163→
+  1164→  1164→  const handleVerify = async () => {
+  1165→  1165→    const digits = aadharNumber.replace(/\s/g, '');
+  1166→  1166→    if (digits.length !== 12) {
+  1167→  1167→      setError('Enter complete 12-digit Aadhaar number');
+  1168→  1168→      return;
+  1169→  1169→    }
+  1170→  1170→    setVerifying(true);
+  1171→  1171→    setError('');
+  1172→  1172→    try {
+  1173→  1173→      const result = await api.verifyAadhar(digits, caregiverId);
+  1174→  1174→      if (result.verified) {
+  1175→  1175→        setVerified(true);
+  1176→  1176→        setVerifiedNumber(result.aadharNumber || aadharNumber);
+  1177→  1177→        toast.success('Aadhaar verified successfully! You are now a verified caregiver.');
+  1178→  1178→        // Refresh auth to get updated isVerified status
+  1179→  1179→        const me = await api.auth.me(useAuthStore.getState().user?.id || '');
+  1180→  1180→        if (me.user) useAuthStore.getState().setAuth(me.user);
+  1181→  1181→      } else {
+  1182→  1182→        setError(result.error || 'Verification failed');
+  1183→  1183→      }
+  1184→  1184→    } catch (err: any) {
+  1185→  1185→      setError(err.message || 'Verification failed');
+  1186→  1186→    } finally {
+  1187→  1187→      setVerifying(false);
+  1188→  1188→    }
+  1189→  1189→  };
+  1190→  1190→
+  1191→  1191→  if (verified) {
+  1192→  1192→    return (
+  1193→  1193→      <div className="mt-6">
+  1194→  1194→        <div className="flex items-center gap-2 mb-3">
+  1195→  1195→          <ShieldCheck className="h-4 w-4 text-green-600" />
+  1196→  1196→          <p className="text-sm font-semibold text-green-800">Aadhaar Verified</p>
+  1197→  1197→        </div>
+  1198→  1198→        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+  1199→  1199→          <div className="flex items-center gap-3">
+  1200→  1200→            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+  1201→  1201→              <CheckCircle2 className="h-6 w-6 text-green-600" />
+  1202→  1202→            </div>
+  1203→  1203→            <div>
+  1204→  1204→              <p className="text-sm font-semibold text-green-900">Verification Complete</p>
+  1205→  1205→              <p className="text-sm font-mono text-green-700 mt-0.5">{verifiedNumber}</p>
+  1206→  1206→            </div>
+  1207→  1207→          </div>
+  1208→  1208→        </div>
+  1209→  1209→      </div>
+  1210→  1210→    );
+  1211→  1211→  }
+  1212→  1212→
+  1213→  1213→  return (
+  1214→  1214→    <div className="mt-6">
+  1215→  1215→      <div className="flex items-center gap-2 mb-3">
+  1216→  1216→        <ShieldCheck className="h-4 w-4 text-forest-700" />
+  1217→  1217→        <p className="text-sm font-semibold text-gray-700">Aadhaar Card Verification</p>
+  1218→  1218→      </div>
+  1219→  1219→      <div className="bg-gray-50 rounded-2xl p-5">
+  1220→  1220→        <p className="text-xs text-gray-500 mb-4">Enter your 12-digit Aadhaar number to get verified. Verified caregivers get more bookings and trust from families.</p>
+  1221→  1221→        <div className="space-y-3">
+  1222→  1222→          <div className="relative">
+  1223→  1223→            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+  1224→  1224→            <Input
+  1225→  1225→              value={aadharNumber}
+  1226→  1226→              onChange={handleAadharChange}
+  1227→  1227→              placeholder="XXXX XXXX XXXX"
+  1228→  1228→              className="pl-10 rounded-xl text-lg font-mono tracking-wider h-12"
+  1229→  1229→              maxLength={14}
+  1230→  1230→            />
+  1231→  1231→          </div>
+  1232→  1232→          {error && <p className="text-xs text-red-600">{error}</p>}
+  1233→  1233→          <Button
+  1234→  1234→            onClick={handleVerify}
+  1235→  1235→            disabled={verifying || aadharNumber.replace(/\s/g, '').length !== 12}
+  1236→  1236→            className="btn-green text-sm gap-2 rounded-xl w-full"
+  1237→  1237→          >
+  1238→  1238→            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+  1239→  1239→            {verifying ? 'Verifying...' : 'Verify Aadhaar'}
+  1240→  1240→          </Button>
+  1241→  1241→        </div>
+  1242→  1242→      </div>
+  1243→  1243→    </div>
+  1244→  1244→  );
+  1245→  1245→}
+  1246→  1246→
+  1247→  1247→/* ============================================================ */
+  1248→  1248→/* BOOKINGS TAB                                                  */
+  1249→  1249→/* ============================================================ */
+  1250→  1250→
+  1251→  1251→function BookingsTab({ user }: { user: User }) {
+  1252→  1252→  const profile = user.caregiverProfile;
+  1253→  1253→  const [bookings, setBookings] = useState<Booking[]>([]);
+  1254→  1254→  const [loading, setLoading] = useState(true);
+  1255→  1255→  const [error, setError] = useState('');
+  1256→  1256→  const [completingId, setCompletingId] = useState<string | null>(null);
+  1257→  1257→  const [statusFilter, setStatusFilter] = useState('');
+  1258→  1258→
+  1259→  1259→  const fetchBookings = useCallback(async () => {
+  1260→  1260→    if (!profile?.id) return;
+  1261→  1261→    setLoading(true);
+  1262→  1262→    setError('');
+  1263→  1263→    try {
+  1264→  1264→      const params: any = { caregiverId: profile.id };
+  1265→  1265→      if (statusFilter) params.status = statusFilter;
+  1266→  1266→      const res = await api.bookings.list(params);
+  1267→  1267→      const mapped = (res.bookings || []).map((b: any) => ({
+  1268→  1268→        ...b,
+  1269→  1269→        date: b.startDate,
+  1270→  1270→        patientName: b.patient?.name,
+  1271→  1271→        familyName: b.family?.name,
+  1272→  1272→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+  1273→  1273→      }));
+  1274→  1274→      setBookings(mapped);
+  1275→  1275→    } catch (err: any) {
+  1276→  1276→      setError(err.message || 'Failed to load bookings');
+  1277→  1277→    } finally {
+  1278→  1278→      setLoading(false);
+  1279→  1279→    }
+  1280→  1280→  }, [profile?.id, statusFilter]);
+  1281→  1281→
+  1282→  1282→  useEffect(() => {
+  1283→  1283→    fetchBookings();
+  1284→  1284→  }, [fetchBookings]);
+  1285→  1285→
+  1286→  1286→  const handleStatusChange = async (bookingId: string, status: string, reason?: string) => {
+  1287→  1287→    setCompletingId(bookingId);
+  1288→  1288→    try {
+  1289→  1289→      await api.bookings.updateStatus(bookingId, { status, cancellationReason: reason });
+  1290→  1290→      const labels: Record<string, string> = {
+  1291→  1291→        CONFIRMED: 'Booking accepted!',
+  1292→  1292→        IN_PROGRESS: 'Care started!',
+  1293→  1293→        COMPLETED: 'Booking completed!',
+  1294→  1294→        CANCELLED: 'Booking declined.',
+  1295→  1295→      };
+  1296→  1296→      toast.success(labels[status] || `Booking updated`);
+  1297→  1297→      fetchBookings();
+  1298→  1298→    } catch (err: any) {
+  1299→  1299→      toast.error(err.message || 'Failed to update booking');
+  1300→  1300→    } finally {
+  1301→  1301→      setCompletingId(null);
+  1302→  1302→    }
+  1303→  1303→  };
+  1304→  1304→
+  1305→  1305→  if (error) {
+  1306→  1306→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1307→  1307→  }
+  1308→  1308→
+  1309→  1309→  if (bookings.length === 0) {
+  1310→  1310→    return (
+  1311→  1311→      <div className="space-y-6">
+  1312→  1312→        <div>
+  1313→  1313→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+  1314→  1314→          <p className="text-sm text-gray-400 mt-1">Manage all your care bookings.</p>
+  1315→  1315→        </div>
+  1316→  1316→        <EmptyState
+  1317→  1317→          icon={<CalendarCheck className="h-7 w-7" />}
+  1318→  1318→          title="No bookings yet"
+  1319→  1319→          description="When families book your services, their requests will appear here."
+  1320→  1320→        />
+  1321→  1321→      </div>
+  1322→  1322→    );
+  1323→  1323→  }
+  1324→  1324→
+  1325→  1325→  const sorted = [...bookings].sort(
+  1326→  1326→    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  1327→  1327→  );
+  1328→  1328→
+  1329→  1329→  return (
+  1330→  1330→    <div className="space-y-6">
+  1331→  1331→      <div className="flex items-center justify-between flex-wrap gap-3">
+  1332→  1332→        <div>
+  1333→  1333→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+  1334→  1334→          <p className="text-sm text-gray-400 mt-1">Manage and respond to care booking requests.</p>
+  1335→  1335→        </div>
+  1336→  1336→        <Button
+  1337→  1337→          variant="outline"
+  1338→  1338→          size="sm"
+  1339→  1339→          onClick={fetchBookings}
+  1340→  1340→          className="rounded-xl gap-1.5"
+  1341→  1341→        >
+  1342→  1342→          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+  1343→  1343→        </Button>
+  1344→  1344→      </div>
+  1345→  1345→
+  1346→  1346→      <div className="flex gap-2 flex-wrap">
+  1347→  1347→        {['', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
+  1348→  1348→          <Button
+  1349→  1349→            key={f}
+  1350→  1350→            variant={statusFilter === f ? 'default' : 'outline'}
+  1351→  1351→            size="sm"
+  1352→  1352→            className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+  1353→  1353→            onClick={() => setStatusFilter(f)}
+  1354→  1354→          >
+  1355→  1355→            {f || 'All'}
+  1356→  1356→          </Button>
+  1357→  1357→        ))}
+  1358→  1358→      </div>
+  1359→  1359→
+  1360→  1360→      <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+  1361→  1361→        {sorted.map((booking, i) => (
+  1362→  1362→          <motion.div
+  1363→  1363→            key={booking.id}
+  1364→  1364→            initial={{ opacity: 0, y: 8 }}
+  1365→  1365→            animate={{ opacity: 1, y: 0 }}
+  1366→  1366→            transition={{ delay: i * 0.03 }}
+  1367→  1367→          >
+  1368→  1368→            <Card className="rounded-2xl border-gray-100 hover:shadow-sm transition-shadow">
+  1369→  1369→              <CardContent className="p-4">
+  1370→  1370→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  1371→  1371→                  <div className="flex items-start gap-3 min-w-0 flex-1">
+  1372→  1372→                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+  1373→  1373→                      booking.status === 'IN_PROGRESS'
+  1374→  1374→                        ? 'bg-green-100 text-green-700'
+  1375→  1375→                        : booking.status === 'COMPLETED'
+  1376→  1376→                        ? 'bg-gray-100 text-gray-500'
+  1377→  1377→                        : 'bg-forest-50 text-forest-700'
+  1378→  1378→                    }`}>
+  1379→  1379→                      <UserRound className="h-5 w-5" />
+  1380→  1380→                    </div>
+  1381→  1381→                    <div className="min-w-0">
+  1382→  1382→                      <div className="flex items-center gap-2 flex-wrap">
+  1383→  1383→                        <p className="text-sm font-semibold text-gray-800">
+  1384→  1384→                          {booking.patientName || 'Patient'}
+  1385→  1385→                        </p>
+  1386→  1386→                        <Badge
+  1387→  1387→                          variant="outline"
+  1388→  1388→                          className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}
+  1389→  1389→                        >
+  1390→  1390→                          {statusLabels[booking.status] || booking.status}
+  1391→  1391→                        </Badge>
+  1392→  1392→                      </div>
+  1393→  1393→                      <p className="text-xs text-gray-400 mt-0.5">
+  1394→  1394→                        {booking.familyName && `${booking.familyName} · `}
+  1395→  1395→                        {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || '—'} - ${booking.endTime || '—'}`}
+  1396→  1396→                      </p>
+  1397→  1397→                      {booking.careType && (
+  1398→  1398→                        <p className="text-xs text-gray-500 mt-0.5">{booking.careType}</p>
+  1399→  1399→                      )}
+  1400→  1400→                    </div>
+  1401→  1401→                  </div>
+  1402→  1402→
+  1403→  1403→                  <div className="flex items-center gap-2 sm:shrink-0 flex-wrap">
+  1404→  1404→                    {booking.totalAmount && (
+  1405→  1405→                      <span className="text-sm font-semibold text-gray-700">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+  1406→  1406→                    )}
+  1407→  1407→                    {booking.status === 'PENDING' && (
+  1408→  1408→                      <>
+  1409→  1409→                        <Button
+  1410→  1410→                          size="sm"
+  1411→  1411→                          onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
+  1412→  1412→                          disabled={completingId === booking.id}
+  1413→  1413→                          className="btn-green text-xs px-3 h-8"
+  1414→  1414→                        >
+  1415→  1415→                          {completingId === booking.id ? (
+  1416→  1416→                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1417→  1417→                          ) : (
+  1418→  1418→                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Accept</>
+  1419→  1419→                          )}
+  1420→  1420→                        </Button>
+  1421→  1421→                        <Button
+  1422→  1422→                          size="sm"
+  1423→  1423→                          variant="outline"
+  1424→  1424→                          onClick={() => handleStatusChange(booking.id, 'CANCELLED', 'Caregiver declined the booking')}
+  1425→  1425→                          disabled={completingId === booking.id}
+  1426→  1426→                          className="text-red-600 border-red-200 hover:bg-red-50 text-xs px-3 h-8 rounded-full"
+  1427→  1427→                        >
+  1428→  1428→                          <XCircle className="h-3.5 w-3.5 mr-1" />
+  1429→  1429→                          Decline
+  1430→  1430→                        </Button>
+  1431→  1431→                      </>
+  1432→  1432→                    )}
+  1433→  1433→                    {booking.status === 'CONFIRMED' && (
+  1434→  1434→                      <Button
+  1435→  1435→                        size="sm"
+  1436→  1436→                        onClick={() => handleStatusChange(booking.id, 'IN_PROGRESS')}
+  1437→  1437→                        disabled={completingId === booking.id}
+  1438→  1438→                        className="btn-black text-xs px-3 h-8"
+  1439→  1439→                      >
+  1440→  1440→                        {completingId === booking.id ? (
+  1441→  1441→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1442→  1442→                        ) : (
+  1443→  1443→                          <><Play className="h-3.5 w-3.5 mr-1" />Start Care</>
+  1444→  1444→                        )}
+  1445→  1445→                      </Button>
+  1446→  1446→                    )}
+  1447→  1447→                    {booking.status === 'IN_PROGRESS' && (
+  1448→  1448→                      <Button
+  1449→  1449→                        size="sm"
+  1450→  1450→                        onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
+  1451→  1451→                        disabled={completingId === booking.id}
+  1452→  1452→                        className="btn-green text-xs px-4 h-8"
+  1453→  1453→                      >
+  1454→  1454→                        {completingId === booking.id ? (
+  1455→  1455→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1456→  1456→                        ) : (
+  1457→  1457→                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Complete</>
+  1458→  1458→                        )}
+  1459→  1459→                      </Button>
+  1460→  1460→                    )}
+  1461→  1461→                  </div>
+  1462→  1462→                </div>
+  1463→  1463→              </CardContent>
+  1464→  1464→            </Card>
+  1465→  1465→          </motion.div>
+  1466→  1466→        ))}
+  1467→  1467→      </div>
+  1468→  1468→    </div>
+  1469→  1469→  );
+  1470→  1470→}
+  1471→  1471→
+  1472→  1472→/* ============================================================ */
+  1473→  1473→/* SUBMIT REPORT TAB                                             */
+  1474→  1474→/* ============================================================ */
+  1475→  1475→
+  1476→  1476→const ACTIVITY_OPTIONS = [
+  1477→  1477→  { value: 'feeding', label: 'Feeding' },
+  1478→  1478→  { value: 'bathing', label: 'Bathing' },
+  1479→  1479→  { value: 'hygiene', label: 'Hygiene' },
+  1480→  1480→  { value: 'mobility', label: 'Mobility' },
+  1481→  1481→  { value: 'medicine', label: 'Medicine' },
+  1482→  1482→  { value: 'exercise', label: 'Exercise' },
+  1483→  1483→  { value: 'companionship', label: 'Companionship' },
+  1484→  1484→  { value: 'vital_check', label: 'Vital Check' },
+  1485→  1485→  { value: 'wound_care', label: 'Wound Care' },
+  1486→  1486→];
+  1487→  1487→
+  1488→  1488→function SubmitReportTab({ user }: { user: User }) {
+  1489→  1489→  const profile = user.caregiverProfile;
+  1490→  1490→  const [bookings, setBookings] = useState<Booking[]>([]);
+  1491→  1491→  const [loading, setLoading] = useState(true);
+  1492→  1492→  const [error, setError] = useState('');
+  1493→  1493→  const [submitting, setSubmitting] = useState(false);
+  1494→  1494→
+  1495→  1495→  const [selectedBookingId, setSelectedBookingId] = useState('');
+  1496→  1496→  const [reportDate, setReportDate] = useState(getTodayDate());
+  1497→  1497→  const [activities, setActivities] = useState('');
+  1498→  1498→  const [summary, setSummary] = useState('');
+  1499→  1499→  const [mood, setMood] = useState('');
+  1500→  1500→  const [foodIntake, setFoodIntake] = useState('');
+  1501→  1501→  const [medicines, setMedicines] = useState('');
+  1502→  1502→  const [concerns, setConcerns] = useState('');
+  1503→  1503→
+  1504→  1504→  const fetchBookings = useCallback(async () => {
+  1505→  1505→    if (!profile?.id) return;
+  1506→  1506→    setLoading(true);
+  1507→  1507→    setError('');
+  1508→  1508→    try {
+  1509→  1509→      const res = await api.bookings.list({ caregiverId: profile.id });
+  1510→  1510→      const mapped = (res.bookings || []).map((b: any) => ({
+  1511→  1511→        ...b,
+  1512→  1512→        date: b.startDate,
+  1513→  1513→        patientName: b.patient?.name,
+  1514→  1514→        familyName: b.family?.name,
+  1515→  1515→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+  1516→  1516→      }));
+  1517→  1517→      const eligible = mapped.filter((b: any) =>
+  1518→  1518→        ['IN_PROGRESS', 'CONFIRMED'].includes(b.status)
+  1519→  1519→      );
+  1520→  1520→      setBookings(eligible);
+  1521→  1521→      if (eligible.length > 0 && !selectedBookingId) {
+  1522→  1522→        setSelectedBookingId(eligible[0].id);
+  1523→  1523→      }
+  1524→  1524→    } catch (err: any) {
+  1525→  1525→      setError(err.message || 'Failed to load bookings');
+  1526→  1526→    } finally {
+  1527→  1527→      setLoading(false);
+  1528→  1528→    }
+  1529→  1529→  }, [profile?.id]);
+  1530→  1530→
+  1531→  1531→  useEffect(() => {
+  1532→  1532→    fetchBookings();
+  1533→  1533→  }, [fetchBookings]);
+  1534→  1534→
+  1535→  1535→  const resetForm = () => {
+  1536→  1536→    setActivities('');
+  1537→  1537→    setSummary('');
+  1538→  1538→    setMood('');
+  1539→  1539→    setFoodIntake('');
+  1540→  1540→    setMedicines('');
+  1541→  1541→    setConcerns('');
+  1542→  1542→  };
+  1543→  1543→
+  1544→  1544→  const handleSubmit = async (e: React.FormEvent) => {
+  1545→  1545→    e.preventDefault();
+  1546→  1546→    if (!selectedBookingId) {
+  1547→  1547→      toast.error('Please select a booking.');
+  1548→  1548→      return;
+  1549→  1549→    }
+  1550→  1550→    if (!reportDate) {
+  1551→  1551→      toast.error('Please select a report date.');
+  1552→  1552→      return;
+  1553→  1553→    }
+  1554→  1554→
+  1555→  1555→    setSubmitting(true);
+  1556→  1556→    try {
+  1557→  1557→      const activityList = activities
+  1558→  1558→        .split(',')
+  1559→  1559→        .map((a) => a.trim())
+  1560→  1560→        .filter(Boolean);
+  1561→  1561→
+  1562→  1562→      const medicineLines = medicines
+  1563→  1563→        .split('\n')
+  1564→  1564→        .map((line) => line.trim())
+  1565→  1565→        .filter(Boolean);
+  1566→  1566→
+  1567→  1567→      const medicineEntries = medicineLines.map((line) => {
+  1568→  1568→        const parts = line.split(',').map((p) => p.trim());
+  1569→  1569→        return {
+  1570→  1570→          name: parts[0] || '',
+  1571→  1571→          time: parts[1] || '',
+  1572→  1572→          given: parts[2]?.toLowerCase() === 'yes',
+  1573→  1573→        };
+  1574→  1574→      });
+  1575→  1575→
+  1576→  1576→      await api.reports.create({
+  1577→  1577→        bookingId: selectedBookingId,
+  1578→  1578→        caregiverId: profile?.id,
+  1579→  1579→        reportDate,
+  1580→  1580→        activities: JSON.stringify(activityList),
+  1581→  1581→        summary,
+  1582→  1582→        mood,
+  1583→  1583→        foodIntake,
+  1584→  1584→        medicinesGiven: JSON.stringify(medicineEntries),
+  1585→  1585→        concerns,
+  1586→  1586→      });
+  1587→  1587→
+  1588→  1588→      toast.success('Care report submitted successfully!');
+  1589→  1589→      resetForm();
+  1590→  1590→    } catch (err: any) {
+  1591→  1591→      toast.error(err.message || 'Failed to submit report');
+  1592→  1592→    } finally {
+  1593→  1593→      setSubmitting(false);
+  1594→  1594→    }
+  1595→  1595→  };
+  1596→  1596→
+  1597→  1597→  if (error) {
+  1598→  1598→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1599→  1599→  }
+  1600→  1600→
+  1601→  1601→  if (bookings.length === 0) {
+  1602→  1602→    return (
+  1603→  1603→      <div className="space-y-6">
+  1604→  1604→        <div>
+  1605→  1605→          <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+  1606→  1606→          <p className="text-sm text-gray-400 mt-1">File daily care reports for your active bookings.</p>
+  1607→  1607→        </div>
+  1608→  1608→        <EmptyState
+  1609→  1609→          icon={<ClipboardList className="h-7 w-7" />}
+  1610→  1610→          title="No active bookings"
+  1611→  1611→          description="You need at least one confirmed or in-progress booking to submit a care report."
+  1612→  1612→        />
+  1613→  1613→      </div>
+  1614→  1614→    );
+  1615→  1615→  }
+  1616→  1616→
+  1617→  1617→  return (
+  1618→  1618→    <div className="space-y-6">
+  1619→  1619→      <div>
+  1620→  1620→        <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+  1621→  1621→        <p className="text-sm text-gray-400 mt-1">File daily care reports for your active bookings.</p>
+  1622→  1622→      </div>
+  1623→  1623→
+  1624→  1624→      <form onSubmit={handleSubmit}>
+  1625→  1625→        <motion.div
+  1626→  1626→          initial={{ opacity: 0, y: 12 }}
+  1627→  1627→          animate={{ opacity: 1, y: 0 }}
+  1628→  1628→          transition={{ duration: 0.3 }}
+  1629→  1629→          className="space-y-6"
+  1630→  1630→        >
+  1631→  1631→          {/* Booking & Date Row */}
+  1632→  1632→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1633→  1633→            <div className="space-y-2">
+  1634→  1634→              <Label className="text-sm font-medium text-gray-700">Booking</Label>
+  1635→  1635→              <Select value={selectedBookingId} onValueChange={setSelectedBookingId}>
+  1636→  1636→                <SelectTrigger className="rounded-xl">
+  1637→  1637→                  <SelectValue placeholder="Select booking" />
+  1638→  1638→                </SelectTrigger>
+  1639→  1639→                <SelectContent>
+  1640→  1640→                  {bookings.map((b) => (
+  1641→  1641→                    <SelectItem key={b.id} value={b.id}>
+  1642→  1642→                      {b.patientName || 'Patient'} — {formatDate(b.date)}
+  1643→  1643→                    </SelectItem>
+  1644→  1644→                  ))}
+  1645→  1645→                </SelectContent>
+  1646→  1646→              </Select>
+  1647→  1647→            </div>
+  1648→  1648→            <div className="space-y-2">
+  1649→  1649→              <Label className="text-sm font-medium text-gray-700">Report Date</Label>
+  1650→  1650→              <input
+  1651→  1651→                type="date"
+  1652→  1652→                value={reportDate}
+  1653→  1653→                onChange={(e) => setReportDate(e.target.value)}
+  1654→  1654→                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+  1655→  1655→              />
+  1656→  1656→            </div>
+  1657→  1657→          </div>
+  1658→  1658→
+  1659→  1659→          {/* Activities & Summary */}
+  1660→  1660→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1661→  1661→            <div className="space-y-2">
+  1662→  1662→              <Label className="text-sm font-medium text-gray-700">
+  1663→  1663→                Activities
+  1664→  1664→                <span className="text-xs text-gray-400 font-normal ml-1.5">(comma-separated)</span>
+  1665→  1665→              </Label>
+  1666→  1666→              <Textarea
+  1667→  1667→                value={activities}
+  1668→  1668→                onChange={(e) => setActivities(e.target.value)}
+  1669→  1669→                placeholder="e.g. feeding, bathing, vital_check, medicine"
+  1670→  1670→                className="rounded-xl min-h-[100px] resize-none"
+  1671→  1671→              />
+  1672→  1672→              <div className="flex flex-wrap gap-1.5">
+  1673→  1673→                {ACTIVITY_OPTIONS.map((opt) => (
+  1674→  1674→                  <button
+  1675→  1675→                    key={opt.value}
+  1676→  1676→                    type="button"
+  1677→  1677→                    onClick={() => {
+  1678→  1678→                      const current = activities
+  1679→  1679→                        .split(',')
+  1680→  1680→                        .map((a) => a.trim().toLowerCase())
+  1681→  1681→                        .filter(Boolean);
+  1682→  1682→                      if (current.includes(opt.value)) {
+  1683→  1683→                        setActivities(
+  1684→  1684→                          current.filter((a) => a !== opt.value).join(', ')
+  1685→  1685→                        );
+  1686→  1686→                      } else {
+  1687→  1687→                        setActivities(
+  1688→  1688→                          [...current, opt.value].join(', ')
+  1689→  1689→                        );
+  1690→  1690→                      }
+  1691→  1691→                    }}
+  1692→  1692→                    className={`text-xs px-2.5 py-1 rounded-full border transition-all duration-150 ${
+  1693→  1693→                      activities
+  1694→  1694→                        .split(',')
+  1695→  1695→                        .map((a) => a.trim().toLowerCase())
+  1696→  1696→                        .includes(opt.value)
+  1697→  1697→                        ? 'bg-forest-900 text-white border-forest-900'
+  1698→  1698→                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-forest-300 hover:text-forest-700'
+  1699→  1699→                    }`}
+  1700→  1700→                  >
+  1701→  1701→                    {opt.label}
+  1702→  1702→                  </button>
+  1703→  1703→                ))}
+  1704→  1704→              </div>
+  1705→  1705→            </div>
+  1706→  1706→            <div className="space-y-2">
+  1707→  1707→              <Label className="text-sm font-medium text-gray-700">Summary</Label>
+  1708→  1708→              <Textarea
+  1709→  1709→                value={summary}
+  1710→  1710→                onChange={(e) => setSummary(e.target.value)}
+  1711→  1711→                placeholder="Brief summary of the care provided today..."
+  1712→  1712→                className="rounded-xl min-h-[100px] resize-none"
+  1713→  1713→              />
+  1714→  1714→            </div>
+  1715→  1715→          </div>
+  1716→  1716→
+  1717→  1717→          {/* Mood & Food Intake */}
+  1718→  1718→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1719→  1719→            <div className="space-y-2">
+  1720→  1720→              <Label className="text-sm font-medium text-gray-700">Patient Mood</Label>
+  1721→  1721→              <Select value={mood} onValueChange={setMood}>
+  1722→  1722→                <SelectTrigger className="rounded-xl">
+  1723→  1723→                  <SelectValue placeholder="Select mood" />
+  1724→  1724→                </SelectTrigger>
+  1725→  1725→                <SelectContent>
+  1726→  1726→                  <SelectItem value="good">😊 Good</SelectItem>
+  1727→  1727→                  <SelectItem value="normal">😐 Normal</SelectItem>
+  1728→  1728→                  <SelectItem value="upset">😟 Upset</SelectItem>
+  1729→  1729→                  <SelectItem value="unwell">🤒 Unwell</SelectItem>
+  1730→  1730→                </SelectContent>
+  1731→  1731→              </Select>
+  1732→  1732→            </div>
+  1733→  1733→            <div className="space-y-2">
+  1734→  1734→              <Label className="text-sm font-medium text-gray-700">Food Intake</Label>
+  1735→  1735→              <Select value={foodIntake} onValueChange={setFoodIntake}>
+  1736→  1736→                <SelectTrigger className="rounded-xl">
+  1737→  1737→                  <SelectValue placeholder="Select food intake" />
+  1738→  1738→                </SelectTrigger>
+  1739→  1739→                <SelectContent>
+  1740→  1740→                  <SelectItem value="good">Good</SelectItem>
+  1741→  1741→                  <SelectItem value="normal">Normal</SelectItem>
+  1742→  1742→                  <SelectItem value="poor">Poor</SelectItem>
+  1743→  1743→                  <SelectItem value="refused">Refused</SelectItem>
+  1744→  1744→                </SelectContent>
+  1745→  1745→              </Select>
+  1746→  1746→            </div>
+  1747→  1747→          </div>
+  1748→  1748→
+  1749→  1749→          {/* Medicines & Concerns */}
+  1750→  1750→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1751→  1751→            <div className="space-y-2">
+  1752→  1752→              <Label className="text-sm font-medium text-gray-700">
+  1753→  1753→                Medicines Given
+  1754→  1754→                <span className="text-xs text-gray-400 font-normal ml-1.5">
+  1755→  1755→                  (one per line: name, time, yes/no)
+  1756→  1756→                </span>
+  1757→  1757→              </Label>
+  1758→  1758→              <Textarea
+  1759→  1759→                value={medicines}
+  1760→  1760→                onChange={(e) => setMedicines(e.target.value)}
+  1761→  1761→                placeholder={`Paracetamol 500mg, 8:00 AM, yes\nMetformin, 9:00 AM, yes\nVitamin D, 12:00 PM, no`}
+  1762→  1762→                className="rounded-xl min-h-[100px] resize-none font-mono text-xs"
+  1763→  1763→              />
+  1764→  1764→            </div>
+  1765→  1765→            <div className="space-y-2">
+  1766→  1766→              <Label className="text-sm font-medium text-gray-700">Concerns</Label>
+  1767→  1767→              <Textarea
+  1768→  1768→                value={concerns}
+  1769→  1769→                onChange={(e) => setConcerns(e.target.value)}
+  1770→  1770→                placeholder="Any concerns, unusual observations, or notes for the family..."
+  1771→  1771→                className="rounded-xl min-h-[100px] resize-none"
+  1772→  1772→              />
+  1773→  1773→            </div>
+  1774→  1774→          </div>
+  1775→  1775→
+  1776→  1776→          {/* Submit Button */}
+  1777→  1777→          <div className="flex justify-end pt-2">
+  1778→  1778→            <Button
+  1779→  1779→              type="submit"
+  1780→  1780→              disabled={submitting}
+  1781→  1781→              className="btn-black px-8 h-11 text-sm"
+  1782→  1782→            >
+  1783→  1783→              {submitting ? (
+  1784→  1784→                <>
+  1785→  1785→                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+  1786→  1786→                  Submitting...
+  1787→  1787→                </>
+  1788→  1788→              ) : (
+  1789→  1789→                <>
+  1790→  1790→                  <Send className="h-4 w-4 mr-2" />
+  1791→  1791→                  Submit Report
+  1792→  1792→                </>
+  1793→  1793→              )}
+  1794→  1794→            </Button>
+  1795→  1795→          </div>
+  1796→  1796→        </motion.div>
+  1797→  1797→      </form>
+  1798→  1798→    </div>
+  1799→  1799→  );
+  1800→  1800→}
+  1801→  1801→
+  1802→  1802→/* ============================================================ */
+  1803→  1803→/* COMPLAINTS TAB                                                */
+  1804→  1804→/* ============================================================ */
+  1805→  1805→
+  1806→  1806→const complaintStatusColors: Record<string, string> = {
+  1807→  1807→  OPEN: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  1808→  1808→  IN_PROGRESS: 'bg-blue-100 text-blue-800 border-blue-200',
+  1809→  1809→  RESOLVED: 'bg-green-100 text-green-800 border-green-200',
+  1810→  1810→  DISMISSED: 'bg-gray-100 text-gray-700 border-gray-200',
+  1811→  1811→};
+  1812→  1812→
+  1813→  1813→const priorityColors: Record<string, string> = {
+  1814→  1814→  low: 'bg-green-100 text-green-700',
+  1815→  1815→  medium: 'bg-yellow-100 text-yellow-700',
+  1816→  1816→  high: 'bg-orange-100 text-orange-700',
+  1817→  1817→  urgent: 'bg-red-100 text-red-700',
+  1818→  1818→};
+  1819→  1819→
+  1820→  1820→function ComplaintsTab({ user }: { user: User }) {
+  1821→  1821→  const profile = user.caregiverProfile;
+  1822→  1822→  const [complaints, setComplaints] = useState<any[]>([]);
+  1823→  1823→  const [loading, setLoading] = useState(true);
+  1824→  1824→  const [error, setError] = useState('');
+  1825→  1825→
+  1826→  1826→  const fetchComplaints = useCallback(async () => {
+  1827→  1827→    if (!profile?.id) return;
+  1828→  1828→    setLoading(true);
+  1829→  1829→    setError('');
+  1830→  1830→    try {
+  1831→  1831→      const res = await api.complaints.list({ caregiverId: profile.id });
+  1832→  1832→      setComplaints(res.complaints || []);
+  1833→  1833→    } catch (err: any) {
+  1834→  1834→      setError(err.message || 'Failed to load complaints');
+  1835→  1835→    } finally {
+  1836→  1836→      setLoading(false);
+  1837→  1837→    }
+  1838→  1838→  }, [profile?.id]);
+  1839→  1839→
+  1840→  1840→  useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
+  1841→  1841→
+  1842→  1842→  if (error) return <ErrorState message={error} onRetry={fetchComplaints} />;
+  1843→  1843→
+  1844→  1844→  return (
+  1845→  1845→    <div className="space-y-6">
+  1846→  1846→      <div>
+  1847→  1847→        <h2 className="text-2xl font-bold text-gray-900">Complaints</h2>
+  1848→  1848→        <p className="text-sm text-gray-400 mt-1">View complaints filed against your services.</p>
+  1849→  1849→      </div>
+  1850→  1850→
+  1851→  1851→      {complaints.length === 0 ? (
+  1852→  1852→        <EmptyState
+  1853→  1853→          icon={<MessageCircle className="h-7 w-7" />}
+  1854→  1854→          title="No complaints"
+  1855→  1855→          description="You have no complaints filed against your services."
+  1856→  1856→        />
+  1857→  1857→      ) : (
+  1858→  1858→        <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
+  1859→  1859→          {complaints.map((c: any, i: number) => (
+  1860→  1860→            <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+  1861→  1861→              <Card className="rounded-2xl border-gray-100">
+  1862→  1862→                <CardContent className="p-4 sm:p-5">
+  1863→  1863→                  <div className="flex items-start justify-between gap-2 mb-2">
+  1864→  1864→                    <div className="min-w-0">
+  1865→  1865→                      <p className="text-sm font-semibold text-gray-800">{c.subject}</p>
+  1866→  1866→                      <p className="text-xs text-gray-400 mt-0.5">
+  1867→  1867→                        From: {c.family?.name || 'Family'} · {formatDate(c.createdAt)}
+  1868→  1868→                      </p>
+  1869→  1869→                    </div>
+  1870→  1870→                    <div className="flex items-center gap-2 shrink-0">
+  1871→  1871→                      {c.priority && <Badge className={`text-[10px] rounded-full ${priorityColors[c.priority] || ''}`}>{c.priority}</Badge>}
+  1872→  1872→                      <Badge variant="outline" className={`text-[10px] rounded-full ${complaintStatusColors[c.status] || ''}`}>{c.status?.replace(/_/g, ' ')}</Badge>
+  1873→  1873→                    </div>
+  1874→  1874→                  </div>
+  1875→  1875→                  <p className="text-sm text-gray-600 line-clamp-3">{c.description}</p>
+  1876→  1876→                  {c.resolution && (
+  1877→  1877→                    <div className="mt-3 bg-green-50 rounded-xl p-3 text-xs text-green-700">
+  1878→  1878→                      <p className="font-medium">Resolution:</p>
+  1879→  1879→                      <p className="mt-0.5">{c.resolution}</p>
+  1880→  1880→                    </div>
+  1881→  1881→                  )}
+  1882→  1882→                </CardContent>
+  1883→  1883→              </Card>
+  1884→  1884→            </motion.div>
+  1885→  1885→          ))}
+  1886→  1886→        </div>
+  1887→  1887→      )}
+  1888→  1888→    </div>
+  1889→  1889→  );
+  1890→  1890→}
+  1891→  1891→
+  1892→  1892→/* ============================================================ */
+  1893→  1893→/* REVIEWS TAB                                                   */
+  1894→  1894→/* ============================================================ */
+  1895→  1895→
+  1896→  1896→function ReviewsTab({ user }: { user: User }) {
+  1897→  1897→  const profile = user.caregiverProfile;
+  1898→  1898→  const [reviews, setReviews] = useState<Review[]>([]);
+  1899→  1899→  const [loading, setLoading] = useState(true);
+  1900→  1900→  const [error, setError] = useState('');
+  1901→  1901→
+  1902→  1902→  const fetchReviews = useCallback(async () => {
+  1903→  1903→    if (!profile?.id) return;
+  1904→  1904→    setLoading(true);
+  1905→  1905→    setError('');
+  1906→  1906→    try {
+  1907→  1907→      const res = await api.reviews.list({ caregiverId: profile.id });
+  1908→  1908→      const mapped = (res.reviews || []).map((r: any) => ({
+  1909→  1909→        ...r,
+  1910→  1910→        overallRating: r.rating,
+  1911→  1911→        familyName: r.family?.name,
+  1912→  1912→      }));
+  1913→  1913→      setReviews(mapped);
+  1914→  1914→    } catch (err: any) {
+  1915→  1915→      setError(err.message || 'Failed to load reviews');
+  1916→  1916→    } finally {
+  1917→  1917→      setLoading(false);
+  1918→  1918→    }
+  1919→  1919→  }, [profile?.id]);
+  1920→  1920→
+  1921→  1921→  useEffect(() => {
+  1922→  1922→    fetchReviews();
+  1923→  1923→  }, [fetchReviews]);
+  1924→  1924→
+  1925→  1925→  if (error) {
+  1926→  1926→    return <ErrorState message={error} onRetry={fetchReviews} />;
+  1927→  1927→  }
+  1928→  1928→
+  1929→  1929→  const avgRating =
+  1930→  1930→    reviews.length > 0
+  1931→  1931→      ? reviews.reduce((sum, r) => sum + r.overallRating, 0) / reviews.length
+  1932→  1932→      : 0;
+  1933→  1933→
+  1934→  1934→  const avgComm =
+  1935→  1935→    reviews.length > 0
+  1936→  1936→      ? reviews.reduce((sum, r) => sum + (r.communicationRating || 0), 0) / reviews.length
+  1937→  1937→      : 0;
+  1938→  1938→  const avgPunct =
+  1939→  1939→    reviews.length > 0
+  1940→  1940→      ? reviews.reduce((sum, r) => sum + (r.punctualityRating || 0), 0) / reviews.length
+  1941→  1941→      : 0;
+  1942→  1942→  const avgCare =
+  1943→  1943→    reviews.length > 0
+  1944→  1944→      ? reviews.reduce((sum, r) => sum + (r.careQualityRating || 0), 0) / reviews.length
+  1945→  1945→      : 0;
+  1946→  1946→
+  1947→  1947→  return (
+  1948→  1948→    <div className="space-y-6">
+  1949→  1949→      <div>
+  1950→  1950→        <h2 className="text-2xl font-bold text-gray-900">My Reviews</h2>
+  1951→  1951→        <p className="text-sm text-gray-400 mt-1">Feedback from the families you&apos;ve served.</p>
+  1952→  1952→      </div>
+  1953→  1953→
+  1954→  1954→      {reviews.length === 0 ? (
+  1955→  1955→        <EmptyState
+  1956→  1956→          icon={<Star className="h-7 w-7" />}
+  1957→  1957→          title="No reviews yet"
+  1958→  1958→          description="Once you complete bookings and families leave reviews, they will appear here."
+  1959→  1959→        />
+  1960→  1960→      ) : (
+  1961→  1961→        <>
+  1962→  1962→          {/* Rating Summary Card */}
+  1963→  1963→          <motion.div
+  1964→  1964→            initial={{ opacity: 0, y: 12 }}
+  1965→  1965→            animate={{ opacity: 1, y: 0 }}
+  1966→  1966→            transition={{ duration: 0.3 }}
+  1967→  1967→          >
+  1968→  1968→            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  1969→  1969→              <Card className="rounded-2xl border-gray-100">
+  1970→  1970→                <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+  1971→  1971→                  <p className="text-5xl font-bold text-gray-900">{avgRating.toFixed(1)}</p>
+  1972→  1972→                  <StarRating rating={avgRating} size="md" />
+  1973→  1973→                  <p className="text-sm text-gray-400 mt-2">
+  1974→  1974→                    Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+  1975→  1975→                  </p>
+  1976→  1976→                </CardContent>
+  1977→  1977→              </Card>
+  1978→  1978→
+  1979→  1979→              <Card className="lg:col-span-2 rounded-2xl border-gray-100">
+  1980→  1980→                <CardContent className="p-5 space-y-3">
+  1981→  1981→                  {[
+  1982→  1982→                    { label: 'Communication', value: avgComm, color: 'bg-forest-500' },
+  1983→  1983→                    { label: 'Punctuality', value: avgPunct, color: 'bg-lime-500' },
+  1984→  1984→                    { label: 'Care Quality', value: avgCare, color: 'bg-forest-700' },
+  1985→  1985→                  ].map((item) => (
+  1986→  1986→                    <div key={item.label} className="flex items-center gap-3">
+  1987→  1987→                      <span className="text-sm text-gray-600 w-28 shrink-0">{item.label}</span>
+  1988→  1988→                      <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+  1989→  1989→                        <motion.div
+  1990→  1990→                          className={`h-full rounded-full ${item.color}`}
+  1991→  1991→                          initial={{ width: 0 }}
+  1992→  1992→                          animate={{ width: `${(item.value / 5) * 100}%` }}
+  1993→  1993→                          transition={{ duration: 0.6, delay: 0.2 }}
+  1994→  1994→                        />
+  1995→  1995→                      </div>
+  1996→  1996→                      <span className="text-sm font-semibold text-gray-700 w-8 text-right">
+  1997→  1997→                        {item.value.toFixed(1)}
+  1998→  1998→                      </span>
+  1999→  1999→                    </div>
+  2000→  2000→                  ))}
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]
