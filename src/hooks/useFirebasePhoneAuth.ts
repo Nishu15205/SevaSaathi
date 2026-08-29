@@ -2,30 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 
-interface FirebaseConfig {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-}
+const APP_NAME = 'phone-auth';
 
 interface UseFirebasePhoneAuthReturn {
-  /** Whether Firebase is configured and ready */
   isReady: boolean;
-  /** Whether OTP has been sent */
   codeSent: boolean;
-  /** Loading state for sending OTP */
   sendingOtp: boolean;
-  /** Loading state for verifying OTP */
   verifying: boolean;
-  /** Error message */
   error: string;
-  /** Send OTP to phone number */
   sendOtp: (phone: string, recaptchaContainerId?: string) => Promise<boolean>;
-  /** Verify OTP code */
   verifyOtp: (code: string) => Promise<{ firebaseToken: string } | null>;
-  /** Reset state */
   reset: () => void;
 }
 
@@ -39,7 +27,7 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
   const authRef = useRef<any>(null);
   const recaptchaRef = useRef<any>(null);
 
-  // Initialize Firebase on mount
+  // Initialize Firebase on mount (only once)
   useEffect(() => {
     let mounted = true;
 
@@ -49,15 +37,23 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
         const data = await res.json();
 
         if (!data.configured || !data.apiKey) {
+          console.log('firebase-phone-auth: not configured');
           setIsReady(false);
           return;
         }
 
-        const app = initializeApp({
-          apiKey: data.apiKey,
-          authDomain: data.authDomain,
-          projectId: data.projectId,
-        }, 'phone-auth');
+        // Check if already initialized (survives tab switch / remount)
+        let app;
+        const existing = getApps().find(a => a.name === APP_NAME);
+        if (existing) {
+          app = existing;
+        } else {
+          app = initializeApp({
+            apiKey: data.apiKey,
+            authDomain: data.authDomain,
+            projectId: data.projectId,
+          }, APP_NAME);
+        }
 
         authRef.current = getAuth(app);
         if (mounted) setIsReady(true);
@@ -87,18 +83,20 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
         recaptchaRef.current = null;
       }
 
-      // Ensure the container exists
-      let container = document.getElementById(recaptchaContainerId);
-      if (!container) {
-        container = document.createElement('div');
-        container.id = recaptchaContainerId;
-        container.style.position = 'fixed';
-        container.style.bottom = '0';
-        container.style.right = '0';
-        container.style.zIndex = '-1';
-        container.style.opacity = '0';
-        document.body.appendChild(container);
-      }
+      // Remove old container if it exists
+      const oldContainer = document.getElementById(recaptchaContainerId);
+      if (oldContainer) oldContainer.remove();
+
+      // Create fresh container
+      const container = document.createElement('div');
+      container.id = recaptchaContainerId;
+      container.style.position = 'fixed';
+      container.style.bottom = '0';
+      container.style.right = '0';
+      container.style.zIndex = '-1';
+      container.style.opacity = '0';
+      container.style.pointerEvents = 'none';
+      document.body.appendChild(container);
 
       const recaptchaVerifier = new RecaptchaVerifier(authRef.current, recaptchaContainerId, {
         size: 'invisible',
@@ -113,6 +111,7 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
         formattedPhone = '+91' + formattedPhone;
       }
 
+      console.log('firebase-phone-auth: sending OTP to', formattedPhone);
       const confirmationResult = await signInWithPhoneNumber(authRef.current, formattedPhone, recaptchaVerifier);
       confirmationRef.current = confirmationResult;
       setCodeSent(true);
@@ -120,7 +119,11 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
     } catch (err: any) {
       console.error('Firebase send OTP error:', err);
       const msg = err?.message || 'Failed to send OTP';
-      setError(msg.includes('too-many') ? 'Too many attempts. Please try again later.' : msg);
+      setError(msg.includes('too-many')
+        ? 'Too many attempts. Please try again later.'
+        : msg.includes('reCAPTCHA')
+          ? 'reCAPTCHA verification failed. Please refresh and try again.'
+          : msg);
       setCodeSent(false);
       return false;
     } finally {
@@ -144,7 +147,9 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
     } catch (err: any) {
       console.error('Firebase verify OTP error:', err);
       const msg = err?.message || 'Invalid OTP';
-      setError(msg.includes('invalid-verification-code') ? 'Invalid OTP. Please try again.' : msg);
+      setError(msg.includes('invalid-verification-code')
+        ? 'Invalid OTP. Please try again.'
+        : msg);
       return null;
     } finally {
       setVerifying(false);

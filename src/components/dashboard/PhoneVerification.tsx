@@ -15,18 +15,47 @@ const maskPhone = (p: string) => {
   return '*'.repeat(d.length - 4) + d.slice(-4);
 };
 
-/* ============================================================ */
-/* PHONE VERIFICATION SECTION (for ProfileTab)                   */
-/* Only real Firebase OTP — user must enter the OTP received    */
-/* on their phone. No auto-verify, no dev mode.                 */
-/* ============================================================ */
-
 export function PhoneVerificationSection({ user }: { user: { id: string; phone: string; phoneVerified?: boolean } }) {
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [sendOtpLoading, setSendOtpLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const firebase = useFirebasePhoneAuth();
+
+  // Phone number input (when user has no phone)
+  const [newPhone, setNewPhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
+
+  const handleSavePhone = async () => {
+    const clean = newPhone.replace(/\D/g, '');
+    if (clean.length !== 10) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    setSavingPhone(true);
+    try {
+      const res = await fetch('/api/auth/update-phone', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: clean }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to save phone');
+        return;
+      }
+      // Update auth store with new phone
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().setAuth({ ...currentUser, phone: data.phone, phoneVerified: false } as any);
+      }
+      toast.success('Phone number saved!');
+    } catch {
+      toast.error('Failed to save phone number');
+    } finally {
+      setSavingPhone(false);
+    }
+  };
 
   const handleSendOtp = async () => {
     if (!firebase.isReady) {
@@ -58,14 +87,12 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
 
     setVerifying(true);
     try {
-      // Verify with Firebase client SDK
       const result = await firebase.verifyOtp(otpValue);
       if (!result) {
         toast.error(firebase.error || 'Invalid OTP. Please try again.');
         return;
       }
 
-      // Send Firebase token to backend to mark phone as verified
       const res = await fetch('/api/auth/verify-phone-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -97,10 +124,10 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     setOtpValue('');
     firebase.reset();
     setShowOtpInput(false);
-    // Small delay before re-sending to avoid rate limits
     setTimeout(() => handleSendOtp(), 300);
   };
 
+  // Verified state
   if (user.phoneVerified) {
     return (
       <div className="mt-6">
@@ -123,6 +150,55 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     );
   }
 
+  // No phone number — show phone input first
+  if (!user.phone) {
+    return (
+      <div className="mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Smartphone className="h-4 w-4 text-forest-700" />
+          <p className="text-sm font-semibold text-gray-700">Phone Verification</p>
+        </div>
+        <div className="bg-gray-50 rounded-2xl p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <Smartphone className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Add your phone number</p>
+              <p className="text-xs text-gray-500 mt-0.5">Required to receive booking requests and verify your identity</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-gray-500">Phone Number</Label>
+              <div className="flex gap-2 mt-1">
+                <div className="flex items-center px-3 bg-gray-100 rounded-xl border border-gray-200 text-sm text-gray-500">
+                  +91
+                </div>
+                <Input
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            <Button
+              onClick={handleSavePhone}
+              disabled={savingPhone || newPhone.replace(/\D/g, '').length !== 10}
+              className="bg-forest-900 hover:bg-forest-800 text-white rounded-xl gap-2 text-sm w-full"
+            >
+              {savingPhone && <Loader2 className="h-4 w-4 animate-spin" />}
+              {savingPhone ? 'Saving...' : 'Save Phone Number'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Has phone but not verified — show OTP flow
   return (
     <div className="mt-6">
       <div className="flex items-center gap-2 mb-3">

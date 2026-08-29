@@ -791,3 +791,21 @@ Stage Summary:
 - Profile loading spinner removed - profile tab now shows content immediately after creation
 - 2 duplicate admin accounts deleted, only admin@sevasaathi.in remains
 - Email delivery requires Brevo dashboard configuration (sender domain verification)
+
+---
+Task ID: phone-otp-full-fix
+Agent: main
+Task: Fix phone OTP - Firebase init crash, empty phone, phone save
+
+Work Log:
+- Fixed useFirebasePhoneAuth hook: getApps() check before initializeApp to prevent crash on re-mount
+- Fixed recaptcha container: removes old container before creating new one
+- Found user (Nishu Raj) has empty phone in DB - root cause of OTP failure
+- Created /api/auth/update-phone API: validates 10-digit Indian number, formats +91, checks duplicates
+- Updated PhoneVerificationSection: shows phone input form when phone is empty, then OTP flow after save
+- Better error messages for reCAPTCHA failures
+
+Stage Summary:
+- Phone verification now works for users with no phone: they first save phone, then verify via OTP
+- Firebase hook no longer crashes on tab switch/re-mount
+- reCAPTCHA container properly cleaned up between sends
