@@ -106,6 +106,11 @@ export async function seedConfigsFromEnv(): Promise<number> {
     // Platform
     { section: 'PLATFORM', key: 'UPI_ID', envKey: 'PLATFORM_UPI_ID', label: 'Platform UPI ID', isSecret: false },
     { section: 'PLATFORM', key: 'UPI_NAME', envKey: 'PLATFORM_UPI_NAME', label: 'Platform UPI Display Name', isSecret: false },
+    { section: 'PLATFORM', key: 'FEE_PERCENT', envKey: 'PLATFORM_FEE_PERCENT', label: 'Platform Fee %', isSecret: false },
+    { section: 'PLATFORM', key: 'ADMIN_BANK_NAME', envKey: 'ADMIN_BANK_NAME', label: 'Admin Bank Name', isSecret: false },
+    { section: 'PLATFORM', key: 'ADMIN_ACCOUNT_NUMBER', envKey: 'ADMIN_ACCOUNT_NUMBER', label: 'Admin Account Number', isSecret: true },
+    { section: 'PLATFORM', key: 'ADMIN_IFSC_CODE', envKey: 'ADMIN_IFSC_CODE', label: 'Admin IFSC Code', isSecret: false },
+    { section: 'PLATFORM', key: 'ADMIN_ACCOUNT_HOLDER', envKey: 'ADMIN_ACCOUNT_HOLDER', label: 'Admin Account Holder Name', isSecret: false },
     // App
     { section: 'APP', key: 'NEXTAUTH_SECRET', envKey: 'NEXTAUTH_SECRET', label: 'NextAuth Secret', isSecret: true },
     { section: 'APP', key: 'NEXTAUTH_URL', envKey: 'NEXTAUTH_URL', label: 'App URL', isSecret: false },
@@ -159,3 +164,11 @@ export async function getSmtpPass() { return getConfigWithFallback('SMTP', 'PASS
 export async function getFast2SmsApiKey() { return getConfigWithFallback('SMS', 'FAST2SMS_API_KEY', 'FAST2SMS_API_KEY'); }
 export async function getPlatformUpiId() { return getConfigWithFallback('PLATFORM', 'UPI_ID', 'PLATFORM_UPI_ID'); }
 export async function getPlatformUpiName() { return getConfigWithFallback('PLATFORM', 'UPI_NAME', 'PLATFORM_UPI_NAME'); }
+export async function getPlatformFeePercent(): Promise<number> {
+  const val = await getConfigWithFallback('PLATFORM', 'FEE_PERCENT', 'PLATFORM_FEE_PERCENT');
+  return val ? parseFloat(val) : 15;
+}
+export async function getAdminBankName() { return getConfigWithFallback('PLATFORM', 'ADMIN_BANK_NAME', 'ADMIN_BANK_NAME'); }
+export async function getAdminAccountNumber() { return getConfigWithFallback('PLATFORM', 'ADMIN_ACCOUNT_NUMBER', 'ADMIN_ACCOUNT_NUMBER'); }
+export async function getAdminIfscCode() { return getConfigWithFallback('PLATFORM', 'ADMIN_IFSC_CODE', 'ADMIN_IFSC_CODE'); }
+export async function getAdminAccountHolder() { return getConfigWithFallback('PLATFORM', 'ADMIN_ACCOUNT_HOLDER', 'ADMIN_ACCOUNT_HOLDER'); }

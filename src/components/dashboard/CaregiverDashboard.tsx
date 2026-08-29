@@ -36,6 +36,11 @@ import {
   Play,
   Phone,
   Hash,
+  Pencil,
+  Wallet,
+  Building2,
+  ArrowDownToLine,
+  Smartphone,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,6 +63,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { PaymentHistory } from '@/components/payment/PaymentHistory';
 import { PhoneVerificationSection } from '@/components/dashboard/PhoneVerification';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 /* ============================================================ */
 /* TYPES                                                         */
@@ -658,12 +664,240 @@ function CreateProfileForm({ userId, onCreated }: { userId: string; onCreated: (
 }
 
 /* ============================================================ */
+/* EDIT PROFILE FORM                                             */
+/* ============================================================ */
+
+function EditProfileForm({ profile, userId, onSaved, onCancel }: { profile: any; userId: string; onSaved: (updated: any) => void; onCancel: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(parseJsonSafe(profile.skills));
+  const [form, setForm] = useState({
+    city: profile.city || '',
+    yearsExperience: String(profile.yearsExperience || ''),
+    hourlyRate: String(profile.hourlyRate || ''),
+    qualifications: parseJsonSafe(profile.qualifications).join(', '),
+    languages: parseJsonSafe(profile.languages).join(', '),
+    bio: profile.bio || '',
+  });
+
+  const toggleSkill = (skill: string) => {
+    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.city || !form.yearsExperience || !form.hourlyRate) {
+      toast.error('Please fill in City, Experience, and Hourly Rate.');
+      return;
+    }
+    if (selectedSkills.length === 0) {
+      toast.error('Please select at least one skill.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.caregivers.update(profile.id, {
+        city: form.city,
+        yearsExperience: parseInt(form.yearsExperience),
+        hourlyRate: parseInt(form.hourlyRate),
+        skills: JSON.stringify(selectedSkills),
+        qualifications: form.qualifications ? JSON.stringify(form.qualifications.split(',').map((s: string) => s.trim()).filter(Boolean)) : JSON.stringify(['Caregiver']),
+        languages: JSON.stringify(form.languages.split(',').map((s: string) => s.trim()).filter(Boolean)),
+        bio: form.bio,
+      });
+      toast.success('Profile updated successfully!');
+      onSaved(res.caregiver);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Edit Profile</h2>
+        <p className="text-sm text-gray-400 mt-1">Update your caregiver profile information.</p>
+      </div>
+      <Card className="rounded-2xl border-gray-100">
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-medium text-gray-600">City *</Label>
+                <Input value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="e.g., Delhi" className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Years of Experience *</Label>
+                <Input type="number" min="0" max="50" value={form.yearsExperience} onChange={e => setForm(p => ({...p, yearsExperience: e.target.value}))} placeholder="e.g., 5" className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Hourly Rate (INR) *</Label>
+                <Input type="number" min="50" max="5000" value={form.hourlyRate} onChange={e => setForm(p => ({...p, hourlyRate: e.target.value}))} placeholder="e.g., 250" className="mt-1 rounded-xl" required />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-600">Qualifications</Label>
+                <Input value={form.qualifications} onChange={e => setForm(p => ({...p, qualifications: e.target.value}))} placeholder="e.g., BSc Nursing, GNM" className="mt-1 rounded-xl" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Languages</Label>
+              <Input value={form.languages} onChange={e => setForm(p => ({...p, languages: e.target.value}))} placeholder="e.g., Hindi, English, Punjabi" className="mt-1 rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600 mb-2 block">Skills *</Label>
+              <div className="flex flex-wrap gap-2">
+                {ALL_SKILLS.map(skill => (
+                  <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selectedSkills.includes(skill) ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
+                    {skill}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Bio</Label>
+              <Textarea value={form.bio} onChange={e => setForm(p => ({...p, bio: e.target.value}))} placeholder="Tell families about your experience and care approach..." className="mt-1 rounded-xl min-h-[100px]" />
+            </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={onCancel} className="rounded-full">Cancel</Button>
+              <Button type="submit" disabled={saving} className="btn-black text-sm gap-2 rounded-full">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/* WITHDRAWAL FORM                                               */
+/* ============================================================ */
+
+function WithdrawalForm({ caregiverId, userId, availableBalance }: { caregiverId: string; userId: string; availableBalance: number }) {
+  const [open, setOpen] = useState(false);
+  const [method, setMethod] = useState<'upi' | 'bank_transfer'>('upi');
+  const [amount, setAmount] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [accountHolder, setAccountHolder] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const resetForm = () => {
+    setAmount(''); setUpiId(''); setBankName(''); setAccountNumber(''); setIfscCode(''); setAccountHolder(''); setMethod('upi');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountPaise = Math.round(parseFloat(amount) * 100);
+    if (!amountPaise || amountPaise <= 0) { toast.error('Enter a valid amount'); return; }
+    if (amountPaise > availableBalance) { toast.error(`Insufficient balance. Available: ₹${(availableBalance / 100).toLocaleString('en-IN')}`); return; }
+    if (method === 'upi' && !upiId) { toast.error('Enter UPI ID'); return; }
+    if (method === 'bank_transfer' && (!bankName || !accountNumber || !ifscCode || !accountHolder)) { toast.error('Fill all bank details'); return; }
+
+    setSubmitting(true);
+    try {
+      await api.withdrawals.create({
+        userId, caregiverId, amount: amountPaise, method,
+        upiId: method === 'upi' ? upiId : undefined,
+        bankName: method === 'bank_transfer' ? bankName : undefined,
+        accountNumber: method === 'bank_transfer' ? accountNumber : undefined,
+        ifscCode: method === 'bank_transfer' ? ifscCode : undefined,
+        accountHolder: method === 'bank_transfer' ? accountHolder : undefined,
+      });
+      toast.success('Withdrawal request submitted! Admin will process it soon.');
+      setOpen(false);
+      resetForm();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit withdrawal');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)} className="btn-green text-sm gap-2 rounded-xl">
+        <Wallet className="h-4 w-4" /> Withdraw Funds
+      </Button>
+
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-forest-800" /> Withdraw Funds</DialogTitle>
+            <DialogDescription>Available: <span className="font-semibold text-forest-700">₹{(availableBalance / 100).toLocaleString('en-IN')}</span></DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 mt-3">
+            <div>
+              <Label className="text-xs font-medium text-gray-600">Amount (INR) *</Label>
+              <Input type="number" min="1" step="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Enter amount" className="mt-1 rounded-xl" required />
+            </div>
+
+            {/* Method Toggle */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600 mb-2 block">Withdrawal Method</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setMethod('upi')} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${method === 'upi' ? 'border-forest-500 bg-forest-50 text-forest-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                  <Smartphone className="h-4 w-4" /> UPI
+                </button>
+                <button type="button" onClick={() => setMethod('bank_transfer')} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${method === 'bank_transfer' ? 'border-forest-500 bg-forest-50 text-forest-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                  <Building2 className="h-4 w-4" /> Bank Transfer
+                </button>
+              </div>
+            </div>
+
+            {method === 'upi' ? (
+              <div>
+                <Label className="text-xs font-medium text-gray-600">UPI ID *</Label>
+                <Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="yourname@upi" className="mt-1 rounded-xl" required />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-medium text-gray-600">Account Holder Name *</Label>
+                  <Input value={accountHolder} onChange={e => setAccountHolder(e.target.value)} placeholder="Full name" className="mt-1 rounded-xl" required />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-gray-600">Bank Name *</Label>
+                  <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g., SBI, HDFC" className="mt-1 rounded-xl" required />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-gray-600">Account Number *</Label>
+                  <Input value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/\D/g, ''))} placeholder="Enter account number" className="mt-1 rounded-xl" required />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-gray-600">IFSC Code *</Label>
+                  <Input value={ifscCode} onChange={e => setIfscCode(e.target.value.toUpperCase())} placeholder="e.g., SBIN0001234" className="mt-1 rounded-xl font-mono" required />
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1 rounded-full">Cancel</Button>
+              <Button type="submit" disabled={submitting} className="btn-black flex-1 text-sm gap-2 rounded-full">
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? 'Submitting...' : 'Submit Request'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/* ============================================================ */
 /* PROFILE TAB                                                   */
 /* ============================================================ */
 
 function ProfileTab({ user }: { user: User }) {
   const profile = user.caregiverProfile;
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
   const skills = parseJsonSafe(profile?.skills);
   const languages = parseJsonSafe(profile?.languages);
 
@@ -682,7 +916,6 @@ function ProfileTab({ user }: { user: User }) {
         userId={user.id}
         onCreated={(createdProfile: any) => {
           setCreating(true);
-          // Use the returned profile directly for instant update
           if (createdProfile) {
             const current = useAuthStore.getState().user;
             if (current) {
@@ -690,10 +923,9 @@ function ProfileTab({ user }: { user: User }) {
                 ...current,
                 caregiverProfile: createdProfile,
               });
-              return; // Store updated, creating state will clear on re-render
+              return;
             }
           }
-          // Fallback: fetch from server
           api.auth.me(user.id).then(res => {
             if (res.user) useAuthStore.getState().setAuth(res.user);
           }).catch(() => {
@@ -704,11 +936,33 @@ function ProfileTab({ user }: { user: User }) {
     );
   }
 
+  if (editing) {
+    return (
+      <EditProfileForm
+        profile={profile}
+        userId={user.id}
+        onSaved={(updated) => {
+          const current = useAuthStore.getState().user;
+          if (current) {
+            useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
+          }
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
-        <p className="text-sm text-gray-400 mt-1">Your caregiver profile details as seen by families.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
+          <p className="text-sm text-gray-400 mt-1">Your caregiver profile details as seen by families.</p>
+        </div>
+        <Button onClick={() => setEditing(true)} variant="outline" className="gap-2 rounded-xl text-sm border-forest-200 text-forest-700 hover:bg-forest-50">
+          <Pencil className="h-4 w-4" /> Edit Profile
+        </Button>
       </div>
 
       <motion.div
@@ -1827,16 +2081,21 @@ function ReviewsTab({ user }: { user: User }) {
 /* ============================================================ */
 function EarningsTab({ user }: { user: User }) {
   const [payments, setPayments] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const caregiverId = (user as any).caregiverId || user.id;
+  const caregiverId = user.caregiverProfile?.id || (user as any).caregiverId || user.id;
 
-  const fetchPayments = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.payments.list(caregiverId, 'CAREGIVER');
-      setPayments(res.payments || []);
+      const [payRes, wdRes] = await Promise.all([
+        api.payments.list(caregiverId, 'CAREGIVER'),
+        api.withdrawals.list({ caregiverId }),
+      ]);
+      setPayments(payRes.payments || []);
+      setWithdrawals(wdRes.withdrawals || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load earnings');
     } finally {
@@ -1845,19 +2104,22 @@ function EarningsTab({ user }: { user: User }) {
   }, [caregiverId]);
 
   useEffect(() => {
-    fetchPayments();
-  }, [fetchPayments]);
+    fetchData();
+  }, [fetchData]);
 
   const totalEarnings = payments
     .filter((p) => p.status === 'COMPLETED')
-    .reduce((sum, p) => sum + p.caregiverPayout, 0) / 100;
-  const pendingPayouts = payments
-    .filter((p) => p.status === 'PENDING')
     .reduce((sum, p) => sum + p.caregiverPayout, 0) / 100;
   const totalPlatformFee = payments
     .filter((p) => p.status === 'COMPLETED')
     .reduce((sum, p) => sum + p.platformFee, 0) / 100;
   const completedPayments = payments.filter((p) => p.status === 'COMPLETED').length;
+
+  // Available balance = total earned - pending withdrawal amounts
+  const totalWithdrawn = withdrawals
+    .filter((w) => ['PENDING', 'APPROVED', 'PROCESSING'].includes(w.status))
+    .reduce((sum, w) => sum + w.amount, 0);
+  const availableBalance = (totalEarnings * 100) - totalWithdrawn;
 
   const statCards = [
     {
@@ -1867,10 +2129,10 @@ function EarningsTab({ user }: { user: User }) {
       color: 'bg-forest-50 text-forest-700',
     },
     {
-      label: 'Pending Payouts',
-      value: `₹${pendingPayouts.toLocaleString('en-IN')}`,
-      icon: <Clock className='h-5 w-5' />,
-      color: 'bg-yellow-50 text-yellow-700',
+      label: 'Available to Withdraw',
+      value: `₹${(availableBalance / 100).toLocaleString('en-IN')}`,
+      icon: <Wallet className='h-5 w-5' />,
+      color: 'bg-green-50 text-green-700',
     },
     {
       label: 'Platform Fees',
@@ -1879,7 +2141,7 @@ function EarningsTab({ user }: { user: User }) {
       color: 'bg-orange-50 text-orange-700',
     },
     {
-      label: 'Completed Payments',
+      label: 'Completed Jobs',
       value: completedPayments,
       icon: <CheckCircle2 className='h-5 w-5' />,
       color: 'bg-lime-50 text-lime-700',
@@ -1895,7 +2157,7 @@ function EarningsTab({ user }: { user: User }) {
         <h3 className='text-sm font-semibold text-gray-800 mb-1'>Failed to load earnings</h3>
         <p className='text-xs text-gray-400 mb-3'>{error}</p>
         <button
-          onClick={fetchPayments}
+          onClick={fetchData}
           className='text-xs font-medium text-forest-700 hover:underline'
         >
           Try Again
@@ -1907,11 +2169,18 @@ function EarningsTab({ user }: { user: User }) {
   return (
     <div className='space-y-6'>
       {/* Header */}
-      <div>
-        <h2 className='text-2xl font-bold text-gray-900'>Earnings</h2>
-        <p className='text-sm text-gray-400 mt-1'>
-          Track your earnings, payouts, and platform fee deductions.
-        </p>
+      <div className='flex items-center justify-between'>
+        <div>
+          <h2 className='text-2xl font-bold text-gray-900'>Earnings</h2>
+          <p className='text-sm text-gray-400 mt-1'>
+            Track your earnings, withdrawals, and platform fee deductions.
+          </p>
+        </div>
+        <WithdrawalForm
+          caregiverId={caregiverId}
+          userId={user.id}
+          availableBalance={availableBalance}
+        />
       </div>
 
       {/* Stat Cards */}
@@ -1948,16 +2217,59 @@ function EarningsTab({ user }: { user: User }) {
               <Briefcase className='h-4 w-4 text-forest-600' />
             </div>
             <div>
-              <p className='text-sm font-semibold text-forest-900'>Fee Structure</p>
+              <p className='text-sm font-semibold text-forest-900'>Payment Split</p>
               <p className='text-xs text-gray-500 mt-0.5'>
-                SevaSaathi charges a <span className='font-semibold text-orange-600'>15% platform fee</span> on
-                each booking. You receive 85% of the total booking amount directly
-                to your account.
+                When a family pays, the amount is automatically split:{' '}
+                <span className='font-semibold text-orange-600'>platform fee goes to admin</span>{' '}
+                and the rest is your earning. Withdraw anytime via UPI or bank transfer.
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Withdrawal History */}
+      {withdrawals.length > 0 && (
+        <div>
+          <h3 className='text-base font-semibold text-gray-800 mb-3 flex items-center gap-2'>
+            <ArrowDownToLine className='h-4 w-4' /> Withdrawal History
+          </h3>
+          <div className='space-y-3 max-h-64 overflow-y-auto'>
+            {withdrawals.map((w: any) => {
+              const wStatusConfig: Record<string, { label: string; cls: string }> = {
+                PENDING: { label: 'Pending', cls: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+                APPROVED: { label: 'Approved', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+                PROCESSING: { label: 'Processing', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
+                COMPLETED: { label: 'Completed', cls: 'bg-green-100 text-green-700 border-green-200' },
+                REJECTED: { label: 'Rejected', cls: 'bg-red-100 text-red-700 border-red-200' },
+              };
+              const sc = wStatusConfig[w.status] || wStatusConfig.PENDING;
+              return (
+                <Card key={w.id} className='rounded-2xl border-gray-100'>
+                  <CardContent className='p-4 flex items-center justify-between'>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0'>
+                        {w.method === 'upi' ? <Smartphone className='h-5 w-5 text-green-600' /> : <Building2 className='h-5 w-5 text-green-600' />}
+                      </div>
+                      <div>
+                        <p className='text-sm font-semibold text-gray-800'>₹{(w.amount / 100).toLocaleString('en-IN')}</p>
+                        <p className='text-xs text-gray-400'>
+                          {w.method === 'upi' ? w.upiId : `${w.bankName} ****${(w.accountNumber || '').slice(-4)}`}
+                          {' · '}
+                          {new Date(w.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant='outline' className={`text-[10px] rounded-full ${sc.cls}`}>
+                      {sc.label}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Payment History */}
       <div>

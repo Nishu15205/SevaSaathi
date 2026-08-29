@@ -268,10 +268,15 @@ export function PaymentHistory({ userId, role }: PaymentHistoryProps) {
                       </div>
                       <div>
                         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                          Platform Fee (15%)
+                          Platform Fee
                         </p>
                         <p className="font-semibold text-orange-600 mt-0.5">
                           {formatINR(payment.platformFee)}
+                          {payment.amount > 0 && (
+                            <span className="text-[9px] text-gray-400 ml-1">
+                              ({Math.round((payment.platformFee / payment.amount) * 100)}%)
+                            </span>
+                          )}
                         </p>
                       </div>
                       {role === 'CAREGIVER' && (

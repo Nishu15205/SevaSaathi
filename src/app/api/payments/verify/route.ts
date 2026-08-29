@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { emitToUser } from '@/lib/socket';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import crypto from 'crypto';
-import { getRazorpayKeySecret } from '@/lib/config';
+import { getRazorpayKeySecret, getPlatformFeePercent, getAdminBankName, getAdminAccountNumber, getAdminIfscCode, getAdminAccountHolder } from '@/lib/config';
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,6 +76,31 @@ export async function POST(req: NextRequest) {
           title: 'New Booking Confirmed',
           message: `A new booking for ${booking.patient?.name || 'patient'} has been confirmed.`,
           data: JSON.stringify({ bookingId }),
+        },
+      });
+
+      // Notify admin about platform fee received
+      const admins = await db.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
+      for (const admin of admins) {
+        await db.notification.create({
+          data: {
+            userId: admin.id,
+            type: 'PAYMENT_RECEIVED',
+            title: 'Platform Fee Received',
+            message: `₹${payment.platformFee / 100} platform fee received from booking for ${booking.patient?.name || 'patient'}. Caregiver payout: ₹${payment.caregiverPayout / 100}.`,
+            data: JSON.stringify({ bookingId, paymentId: payment.id, platformFee: payment.platformFee, caregiverPayout: payment.caregiverPayout }),
+          },
+        });
+      }
+
+      // Notify caregiver about earnings
+      await db.notification.create({
+        data: {
+          userId: booking.caregiverId,
+          type: 'PAYMENT_RECEIVED',
+          title: 'Earning Credited',
+          message: `₹${payment.caregiverPayout / 100} has been credited from booking for ${booking.patient?.name || 'patient'}. Platform fee: ₹${payment.platformFee / 100}. Withdraw from Earnings tab.`,
+          data: JSON.stringify({ bookingId, paymentId: payment.id, amount: payment.caregiverPayout }),
         },
       });
 

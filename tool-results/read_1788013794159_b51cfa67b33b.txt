@@ -1036,200 +1036,202 @@
   1036→const SECTION_INFO: Record<string, { label: string; color: string; description: string }> = {
   1037→  GOOGLE_OAUTH: { label: 'Google OAuth', color: 'bg-blue-50 border-blue-200', description: 'Google sign-in credentials' },
   1038→  RAZORPAY: { label: 'Razorpay', color: 'bg-blue-50 border-blue-200', description: 'Payment gateway credentials' },
-  1039→  SMTP: { label: 'Email (SMTP)', color: 'bg-amber-50 border-amber-200', description: 'Gmail SMTP email sending' },
-  1040→  SMS: { label: 'SMS (Fast2SMS)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery' },
-  1041→  PLATFORM: { label: 'Platform', color: 'bg-purple-50 border-purple-200', description: 'Platform UPI & settings' },
-  1042→  APP: { label: 'App Config', color: 'bg-gray-50 border-gray-200', description: 'Application settings' },
-  1043→};
-  1044→
-  1045→function CredentialsTab() {
-  1046→  const [configs, setConfigs] = useState<Record<string, Record<string, { value: string; label: string; isSecret: boolean }>>>();
-  1047→  const [loading, setLoading] = useState(true);
-  1048→  const [saving, setSaving] = useState(false);
-  1049→  const [edits, setEdits] = useState<Record<string, string>>({});
-  1050→  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  1051→
-  1052→  const fetchConfigs = async () => {
-  1053→    setLoading(true);
-  1054→    try {
-  1055→      const res = await fetch('/api/admin/configs');
-  1056→      const data = await res.json();
-  1057→      setConfigs(data.configs || {});
-  1058→    } catch (err: any) {
-  1059→      toast.error('Failed to load credentials');
-  1060→    } finally {
-  1061→      setLoading(false);
-  1062→    }
-  1063→  };
-  1064→
-  1065→  const seedFromEnv = async () => {
-  1066→    try {
-  1067→      const res = await fetch('/api/admin/configs?action=seed');
-  1068→      const data = await res.json();
-  1069→      toast.success(data.message || 'Seeded from environment');
-  1070→      await fetchConfigs();
-  1071→    } catch {
-  1072→      toast.error('Failed to seed');
-  1073→    }
-  1074→  };
-  1075→
-  1076→  const handleSave = async () => {
-  1077→    if (Object.keys(edits).length === 0) return;
-  1078→    setSaving(true);
-  1079→    try {
-  1080→      const items = Object.entries(edits).map(([fullKey, value]) => {
-  1081→        const [section, key] = fullKey.split('.');
-  1082→        const existing = configs?.[section]?.[key];
-  1083→        return { section, key, value, label: existing?.label || key, isSecret: existing?.isSecret ?? true };
-  1084→      });
-  1085→      const res = await fetch('/api/admin/configs', {
-  1086→        method: 'POST',
-  1087→        headers: { 'Content-Type': 'application/json' },
-  1088→        body: JSON.stringify({ configs: items }),
-  1089→      });
-  1090→      const data = await res.json();
-  1091→      if (!res.ok) { toast.error(data.error || 'Failed to save'); return; }
-  1092→      toast.success(data.message || 'Credentials updated');
-  1093→      setEdits({});
-  1094→      await fetchConfigs();
-  1095→    } catch {
-  1096→      toast.error('Failed to save');
-  1097→    } finally {
-  1098→      setSaving(false);
-  1099→    }
-  1100→  };
-  1101→
-  1102→  useEffect(() => { fetchConfigs(); }, []);
+  1039→  BREVO: { label: 'Brevo Email', color: 'bg-teal-50 border-teal-200', description: 'Email delivery via Brevo (free 300/day)' },
+  1040→  FIREBASE: { label: 'Firebase Phone Auth', color: 'bg-orange-50 border-orange-200', description: 'Phone OTP verification via Firebase' },
+  1041→  SMTP: { label: 'Email (SMTP Fallback)', color: 'bg-amber-50 border-amber-200', description: 'Gmail SMTP fallback email sending' },
+  1042→  SMS: { label: 'SMS (Fast2SMS Fallback)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery (fallback)' },
+  1043→  PLATFORM: { label: 'Platform', color: 'bg-purple-50 border-purple-200', description: 'Platform UPI & settings' },
+  1044→  APP: { label: 'App Config', color: 'bg-gray-50 border-gray-200', description: 'Application settings' },
+  1045→};
+  1046→
+  1047→function CredentialsTab() {
+  1048→  const [configs, setConfigs] = useState<Record<string, Record<string, { value: string; label: string; isSecret: boolean }>>>();
+  1049→  const [loading, setLoading] = useState(true);
+  1050→  const [saving, setSaving] = useState(false);
+  1051→  const [edits, setEdits] = useState<Record<string, string>>({});
+  1052→  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  1053→
+  1054→  const fetchConfigs = async () => {
+  1055→    setLoading(true);
+  1056→    try {
+  1057→      const res = await fetch('/api/admin/configs');
+  1058→      const data = await res.json();
+  1059→      setConfigs(data.configs || {});
+  1060→    } catch (err: any) {
+  1061→      toast.error('Failed to load credentials');
+  1062→    } finally {
+  1063→      setLoading(false);
+  1064→    }
+  1065→  };
+  1066→
+  1067→  const seedFromEnv = async () => {
+  1068→    try {
+  1069→      const res = await fetch('/api/admin/configs?action=seed');
+  1070→      const data = await res.json();
+  1071→      toast.success(data.message || 'Seeded from environment');
+  1072→      await fetchConfigs();
+  1073→    } catch {
+  1074→      toast.error('Failed to seed');
+  1075→    }
+  1076→  };
+  1077→
+  1078→  const handleSave = async () => {
+  1079→    if (Object.keys(edits).length === 0) return;
+  1080→    setSaving(true);
+  1081→    try {
+  1082→      const items = Object.entries(edits).map(([fullKey, value]) => {
+  1083→        const [section, key] = fullKey.split('.');
+  1084→        const existing = configs?.[section]?.[key];
+  1085→        return { section, key, value, label: existing?.label || key, isSecret: existing?.isSecret ?? true };
+  1086→      });
+  1087→      const res = await fetch('/api/admin/configs', {
+  1088→        method: 'POST',
+  1089→        headers: { 'Content-Type': 'application/json' },
+  1090→        body: JSON.stringify({ configs: items }),
+  1091→      });
+  1092→      const data = await res.json();
+  1093→      if (!res.ok) { toast.error(data.error || 'Failed to save'); return; }
+  1094→      toast.success(data.message || 'Credentials updated');
+  1095→      setEdits({});
+  1096→      await fetchConfigs();
+  1097→    } catch {
+  1098→      toast.error('Failed to save');
+  1099→    } finally {
+  1100→      setSaving(false);
+  1101→    }
+  1102→  };
   1103→
-  1104→  const hasEdits = Object.keys(edits).length > 0;
-  1105→  const sections = configs ? Object.keys(configs).sort() : [];
-  1106→  const totalKeys = sections.reduce((acc, s) => acc + Object.keys(configs![s] || {}).length, 0);
-  1107→  const filledKeys = sections.reduce((acc, s) => acc + Object.values(configs![s] || {}).filter(v => v.value).length, 0);
-  1108→
-  1109→  if (loading) {
-  1110→    return (
-  1111→      <div className="space-y-6">
-  1112→        <div className="flex items-center justify-between">
-  1113→          <h2 className="text-2xl font-bold text-gray-900">System Credentials</h2>
-  1114→        </div>
-  1115→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  1116→          {[1, 2, 3, 4, 5, 6].map(i => (
-  1117→            <Skeleton key={i} className="h-48 rounded-2xl" />
-  1118→          ))}
-  1119→        </div>
-  1120→      </div>
-  1121→    );
-  1122→  }
-  1123→
-  1124→  return (
-  1125→    <div className="space-y-6">
-  1126→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-  1127→        <div>
-  1128→          <h2 className="text-2xl font-bold text-gray-900">System Credentials</h2>
-  1129→          <p className="text-sm text-gray-400 mt-1">Manage API keys and service credentials. Changes take effect immediately.</p>
-  1130→        </div>
-  1131→        <div className="flex items-center gap-2">
-  1132→          <Badge variant="outline" className="text-xs">
-  1133→            {filledKeys}/{totalKeys} configured
-  1134→          </Badge>
-  1135→          <Button variant="outline" size="sm" onClick={seedFromEnv} className="rounded-xl gap-1.5 text-xs">
-  1136→            <RefreshCw className="h-3.5 w-3.5" /> Sync from .env
-  1137→          </Button>
-  1138→          {hasEdits && (
-  1139→            <Button size="sm" onClick={handleSave} disabled={saving} className="btn-black rounded-xl gap-1.5 text-xs">
-  1140→              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-  1141→              Save ({Object.keys(edits).length})
-  1142→            </Button>
-  1143→          )}
-  1144→        </div>
-  1145→      </div>
-  1146→
-  1147→      {sections.length === 0 ? (
-  1148→        <Card className="rounded-2xl">
-  1149→          <CardContent className="p-8 text-center">
-  1150→            <KeyRound className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-  1151→            <h3 className="font-semibold text-gray-700">No Credentials Configured</h3>
-  1152→            <p className="text-sm text-gray-400 mt-1 mb-4">Click "Sync from .env" to import credentials from your environment file.</p>
-  1153→            <Button onClick={seedFromEnv} className="btn-black rounded-xl gap-2 text-sm">
-  1154→              <RefreshCw className="h-4 w-4" /> Sync from .env
-  1155→            </Button>
-  1156→          </CardContent>
-  1157→        </Card>
-  1158→      ) : (
-  1159→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  1160→          {sections.map((section) => {
-  1161→            const info = SECTION_INFO[section] || { label: section, color: 'bg-gray-50 border-gray-200', description: '' };
-  1162→            const keys = Object.entries(configs![section] || {});
-  1163→            const sectionFilled = keys.filter(([, v]) => v.value).length;
-  1164→            return (
-  1165→              <Card key={section} className={`rounded-2xl border ${info.color} overflow-hidden`}>
-  1166→                <CardHeader className="pb-2 pt-4 px-4">
-  1167→                  <div className="flex items-center justify-between">
-  1168→                    <CardTitle className="text-sm font-bold text-gray-900">{info.label}</CardTitle>
-  1169→                    <Badge variant={sectionFilled === keys.length ? 'default' : 'outline'} className={sectionFilled === keys.length ? 'bg-green-100 text-green-700 text-[10px]' : 'text-[10px]'}>
-  1170→                      {sectionFilled}/{keys.length}
-  1171→                    </Badge>
-  1172→                  </div>
-  1173→                  {info.description && <p className="text-[11px] text-gray-500 mt-0.5">{info.description}</p>}
-  1174→                </CardHeader>
-  1175→                <CardContent className="px-4 pb-4 space-y-2">
-  1176→                  {keys.map(([key, { value, label, isSecret }]) => {
-  1177→                    const fullKey = `${section}.${key}`;
-  1178→                    const editValue = edits[fullKey];
-  1179→                    const displayValue = editValue !== undefined ? editValue : value;
-  1180→                    const isHidden = isSecret && !showSecrets[fullKey] && displayValue;
-  1181→                    return (
-  1182→                      <div key={key} className="space-y-1">
-  1183→                        <label className="text-[11px] font-medium text-gray-500 block">{label}</label>
-  1184→                        <div className="relative">
-  1185→                          <Input
-  1186→                            value={isHidden ? '••••••••' : (displayValue || '')}
-  1187→                            onChange={(e) => setEdits(prev => ({ ...prev, [fullKey]: e.target.value }))}
-  1188→                            onFocus={() => { if (isSecret && displayValue) setShowSecrets(p => ({ ...p, [fullKey]: true })); }}
-  1189→                            placeholder="Not set"
-  1190→                            className="h-8 text-xs rounded-lg pr-8 font-mono"
-  1191→                          />
-  1192→                          {isSecret && displayValue && (
-  1193→                            <button
-  1194→                              type="button"
-  1195→                              onClick={() => setShowSecrets(p => ({ ...p, [fullKey]: !p[fullKey] }))}
-  1196→                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-  1197→                            >
-  1198→                              {showSecrets[fullKey] ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-  1199→                            </button>
-  1200→                          )}
-  1201→                        </div>
-  1202→                        {value && editValue === undefined && (
-  1203→                          <div className="flex items-center gap-1">
-  1204→                            <CheckCircle2 className="h-3 w-3 text-green-500" />
-  1205→                            <span className="text-[10px] text-green-600">Active</span>
-  1206→                          </div>
-  1207→                        )}
-  1208→                        {!value && !editValue && (
-  1209→                          <div className="flex items-center gap-1">
-  1210→                            <XCircle className="h-3 w-3 text-gray-400" />
-  1211→                            <span className="text-[10px] text-gray-400">Not configured</span>
-  1212→                          </div>
-  1213→                        )}
-  1214→                      </div>
-  1215→                    );
-  1216→                  })}
-  1217→                </CardContent>
-  1218→              </Card>
-  1219→            );
-  1220→          })}
-  1221→        </div>
-  1222→      )}
-  1223→
-  1224→      {hasEdits && (
-  1225→        <div className="fixed bottom-6 right-6 z-50">
-  1226→          <Button onClick={handleSave} disabled={saving} className="btn-black rounded-2xl shadow-lg gap-2">
-  1227→            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-  1228→            Save {Object.keys(edits).length} Change(s)
-  1229→          </Button>
-  1230→        </div>
-  1231→      )}
-  1232→    </div>
-  1233→  );
-  1234→}
-  1235→
+  1104→  useEffect(() => { fetchConfigs(); }, []);
+  1105→
+  1106→  const hasEdits = Object.keys(edits).length > 0;
+  1107→  const sections = configs ? Object.keys(configs).sort() : [];
+  1108→  const totalKeys = sections.reduce((acc, s) => acc + Object.keys(configs![s] || {}).length, 0);
+  1109→  const filledKeys = sections.reduce((acc, s) => acc + Object.values(configs![s] || {}).filter(v => v.value).length, 0);
+  1110→
+  1111→  if (loading) {
+  1112→    return (
+  1113→      <div className="space-y-6">
+  1114→        <div className="flex items-center justify-between">
+  1115→          <h2 className="text-2xl font-bold text-gray-900">System Credentials</h2>
+  1116→        </div>
+  1117→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  1118→          {[1, 2, 3, 4, 5, 6].map(i => (
+  1119→            <Skeleton key={i} className="h-48 rounded-2xl" />
+  1120→          ))}
+  1121→        </div>
+  1122→      </div>
+  1123→    );
+  1124→  }
+  1125→
+  1126→  return (
+  1127→    <div className="space-y-6">
+  1128→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  1129→        <div>
+  1130→          <h2 className="text-2xl font-bold text-gray-900">System Credentials</h2>
+  1131→          <p className="text-sm text-gray-400 mt-1">Manage API keys and service credentials. Changes take effect immediately.</p>
+  1132→        </div>
+  1133→        <div className="flex items-center gap-2">
+  1134→          <Badge variant="outline" className="text-xs">
+  1135→            {filledKeys}/{totalKeys} configured
+  1136→          </Badge>
+  1137→          <Button variant="outline" size="sm" onClick={seedFromEnv} className="rounded-xl gap-1.5 text-xs">
+  1138→            <RefreshCw className="h-3.5 w-3.5" /> Sync from .env
+  1139→          </Button>
+  1140→          {hasEdits && (
+  1141→            <Button size="sm" onClick={handleSave} disabled={saving} className="btn-black rounded-xl gap-1.5 text-xs">
+  1142→              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+  1143→              Save ({Object.keys(edits).length})
+  1144→            </Button>
+  1145→          )}
+  1146→        </div>
+  1147→      </div>
+  1148→
+  1149→      {sections.length === 0 ? (
+  1150→        <Card className="rounded-2xl">
+  1151→          <CardContent className="p-8 text-center">
+  1152→            <KeyRound className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+  1153→            <h3 className="font-semibold text-gray-700">No Credentials Configured</h3>
+  1154→            <p className="text-sm text-gray-400 mt-1 mb-4">Click "Sync from .env" to import credentials from your environment file.</p>
+  1155→            <Button onClick={seedFromEnv} className="btn-black rounded-xl gap-2 text-sm">
+  1156→              <RefreshCw className="h-4 w-4" /> Sync from .env
+  1157→            </Button>
+  1158→          </CardContent>
+  1159→        </Card>
+  1160→      ) : (
+  1161→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  1162→          {sections.map((section) => {
+  1163→            const info = SECTION_INFO[section] || { label: section, color: 'bg-gray-50 border-gray-200', description: '' };
+  1164→            const keys = Object.entries(configs![section] || {});
+  1165→            const sectionFilled = keys.filter(([, v]) => v.value).length;
+  1166→            return (
+  1167→              <Card key={section} className={`rounded-2xl border ${info.color} overflow-hidden`}>
+  1168→                <CardHeader className="pb-2 pt-4 px-4">
+  1169→                  <div className="flex items-center justify-between">
+  1170→                    <CardTitle className="text-sm font-bold text-gray-900">{info.label}</CardTitle>
+  1171→                    <Badge variant={sectionFilled === keys.length ? 'default' : 'outline'} className={sectionFilled === keys.length ? 'bg-green-100 text-green-700 text-[10px]' : 'text-[10px]'}>
+  1172→                      {sectionFilled}/{keys.length}
+  1173→                    </Badge>
+  1174→                  </div>
+  1175→                  {info.description && <p className="text-[11px] text-gray-500 mt-0.5">{info.description}</p>}
+  1176→                </CardHeader>
+  1177→                <CardContent className="px-4 pb-4 space-y-2">
+  1178→                  {keys.map(([key, { value, label, isSecret }]) => {
+  1179→                    const fullKey = `${section}.${key}`;
+  1180→                    const editValue = edits[fullKey];
+  1181→                    const displayValue = editValue !== undefined ? editValue : value;
+  1182→                    const isHidden = isSecret && !showSecrets[fullKey] && displayValue;
+  1183→                    return (
+  1184→                      <div key={key} className="space-y-1">
+  1185→                        <label className="text-[11px] font-medium text-gray-500 block">{label}</label>
+  1186→                        <div className="relative">
+  1187→                          <Input
+  1188→                            value={isHidden ? '••••••••' : (displayValue || '')}
+  1189→                            onChange={(e) => setEdits(prev => ({ ...prev, [fullKey]: e.target.value }))}
+  1190→                            onFocus={() => { if (isSecret && displayValue) setShowSecrets(p => ({ ...p, [fullKey]: true })); }}
+  1191→                            placeholder="Not set"
+  1192→                            className="h-8 text-xs rounded-lg pr-8 font-mono"
+  1193→                          />
+  1194→                          {isSecret && displayValue && (
+  1195→                            <button
+  1196→                              type="button"
+  1197→                              onClick={() => setShowSecrets(p => ({ ...p, [fullKey]: !p[fullKey] }))}
+  1198→                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+  1199→                            >
+  1200→                              {showSecrets[fullKey] ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+  1201→                            </button>
+  1202→                          )}
+  1203→                        </div>
+  1204→                        {value && editValue === undefined && (
+  1205→                          <div className="flex items-center gap-1">
+  1206→                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+  1207→                            <span className="text-[10px] text-green-600">Active</span>
+  1208→                          </div>
+  1209→                        )}
+  1210→                        {!value && !editValue && (
+  1211→                          <div className="flex items-center gap-1">
+  1212→                            <XCircle className="h-3 w-3 text-gray-400" />
+  1213→                            <span className="text-[10px] text-gray-400">Not configured</span>
+  1214→                          </div>
+  1215→                        )}
+  1216→                      </div>
+  1217→                    );
+  1218→                  })}
+  1219→                </CardContent>
+  1220→              </Card>
+  1221→            );
+  1222→          })}
+  1223→        </div>
+  1224→      )}
+  1225→
+  1226→      {hasEdits && (
+  1227→        <div className="fixed bottom-6 right-6 z-50">
+  1228→          <Button onClick={handleSave} disabled={saving} className="btn-black rounded-2xl shadow-lg gap-2">
+  1229→            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+  1230→            Save {Object.keys(edits).length} Change(s)
+  1231→          </Button>
+  1232→        </div>
+  1233→      )}
+  1234→    </div>
+  1235→  );
+  1236→}
+  1237→

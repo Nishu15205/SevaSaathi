@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import Razorpay from 'razorpay';
-import { getRazorpayKeyId, getRazorpayKeySecret } from '@/lib/config';
+import { getRazorpayKeyId, getRazorpayKeySecret, getPlatformFeePercent } from '@/lib/config';
 
 const createOrderSchema = z.object({
   bookingId: z.string().min(1),
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     }
 
     const amountPaise = Math.round(amount * 100);
-    const platformFeePaise = Math.round(amountPaise * 0.10);
+    const feePercent = await getPlatformFeePercent();
+    const platformFeePaise = Math.round(amountPaise * (feePercent / 100));
     const caregiverPayoutPaise = amountPaise - platformFeePaise;
     const orderId = `ss_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
