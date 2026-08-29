@@ -1,72 +1,20 @@
-/**
- * Firebase Admin SDK — Server Side Only
+/*
+ * Firebase Admin — Server Side Only
  * 
- * Used to:
- * 1. Verify Firebase ID tokens from phone auth
- * 2. Get user info from verified tokens
- * 
- * NEVER import this in client components.
+ * Since the user's org blocks downloading the private key,
+ * we use the Firebase Auth REST API to verify ID tokens.
+ * This works without the firebase-admin SDK.
  */
 
 import { getConfigWithFallback } from './config';
 
-let cachedAdmin: any = null;
-
 /**
- * Get Firebase Admin instance (lazy-initialized).
- * Reads credentials from system_configs DB or env vars.
- */
-export async function getFirebaseAdmin() {
-  if (cachedAdmin) return cachedAdmin;
-
-  // Dynamic import — only loads on server
-  const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getAuth } = await import('firebase-admin/auth');
-
-  const projectId = await getConfigWithFallback('FIREBASE', 'PROJECT_ID', 'FIREBASE_PROJECT_ID');
-  const privateKey = await getConfigWithFallback('FIREBASE', 'PRIVATE_KEY', 'FIREBASE_PRIVATE_KEY');
-  const clientEmail = await getConfigWithFallback('FIREBASE', 'CLIENT_EMAIL', 'FIREBASE_CLIENT_EMAIL');
-
-  if (!projectId || !privateKey || !clientEmail) {
-    console.warn('\n🔥 Firebase Admin not configured');
-    console.warn('   Add FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL\n');
-    return null;
-  }
-
-  // Handle escaped newlines in private key (common when stored in DB/env)
-  const formattedKey = privateKey.replace(/\\n/g, '\n');
-
-  if (!getApps().length) {
-    const app = initializeApp({
-      credential: cert({ projectId, privateKey: formattedKey, clientEmail }),
-    });
-    cachedAdmin = getAuth(app);
-  } else {
-    cachedAdmin = getAuth();
-  }
-
-  return cachedAdmin;
-}
-
-/**
- * Check if Firebase is configured.
+ * Check if Firebase is configured (client-side config is sufficient).
  */
 export async function isFirebaseConfigured(): Promise<boolean> {
+  const apiKey = await getConfigWithFallback('FIREBASE', 'API_KEY', 'FIREBASE_API_KEY');
   const projectId = await getConfigWithFallback('FIREBASE', 'PROJECT_ID', 'FIREBASE_PROJECT_ID');
-  const privateKey = await getConfigWithFallback('FIREBASE', 'PRIVATE_KEY', 'FIREBASE_PRIVATE_KEY');
-  const clientEmail = await getConfigWithFallback('FIREBASE', 'CLIENT_EMAIL', 'FIREBASE_CLIENT_EMAIL');
-  return !!(projectId && privateKey && clientEmail);
-}
-
-/**
- * Verify a Firebase ID token and return decoded user info.
- */
-export async function verifyFirebaseToken(idToken: string): Promise<any> {
-  const admin = await getFirebaseAdmin();
-  if (!admin) throw new Error('Firebase Admin not configured');
-
-  const decoded = await admin.verifyIdToken(idToken);
-  return decoded;
+  return !!(apiKey && projectId);
 }
 
 /**
@@ -90,5 +38,46 @@ export async function getFirebaseClientConfig(): Promise<{
     apiKey,
     authDomain: authDomain || `${projectId}.firebaseapp.com`,
     projectId,
+  };
+}
+
+/**
+ * Verify a Firebase ID token using the REST API (no private key needed).
+ * Calls: https://identitytoolkit.googleapis.com/v1/accounts:lookup
+ */
+export async function verifyFirebaseToken(idToken: string): Promise<any> {
+  const apiKey = await getConfigWithFallback('FIREBASE', 'API_KEY', 'FIREBASE_API_KEY');
+
+  if (!apiKey) {
+    throw new Error('Firebase API key not configured');
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    }
+  );
+
+  const data = await response.json() as any;
+
+  if (!response.ok || !data.users?.length) {
+    throw new Error(data.error?.message || 'Invalid or expired Firebase token');
+  }
+
+  const user = data.users[0];
+  
+  // Verify the token isn't disabled
+  if (user.disabled) {
+    throw new Error('Firebase account is disabled');
+  }
+
+  return {
+    uid: user.localId,
+    phone_number: user.phoneNumber,
+    email: user.email,
+    verified: true,
   };
 }

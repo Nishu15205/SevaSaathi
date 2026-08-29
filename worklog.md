@@ -664,3 +664,20 @@ Stage Summary:
 - Firebase integration: Real phone OTP via Firebase Auth, client SDK sends SMS + reCAPTCHA, server verifies ID token
 - Admin can configure all Brevo/Firebase credentials from Settings page (no code changes needed)
 - Fallback: If neither is configured, dev mode works as before
+---
+Task ID: 8
+Agent: main
+Task: Seed Brevo+Firebase credentials, fix Firebase without private key
+
+Work Log:
+- Seeded Brevo API key and Firebase client config to system_configs DB
+- Tested Brevo API key — email sent successfully
+- Tested Firebase config endpoint — returns configured:true
+- Tested send-phone-otp — returns useFirebase:true
+- Rewrote firebase-admin.ts to use Firebase REST API (identitytoolkit) instead of Admin SDK
+- No private key needed — token verified via REST API call to Google
+
+Stage Summary:
+- Brevo: working, emails will send via Brevo API v3
+- Firebase: working, phone OTP via Firebase client SDK, token verified via REST API
+- Private key not required anymore
