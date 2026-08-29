@@ -47,12 +47,12 @@ export async function PUT(
       data: updateData,
       include: {
         caregiver: {
-          select: { id: true, isVerified: true, user: { select: { name: true, id: true } } },
+          select: { id: true, isVerified: true, userId: true, user: { select: { name: true, id: true, phoneVerified: true } } },
         },
       },
     })
 
-    // If approved, check if all documents are now approved
+    // If approved, check if all 3 conditions are met: phone verified + Aadhaar + ID card
     if (parsed.data.status === VerificationStatus.APPROVED) {
       const allDocs = await db.verification.findMany({
         where: { caregiverId: existing.caregiverId },
@@ -60,8 +60,9 @@ export async function PUT(
 
       const allApproved = allDocs.every((d) => d.status === VerificationStatus.APPROVED)
       const hasRejection = allDocs.some((d) => d.status === VerificationStatus.REJECTED)
+      const phoneVerified = verification.caregiver.user.phoneVerified
 
-      if (allApproved && !hasRejection) {
+      if (allApproved && !hasRejection && phoneVerified) {
         await db.caregiver.update({
           where: { id: existing.caregiverId },
           data: { isVerified: true },
@@ -72,8 +73,19 @@ export async function PUT(
           data: {
             userId: verification.caregiver.user.id,
             type: 'VERIFICATION_UPDATE',
-            title: 'Verification Approved',
-            message: 'All your documents have been verified. You are now a verified caregiver on SevaSaathi!',
+            title: 'You are now a Verified Caregiver!',
+            message: 'All your documents and phone number have been verified. You now have the verified badge and will get higher visibility in search results!',
+            data: null,
+          },
+        })
+      } else if (allApproved && !hasRejection && !phoneVerified) {
+        // Documents approved but phone not verified yet
+        await db.notification.create({
+          data: {
+            userId: verification.caregiver.user.id,
+            type: 'VERIFICATION_UPDATE',
+            title: 'Documents Approved — Verify Phone for Badge',
+            message: 'Your documents have been approved! Verify your phone number to get the verified caregiver badge.',
             data: null,
           },
         })

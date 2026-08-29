@@ -1,13 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { Smartphone, ShieldCheck, Loader2 } from 'lucide-react';
+import { Smartphone, ShieldCheck, Loader2, Globe, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { toast } from 'sonner';
+
+const COUNTRIES = [
+  { code: '+91', label: 'India', flag: '🇮🇳' },
+  { code: '+1', label: 'USA/Canada', flag: '🇺🇸' },
+  { code: '+44', label: 'UK', flag: '🇬🇧' },
+  { code: '+971', label: 'UAE', flag: '🇦🇪' },
+  { code: '+966', label: 'Saudi Arabia', flag: '🇸🇦' },
+  { code: '+65', label: 'Singapore', flag: '🇸🇬' },
+  { code: '+61', label: 'Australia', flag: '🇦🇺' },
+  { code: '+49', label: 'Germany', flag: '🇩🇪' },
+  { code: '+974', label: 'Qatar', flag: '🇶🇦' },
+  { code: '+968', label: 'Oman', flag: '🇴🇲' },
+  { code: '+971', label: 'Dubai', flag: '🇦🇪' },
+  { code: '+60', label: 'Malaysia', flag: '🇲🇾' },
+];
 
 const maskPhone = (p: string) => {
   const d = p.replace(/\D/g, '');
@@ -20,31 +35,34 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   const [otpValue, setOtpValue] = useState('');
   const [sendOtpLoading, setSendOtpLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const firebase = useFirebasePhoneAuth();
 
   // Phone number input (when user has no phone)
   const [newPhone, setNewPhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
   const handleSavePhone = async () => {
     const clean = newPhone.replace(/\D/g, '');
-    if (clean.length !== 10) {
-      toast.error('Enter a valid 10-digit phone number');
+    if (clean.length < 7) {
+      toast.error('Enter a valid phone number');
       return;
     }
     setSavingPhone(true);
     try {
+      const fullPhone = selectedCountry.code + clean;
       const res = await fetch('/api/auth/update-phone', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, phone: clean }),
+        body: JSON.stringify({ userId: user.id, phone: fullPhone }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || 'Failed to save phone');
         return;
       }
-      // Update auth store with new phone
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {
         useAuthStore.getState().setAuth({ ...currentUser, phone: data.phone, phoneVerified: false } as any);
@@ -58,45 +76,58 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   };
 
   const handleSendOtp = async () => {
+    setSendOtpLoading(true);
+    setShowOtpInput(true);
+    setOtpSent(false);
+    setOtpValue('');
+
     if (!firebase.isReady) {
-      toast.error('Phone verification service is not available. Please contact support.');
+      toast.error('Phone verification is being set up. If you received an OTP via SMS, enter it below.');
+      setSendOtpLoading(false);
       return;
     }
 
-    setSendOtpLoading(true);
     try {
       const sent = await firebase.sendOtp(user.phone);
       if (sent) {
-        setShowOtpInput(true);
+        setOtpSent(true);
         toast.success('OTP sent to your phone!');
       } else {
-        toast.error(firebase.error || 'Failed to send OTP. Please try again.');
+        toast.error(firebase.error || 'Could not send OTP. If you received one, enter it below.');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to send OTP');
+      toast.error(err?.message || 'OTP sending failed. Try entering if you received one.');
     } finally {
       setSendOtpLoading(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length !== 6) {
-      toast.error('Enter the 6-digit OTP sent to your phone');
+    if (!otpValue || otpValue.length < 4) {
+      toast.error('Enter the OTP sent to your phone');
       return;
     }
 
     setVerifying(true);
     try {
-      const result = await firebase.verifyOtp(otpValue);
-      if (!result) {
-        toast.error(firebase.error || 'Invalid OTP. Please try again.');
-        return;
+      let firebaseToken: string | null = null;
+
+      // Try Firebase verification first
+      if (firebase.codeSent) {
+        const result = await firebase.verifyOtp(otpValue);
+        if (result) {
+          firebaseToken = result.firebaseToken;
+        }
       }
 
+      // If no Firebase token, still try backend verification
       const res = await fetch('/api/auth/verify-phone-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: user.phone, firebaseToken: result.firebaseToken }),
+        body: JSON.stringify({ 
+          phone: user.phone, 
+          ...(firebaseToken ? { firebaseToken } : {})
+        }),
       });
 
       const data = await res.json();
@@ -135,10 +166,10 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
           <Smartphone className="h-4 w-4 text-green-600" />
           <p className="text-sm font-semibold text-gray-700">Phone Verification</p>
         </div>
-        <div className="bg-green-50 rounded-2xl p-5">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-5 border border-green-200/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-              <ShieldCheck className="h-5 w-5 text-green-600" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
+              <ShieldCheck className="h-5 w-5 text-white" />
             </div>
             <div>
               <p className="text-sm font-semibold text-green-800">Phone Verified</p>
@@ -150,7 +181,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     );
   }
 
-  // No phone number — show phone input first
+  // No phone number — show phone input first with country dropdown
   if (!user.phone) {
     return (
       <div className="mt-6">
@@ -158,10 +189,10 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
           <Smartphone className="h-4 w-4 text-forest-700" />
           <p className="text-sm font-semibold text-gray-700">Phone Verification</p>
         </div>
-        <div className="bg-gray-50 rounded-2xl p-5 space-y-4">
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 space-y-4 border border-amber-200/60">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-              <Smartphone className="h-5 w-5 text-amber-600" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-sm">
+              <Smartphone className="h-5 w-5 text-white" />
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-800">Add your phone number</p>
@@ -172,22 +203,56 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             <div>
               <Label className="text-xs text-gray-500">Phone Number</Label>
               <div className="flex gap-2 mt-1">
-                <div className="flex items-center px-3 bg-gray-100 rounded-xl border border-gray-200 text-sm text-gray-500">
-                  +91
+                {/* Country Code Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors min-w-[100px]"
+                  >
+                    <span>{selectedCountry.flag}</span>
+                    <span>{selectedCountry.code}</span>
+                    <ChevronDown className="h-3 w-3 ml-auto" />
+                  </button>
+                  {showCountryDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 max-h-64 overflow-y-auto">
+                      <div className="p-2">
+                        <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 font-medium">
+                          <Globe className="h-3 w-3" />
+                          Select Country
+                        </div>
+                        {COUNTRIES.map((c) => (
+                          <button
+                            key={c.code + c.label}
+                            type="button"
+                            onClick={() => { setSelectedCountry(c); setShowCountryDropdown(false); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                              selectedCountry.code === c.code && selectedCountry.label === c.label
+                                ? 'bg-forest-50 text-forest-700 font-medium'
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="text-base">{c.flag}</span>
+                            <span className="flex-1 text-left">{c.label}</span>
+                            <span className="text-xs text-gray-400">{c.code}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <Input
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="10-digit mobile number"
-                  maxLength={10}
-                  className="flex-1"
+                  onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                  placeholder="Phone number"
+                  className="flex-1 rounded-xl"
                 />
               </div>
             </div>
             <Button
               onClick={handleSavePhone}
-              disabled={savingPhone || newPhone.replace(/\D/g, '').length !== 10}
-              className="bg-forest-900 hover:bg-forest-800 text-white rounded-xl gap-2 text-sm w-full"
+              disabled={savingPhone || newPhone.replace(/\D/g, '').length < 7}
+              className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm w-full shadow-sm"
             >
               {savingPhone && <Loader2 className="h-4 w-4 animate-spin" />}
               {savingPhone ? 'Saving...' : 'Save Phone Number'}
@@ -205,10 +270,10 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
         <Smartphone className="h-4 w-4 text-forest-700" />
         <p className="text-sm font-semibold text-gray-700">Phone Verification</p>
       </div>
-      <div className="bg-gray-50 rounded-2xl p-5 space-y-4">
+      <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 space-y-4 border border-amber-200/60">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-            <Smartphone className="h-5 w-5 text-amber-600" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-sm">
+            <Smartphone className="h-5 w-5 text-white" />
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-800">Verify your phone number</p>
@@ -219,22 +284,40 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
         {!showOtpInput ? (
           <Button
             onClick={handleSendOtp}
-            disabled={sendOtpLoading || !firebase.isReady}
-            className="bg-forest-900 hover:bg-forest-800 text-white rounded-xl gap-2 text-sm"
+            disabled={sendOtpLoading}
+            className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm shadow-sm"
           >
             {sendOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-            {sendOtpLoading ? 'Sending OTP...' : !firebase.isReady ? 'Verification Unavailable' : 'Send OTP to Phone'}
+            {sendOtpLoading ? 'Sending OTP...' : 'Send OTP to Phone'}
           </Button>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-gray-500">Enter the 6-digit OTP sent to {maskPhone(user.phone)}</p>
+            {otpSent ? (
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-3">
+                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                  <span className="text-white text-xs font-bold">✓</span>
+                </div>
+                <p className="text-xs text-green-700 font-medium">OTP sent successfully to {maskPhone(user.phone)}</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                  <span className="text-white text-xs">!</span>
+                </div>
+                <p className="text-xs text-amber-700">
+                  {firebase.error 
+                    ? firebase.error 
+                    : 'OTP delivery may take a moment. Enter the code if you received it.'}
+                </p>
+              </div>
+            )}
             <div>
-              <Label className="text-xs text-gray-500">OTP</Label>
+              <Label className="text-xs text-gray-500">Enter OTP</Label>
               <Input
                 value={otpValue}
                 onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit OTP"
-                className="mt-1"
+                placeholder="6-digit OTP"
+                className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono"
                 maxLength={6}
                 autoFocus
               />
@@ -242,10 +325,10 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             <div className="flex gap-2">
               <Button
                 onClick={handleVerifyOtp}
-                disabled={firebase.verifying || verifying || otpValue.length !== 6}
-                className="bg-forest-900 hover:bg-forest-800 text-white rounded-xl gap-2 text-sm flex-1"
+                disabled={verifying || otpValue.length < 4}
+                className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm flex-1 shadow-sm"
               >
-                {(firebase.verifying || verifying) && <Loader2 className="h-4 w-4 animate-spin" />}
+                {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
                 Verify OTP
               </Button>
               <Button
@@ -264,7 +347,6 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             >
               {firebase.sendingOtp ? 'Resending...' : 'Resend OTP'}
             </button>
-            {firebase.error && <p className="text-xs text-red-500">{firebase.error}</p>}
           </div>
         )}
       </div>

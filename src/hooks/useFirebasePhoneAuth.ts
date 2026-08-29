@@ -105,7 +105,7 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
 
       recaptchaRef.current = recaptchaVerifier;
 
-      // Format phone number for Firebase
+      // Format phone number for Firebase - use as-is if already has country code
       let formattedPhone = phone.replace(/\s/g, '');
       if (!formattedPhone.startsWith('+')) {
         formattedPhone = '+91' + formattedPhone;

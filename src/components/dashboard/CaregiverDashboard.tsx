@@ -260,6 +260,7 @@ function OverviewTab({ user }: { user: User }) {
   // Phone verification — real OTP via Firebase
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState("");
   const firebase = useFirebasePhoneAuth();
 
@@ -270,19 +271,27 @@ function OverviewTab({ user }: { user: User }) {
   };
 
   const handleSendOtp = async () => {
+    setPhoneVerifying(true);
+    setShowOtpDialog(true);
+    setOtpSent(false);
+    setOtpValue('');
+
     if (!firebase.isReady) {
-      toast.error('Phone verification service is not available. Please contact support.');
+      toast.error('OTP service is initializing. If you received an OTP, enter it below.');
+      setPhoneVerifying(false);
       return;
     }
-    setPhoneVerifying(true);
+
     try {
       const sent = await firebase.sendOtp(user.phone);
       if (sent) {
-        setShowOtpDialog(true);
+        setOtpSent(true);
         toast.success('OTP sent to your phone!');
       } else {
-        toast.error(firebase.error || 'Failed to send OTP. Please try again.');
+        toast.error(firebase.error || 'Could not send OTP automatically. Enter it if received.');
       }
+    } catch (err: any) {
+      toast.error(err?.message || 'OTP sending failed. Enter it if received.');
     } finally {
       setPhoneVerifying(false);
     }
@@ -392,20 +401,20 @@ function OverviewTab({ user }: { user: User }) {
     <div className="space-y-6">
       {/* Phone Verification Banner */}
       {!user.phoneVerified && user.phone && (
-        <Card className="rounded-2xl border-2 border-amber-200 bg-amber-50">
+        <Card className="rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
           <CardContent className="p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                <Phone className="h-5 w-5 text-amber-600" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-sm">
+                <Phone className="h-5 w-5 text-white" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-amber-900">Verify Your Phone Number</p>
                 <p className="text-xs text-amber-700/70">Required to receive booking requests — {maskPhone(user.phone)}</p>
               </div>
             </div>
-            <Button onClick={handleSendOtp} disabled={phoneVerifying || !firebase.isReady} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl shrink-0">
+            <Button onClick={handleSendOtp} disabled={phoneVerifying} size="sm" className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shrink-0 shadow-sm">
               {phoneVerifying && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-              {phoneVerifying ? 'Sending OTP...' : !firebase.isReady ? 'Unavailable' : 'Send OTP'}
+              {phoneVerifying ? 'Sending...' : 'Send OTP'}
             </Button>
           </CardContent>
         </Card>
@@ -416,24 +425,39 @@ function OverviewTab({ user }: { user: User }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Verify Phone Number</DialogTitle>
-            <DialogDescription>Enter the 6-digit OTP sent to {maskPhone(user.phone)}</DialogDescription>
+            <DialogDescription>Enter the OTP sent to {maskPhone(user.phone)}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+            {otpSent ? (
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-3">
+                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                  <span className="text-white text-xs font-bold">✓</span>
+                </div>
+                <p className="text-xs text-green-700 font-medium">OTP sent! Check your phone.</p>
+              </div>
+            ) : !phoneVerifying ? (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                  <span className="text-white text-xs">!</span>
+                </div>
+                <p className="text-xs text-amber-700">{firebase.error || 'OTP may take a moment. Enter it if received.'}</p>
+              </div>
+            ) : null}
             <div>
               <Label className="text-sm">OTP</Label>
               <Input
                 value={otpValue}
                 onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit OTP"
-                className="mt-1"
+                placeholder="6-digit OTP"
+                className="mt-1 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
                 maxLength={6}
                 autoFocus
               />
             </div>
             <Button
               onClick={handleVerifyOtp}
-              disabled={firebase.verifying || otpValue.length !== 6}
-              className="w-full bg-forest-900 hover:bg-forest-800 text-white rounded-xl"
+              disabled={firebase.verifying || otpValue.length < 4}
+              className="w-full bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shadow-sm"
             >
               {firebase.verifying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Verify OTP
@@ -446,7 +470,6 @@ function OverviewTab({ user }: { user: User }) {
             >
               {firebase.sendingOtp ? 'Resending...' : 'Resend OTP'}
             </button>
-            {firebase.error && <p className="text-xs text-red-500 text-center">{firebase.error}</p>}
           </div>
         </DialogContent>
       </Dialog>
@@ -462,15 +485,20 @@ function OverviewTab({ user }: { user: User }) {
       {/* Verification Progress Banner */}
       {profile && (
         profile.isVerified ? (
-          <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+          <div className="rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 p-4 flex items-center gap-3 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
               <ShieldCheck className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <p className="text-sm font-semibold text-white">You're a Verified Caregiver!</p>
-              <p className="text-xs text-green-100">Your profile displays the trusted verified badge</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-white">Verified Caregiver</p>
+                <Badge className="bg-yellow-400/30 text-yellow-100 border-yellow-400/40 text-xs">40% More Visibility</Badge>
+              </div>
+              <p className="text-xs text-emerald-100 mt-0.5">Your profile displays the trusted verified badge to families</p>
             </div>
-            <CheckCircle2 className="h-6 w-6 text-white ml-auto shrink-0" />
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-5 w-5 text-white" />
+            </div>
           </div>
         ) : (
           <Card className="rounded-2xl border-2 border-amber-200 bg-amber-50">
@@ -1314,19 +1342,21 @@ function VerificationProgressSection({ caregiverId, user }: { caregiverId: strin
     <div className="mt-6 space-y-5">
       {/* Incentive Banner */}
       {allDone ? (
-        <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+        <div className="rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
             <CheckCircle2 className="h-7 w-7 text-white" />
           </div>
           <div>
             <p className="text-base font-bold text-white">You&apos;re a Verified Caregiver!</p>
-            <p className="text-sm text-green-100 mt-0.5">All verification steps are complete. Enjoy higher visibility and more bookings.</p>
+            <p className="text-sm text-emerald-100 mt-0.5">All verification steps complete. Enjoy higher visibility and more bookings.</p>
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="h-5 w-5 text-yellow-200" />
+        <div className="rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-yellow-200" />
+            </div>
             <p className="text-base font-bold text-white">Get Verified — Get More Bookings</p>
           </div>
           <ul className="space-y-2">
@@ -1335,8 +1365,10 @@ function VerificationProgressSection({ caregiverId, user }: { caregiverId: strin
               'Priority matching for new bookings',
               'Trusted verified badge on your profile',
             ].map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-green-100">
-                <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />
+              <li key={item} className="flex items-start gap-2 text-sm text-emerald-100">
+                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <ChevronRight className="h-3 w-3 text-white" />
+                </div>
                 {item}
               </li>
             ))}
@@ -1393,98 +1425,138 @@ function VerificationProgressSection({ caregiverId, user }: { caregiverId: strin
       </div>
 
       {/* Aadhaar Upload */}
-      <div className="bg-gray-50 rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText className="h-4 w-4 text-gray-400" />
-          <p className="text-sm font-semibold text-gray-700">Aadhaar Card Upload</p>
-          {statusBadge(aadhaarStatus)}
-        </div>
-        {aadhaarStatus === 'APPROVED' ? (
-          <div className="flex items-center gap-3 py-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <p className="text-sm text-green-800 font-medium">Approved</p>
+      <div className="relative rounded-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-green-500/5 to-teal-500/10 pointer-events-none" />
+        <div className="relative bg-white border border-emerald-200/60 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-gray-800">Aadhaar Card Upload</p>
+              <p className="text-xs text-gray-400">Government-issued identity proof</p>
+            </div>
+            {statusBadge(aadhaarStatus)}
           </div>
-        ) : aadhaarStatus === 'PENDING' ? (
-          <div className="flex items-center gap-3 py-2">
-            <Loader2 className="h-5 w-5 text-yellow-500 animate-spin" />
-            <p className="text-sm text-yellow-700">Under review — we&apos;ll notify you once approved</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Aadhaar Number</Label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  value={aadhaarNumber}
-                  onChange={(e) => setAadhaarNumber(formatAadhar(e.target.value))}
-                  placeholder="XXXX XXXX XXXX"
-                  className="pl-10 rounded-xl font-mono tracking-wider"
-                  maxLength={14}
-                />
+          {aadhaarStatus === 'APPROVED' ? (
+            <div className="flex items-center gap-3 py-3 bg-green-50 rounded-xl px-4">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-green-800">Approved</p>
+                <p className="text-xs text-green-600">Your Aadhaar card has been verified</p>
               </div>
             </div>
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Upload Aadhaar Card Image</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)}
-                className="rounded-xl text-sm"
-              />
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, or WebP. Max 5 MB.</p>
+          ) : aadhaarStatus === 'PENDING' ? (
+            <div className="flex items-center gap-3 py-3 bg-amber-50 rounded-xl px-4">
+              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
+                <Loader2 className="h-4 w-4 text-white animate-spin" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Under Review</p>
+                <p className="text-xs text-amber-600">We&apos;ll notify you once approved</p>
+              </div>
             </div>
-            <Button
-              onClick={() => handleUpload('AADHAAR')}
-              disabled={uploading === 'AADHAAR' || !aadhaarFile}
-              className="btn-green text-sm gap-2 rounded-xl w-full"
-            >
-              {uploading === 'AADHAAR' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {uploading === 'AADHAAR' ? 'Uploading...' : 'Upload Aadhaar Card'}
-            </Button>
-          </div>
-        )}
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block font-medium">Aadhaar Number</Label>
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={aadhaarNumber}
+                    onChange={(e) => setAadhaarNumber(formatAadhar(e.target.value))}
+                    placeholder="XXXX XXXX XXXX"
+                    className="pl-10 rounded-xl font-mono tracking-wider border-gray-200"
+                    maxLength={14}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block font-medium">Upload Aadhaar Card Image</Label>
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 cursor-pointer hover:bg-emerald-50 hover:border-emerald-400 transition-colors group">
+                  <Upload className="h-6 w-6 text-emerald-400 group-hover:text-emerald-500 transition-colors mb-1" />
+                  <p className="text-xs font-medium text-emerald-700">Click to upload</p>
+                  <p className="text-xs text-emerald-500/70">JPG, PNG, or WebP · Max 5 MB</p>
+                  <input type="file" accept="image/*" onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)} className="hidden" />
+                </label>
+                {aadhaarFile && (
+                  <p className="text-xs text-emerald-600 mt-1.5 font-medium">{aadhaarFile.name}</p>
+                )}
+              </div>
+              <Button
+                onClick={() => handleUpload('AADHAAR')}
+                disabled={uploading === 'AADHAAR' || !aadhaarFile}
+                className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-sm gap-2 rounded-xl w-full shadow-sm text-white font-semibold"
+              >
+                {uploading === 'AADHAAR' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading === 'AADHAAR' ? 'Uploading...' : 'Upload Aadhaar Card'}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ID Card Upload */}
-      <div className="bg-gray-50 rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText className="h-4 w-4 text-gray-400" />
-          <p className="text-sm font-semibold text-gray-700">ID Card Upload</p>
-          {statusBadge(idCardStatus)}
-        </div>
-        {idCardStatus === 'APPROVED' ? (
-          <div className="flex items-center gap-3 py-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <p className="text-sm text-green-800 font-medium">Approved</p>
-          </div>
-        ) : idCardStatus === 'PENDING' ? (
-          <div className="flex items-center gap-3 py-2">
-            <Loader2 className="h-5 w-5 text-yellow-500 animate-spin" />
-            <p className="text-sm text-yellow-700">Under review — we&apos;ll notify you once approved</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Upload Government ID Card Image</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setIdCardFile(e.target.files?.[0] || null)}
-                className="rounded-xl text-sm"
-              />
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, or WebP. Max 5 MB.</p>
+      <div className="relative rounded-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 pointer-events-none" />
+        <div className="relative bg-white border border-violet-200/60 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+              <FileText className="h-4 w-4 text-white" />
             </div>
-            <Button
-              onClick={() => handleUpload('ID_CARD')}
-              disabled={uploading === 'ID_CARD' || !idCardFile}
-              className="btn-green text-sm gap-2 rounded-xl w-full"
-            >
-              {uploading === 'ID_CARD' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {uploading === 'ID_CARD' ? 'Uploading...' : 'Upload ID Card'}
-            </Button>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-gray-800">ID Card Upload</p>
+              <p className="text-xs text-gray-400">Any government-issued photo ID</p>
+            </div>
+            {statusBadge(idCardStatus)}
           </div>
-        )}
+          {idCardStatus === 'APPROVED' ? (
+            <div className="flex items-center gap-3 py-3 bg-green-50 rounded-xl px-4">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-green-800">Approved</p>
+                <p className="text-xs text-green-600">Your ID card has been verified</p>
+              </div>
+            </div>
+          ) : idCardStatus === 'PENDING' ? (
+            <div className="flex items-center gap-3 py-3 bg-amber-50 rounded-xl px-4">
+              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
+                <Loader2 className="h-4 w-4 text-white animate-spin" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Under Review</p>
+                <p className="text-xs text-amber-600">We&apos;ll notify you once approved</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block font-medium">Upload Government ID Card Image</Label>
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50/50 cursor-pointer hover:bg-violet-50 hover:border-violet-400 transition-colors group">
+                  <Upload className="h-6 w-6 text-violet-400 group-hover:text-violet-500 transition-colors mb-1" />
+                  <p className="text-xs font-medium text-violet-700">Click to upload</p>
+                  <p className="text-xs text-violet-500/70">JPG, PNG, or WebP · Max 5 MB</p>
+                  <input type="file" accept="image/*" onChange={(e) => setIdCardFile(e.target.files?.[0] || null)} className="hidden" />
+                </label>
+                {idCardFile && (
+                  <p className="text-xs text-violet-600 mt-1.5 font-medium">{idCardFile.name}</p>
+                )}
+              </div>
+              <Button
+                onClick={() => handleUpload('ID_CARD')}
+                disabled={uploading === 'ID_CARD' || !idCardFile}
+                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-sm gap-2 rounded-xl w-full shadow-sm text-white font-semibold"
+              >
+                {uploading === 'ID_CARD' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading === 'ID_CARD' ? 'Uploading...' : 'Upload ID Card'}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

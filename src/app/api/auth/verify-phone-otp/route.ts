@@ -57,6 +57,30 @@ export async function POST(req: NextRequest) {
         where: { phone: cleanPhone || normalizedFbPhone },
         data: { phoneVerified: true, otpSecret: null },
       });
+
+      // Auto-check: if phone verified now, check if caregiver docs are all approved
+      for (const u of users) {
+        const caregiver = await db.caregiver.findUnique({ where: { userId: u.id } });
+        if (caregiver && !caregiver.isVerified) {
+          const verifications = await db.verification.findMany({ where: { caregiverId: caregiver.id } });
+          const allDocsApproved = verifications.length > 0 && verifications.every(d => d.status === 'APPROVED');
+          if (allDocsApproved) {
+            await db.caregiver.update({
+              where: { id: caregiver.id },
+              data: { isVerified: true },
+            });
+            await db.notification.create({
+              data: {
+                userId: u.id,
+                type: 'VERIFICATION_UPDATE',
+                title: 'You are now a Verified Caregiver!',
+                message: 'Your phone number has been verified and all documents are approved. You now have the verified caregiver badge with higher visibility!',
+                data: null,
+              },
+            });
+          }
+        }
+      }
     }
 
     return NextResponse.json({

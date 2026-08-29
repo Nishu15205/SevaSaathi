@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 /**
  * PUT /api/auth/update-phone
  * Update user's phone number. Auth via userId in body.
+ * Supports international phone numbers with country code.
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -13,13 +14,34 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    const cleanPhone = (phone || '').replace(/[\s-]/g, '');
+    // Clean the phone number
+    let cleanPhone = (phone || '').replace(/[\s\-()]/g, '');
 
-    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      return NextResponse.json({ error: 'Enter a valid 10-digit Indian phone number' }, { status: 400 });
+    if (!cleanPhone) {
+      return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 });
     }
 
-    const formattedPhone = '+91' + cleanPhone;
+    // If already has country code (starts with +), use as-is
+    let formattedPhone: string;
+    if (cleanPhone.startsWith('+')) {
+      const digits = cleanPhone.replace(/[^0-9]/g, '');
+      if (digits.length < 10 || digits.length > 15) {
+        return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 });
+      }
+      formattedPhone = '+' + digits;
+    } else {
+      // No country code — assume Indian (10 digits)
+      const digits = cleanPhone.replace(/[^0-9]/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 });
+      }
+      // If 10 digits starting with 6-9, assume India
+      if (digits.length === 10 && /^[6-9]/.test(digits)) {
+        formattedPhone = '+91' + digits;
+      } else {
+        formattedPhone = '+' + digits;
+      }
+    }
 
     // Check if phone is already used by another user
     const existing = await db.user.findFirst({ where: { phone: formattedPhone } });

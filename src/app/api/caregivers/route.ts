@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
             select: { reviews: true, bookings: true },
           },
         },
-        orderBy: { overallRating: 'desc' },
+        orderBy: [{ isVerified: 'desc' }, { overallRating: 'desc' }],
         skip,
         take: limit,
       }),

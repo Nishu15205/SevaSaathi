@@ -832,3 +832,27 @@ Stage Summary:
 - Document upload works via multipart POST
 - Verified caregivers get +15% boost in search results
 - FamilyDashboard already shows verified badge on caregiver cards
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix phone OTP flow, add country dropdown, redesign upload cards, implement verified badge system
+
+Work Log:
+- Fixed PhoneVerification.tsx: OTP input box now ALWAYS shows after clicking Send OTP (even if Firebase fails)
+- Added country code dropdown with 12 countries (India default) for phone number input
+- Updated update-phone API to support international phone numbers
+- Updated OverviewTab phone OTP dialog to always open and show status messages
+- Redesigned Aadhaar upload card with emerald green gradient theme, drag-drop style upload area
+- Redesigned ID card upload card with violet/purple gradient theme for visual distinction
+- Updated verification progress incentive banner with deeper emerald gradient
+- Updated admin verification API to require phoneVerified + all docs approved for isVerified badge
+- Added auto-check in verify-phone-otp: if docs already approved, auto-grant verified badge on phone verify
+- Updated caregiver search API to prioritize verified caregivers (isVerified desc, then rating desc)
+- Updated verified caregiver banner in OverviewTab with "40% More Visibility" badge
+
+Stage Summary:
+- Phone OTP: Input box always appears after Send OTP click, with success/error status indicators
+- Country dropdown: 12 countries with flag emojis, selectable in phone input
+- Upload cards: Aadhaar (emerald green) and ID Card (violet/purple) are visually distinct and attractive
+- Verified badge system: Backend requires phone + Aadhaar + ID card, auto-checks on both phone verify and doc approve
+- Search priority: Verified caregivers appear first in results
