@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getPlatformFeePercent } from '@/lib/config';
 
 function generateTransactionId(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -59,7 +60,8 @@ export async function POST(request: NextRequest) {
     }
 
     const totalAmountINR = booking.totalAmount;
-    const platformFeeINR = Math.round(totalAmountINR * 0.15);
+    const feePercent = await getPlatformFeePercent();
+    const platformFeeINR = Math.round(totalAmountINR * (feePercent / 100));
     const caregiverPayoutINR = totalAmountINR - platformFeeINR;
 
     const payment = await db.payment.create({

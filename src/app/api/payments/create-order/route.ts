@@ -70,6 +70,14 @@ export async function POST(request: NextRequest) {
       await db.payment.create({ data: { bookingId: booking.id, familyId: booking.familyId, caregiverId: booking.caregiverId, ...data } });
     }
 
+    // Fee breakdown for frontend display (amounts in INR, not paise)
+    const feeBreakdown = {
+      feePercent,
+      totalINR: amount,
+      platformFeeINR: Math.round(platformFeePaise / 100),
+      caregiverPayoutINR: Math.round(caregiverPayoutPaise / 100),
+    };
+
     // If Razorpay keys are configured (from DB config or env), create a real Razorpay order
     const rzpKeyId = await getRazorpayKeyId();
     const rzpKeySecret = await getRazorpayKeySecret();
@@ -85,7 +93,7 @@ export async function POST(request: NextRequest) {
         orderId: rzpOrder.id, amount: amountPaise, currency: 'INR', key: rzpKeyId,
         name: 'SevaSaathi', description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
         prefill: { name: booking.family?.name, email: booking.family?.email, contact: booking.family?.phone || undefined },
-        bookingId, isReal: true,
+        bookingId, isReal: true, feeBreakdown,
       });
     }
 
@@ -93,7 +101,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       orderId, amount: amountPaise, currency: 'INR', bookingId,
       name: 'SevaSaathi', description: `Care for ${booking.patient?.name} by ${booking.caregiver?.user?.name}`,
-      isReal: false,
+      isReal: false, feeBreakdown,
     });
   } catch (error: any) {
     console.error('Create order error:', error);

@@ -140,7 +140,7 @@ export const api = {
     create: (data: { bookingId: string; paymentMethod: string; userId?: string }) =>
       request<{ payment: any }>('/api/payments', { method: 'POST', body: JSON.stringify(data) }),
     createOrder: (bookingId: string, amount: number) =>
-      request<{ orderId: string; amount: number; currency: string; key: string; bookingId: string; name: string; description: string; isReal: boolean; prefill?: { name?: string; email?: string; contact?: string } }>('/api/payments/create-order', {
+      request<{ orderId: string; amount: number; currency: string; key: string; bookingId: string; name: string; description: string; isReal: boolean; prefill?: { name?: string; email?: string; contact?: string }; feeBreakdown?: { feePercent: number; totalINR: number; platformFeeINR: number; caregiverPayoutINR: number } }>('/api/payments/create-order', {
         method: 'POST',
         body: JSON.stringify({ bookingId, amount }),
       }),

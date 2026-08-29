@@ -941,12 +941,27 @@ function ProfileTab({ user }: { user: User }) {
       <EditProfileForm
         profile={profile}
         userId={user.id}
-        onSaved={(updated) => {
-          const current = useAuthStore.getState().user;
-          if (current) {
-            useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
-          }
+        onSaved={async (updated) => {
           setEditing(false);
+          // Re-fetch fresh user data from /api/auth/me to ensure correct format
+          try {
+            const me = await api.auth.me(user.id);
+            if (me.user) {
+              useAuthStore.getState().setAuth(me.user);
+            } else {
+              // Fallback: use the raw updated profile
+              const current = useAuthStore.getState().user;
+              if (current) {
+                useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
+              }
+            }
+          } catch {
+            // Last resort: fallback to raw update
+            const current = useAuthStore.getState().user;
+            if (current) {
+              useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
+            }
+          }
         }}
         onCancel={() => setEditing(false)}
       />
@@ -2084,18 +2099,21 @@ function EarningsTab({ user }: { user: User }) {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [feePercent, setFeePercent] = useState(15);
   const caregiverId = user.caregiverProfile?.id || (user as any).caregiverId || user.id;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [payRes, wdRes] = await Promise.all([
+      const [payRes, wdRes, configRes] = await Promise.all([
         api.payments.list(caregiverId, 'CAREGIVER'),
         api.withdrawals.list({ caregiverId }),
+        fetch('/api/config').then(r => r.json()).catch(() => ({ feePercent: 15 })),
       ]);
       setPayments(payRes.payments || []);
       setWithdrawals(wdRes.withdrawals || []);
+      if (configRes.feePercent) setFeePercent(configRes.feePercent);
     } catch (err: any) {
       setError(err.message || 'Failed to load earnings');
     } finally {
@@ -2220,8 +2238,8 @@ function EarningsTab({ user }: { user: User }) {
               <p className='text-sm font-semibold text-forest-900'>Payment Split</p>
               <p className='text-xs text-gray-500 mt-0.5'>
                 When a family pays, the amount is automatically split:{' '}
-                <span className='font-semibold text-orange-600'>platform fee goes to admin</span>{' '}
-                and the rest is your earning. Withdraw anytime via UPI or bank transfer.
+                <span className='font-semibold text-orange-600'>{feePercent}% platform fee goes to admin</span>{' '}
+                and <span className='font-semibold text-green-700'>{100 - feePercent}% is your earning</span>. Withdraw anytime via UPI or bank transfer.
               </p>
             </div>
           </div>

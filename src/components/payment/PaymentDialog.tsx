@@ -91,8 +91,11 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
   useEffect(() => { bookingRef.current = booking; }, [booking]);
 
   const totalAmount = booking?.totalAmount || 0;
-  const platformFee = Math.round(totalAmount * 0.10);
-  const caregiverFee = totalAmount - platformFee;
+  const [feeBreakdown, setFeeBreakdown] = useState<{ feePercent: number; platformFeeINR: number; caregiverPayoutINR: number } | null>(null);
+
+  const platformFee = feeBreakdown ? feeBreakdown.platformFeeINR : Math.round(totalAmount * 0.15);
+  const caregiverFee = feeBreakdown ? feeBreakdown.caregiverPayoutINR : totalAmount - platformFee;
+  const feePercent = feeBreakdown ? feeBreakdown.feePercent : 15;
   const shiftLabel = booking?.shiftType?.replace(/_/g, ' ') || 'Shift';
   const startDate = booking?.startDate
     ? new Date(booking.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -117,9 +120,13 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
       // 1. Load Razorpay script
       await loadRazorpayScript();
 
-      // 2. Create order from backend
-      const amount = totalAmount / 100;
-      const res = await api.payments.createOrder(currentBooking.id, amount);
+      // 2. Create order from backend (totalAmount is already in INR)
+      const res = await api.payments.createOrder(currentBooking.id, totalAmount);
+
+      // Update fee breakdown from backend response
+      if (res.feeBreakdown) {
+        setFeeBreakdown(res.feeBreakdown);
+      }
 
       if (!res.isReal) {
         toast.error('Payment gateway not configured. Please contact support.');
@@ -257,11 +264,11 @@ export function PaymentDialog({ isOpen, onClose, booking, onSuccess }: PaymentDi
                 {/* Fee Breakdown */}
                 <div className="space-y-1.5 text-xs text-gray-500 px-1">
                   <div className="flex justify-between">
-                    <span>Caregiver Payout (90%)</span>
+                    <span>Caregiver Payout ({100 - feePercent}%)</span>
                     <span className="text-gray-700">{'\u20B9'}{caregiverFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-orange-600">Platform Fee (10%)</span>
+                    <span className="text-orange-600">Platform Fee ({feePercent}%)</span>
                     <span className="text-orange-600">{'\u20B9'}{platformFee.toLocaleString('en-IN')}</span>
                   </div>
                 </div>

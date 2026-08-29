@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 import { ShiftType } from '@prisma/client'
+import { getPlatformFeePercent } from '@/lib/config'
 
 const createBookingSchema = z.object({
   patientId: z.string().min(1),
@@ -50,7 +51,8 @@ export async function POST(request: NextRequest) {
       : 1
 
     const totalAmount = Math.max(1, Math.round(caregiver.hourlyRate * hours * totalDays))
-    const platformFee = Math.round(totalAmount * 0.1)
+    const feePercent = await getPlatformFeePercent()
+    const platformFee = Math.round(totalAmount * (feePercent / 100))
 
     const booking = await db.booking.create({
       data: {

@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       const newStatus = booking.status === 'PENDING' ? 'CONFIRMED' : booking.status;
       await db.booking.update({
         where: { id: bookingId },
-        data: { status: newStatus, totalAmount: payment.amount },
+        data: { status: newStatus },
       });
 
       // Notifications
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       emitToUser(booking.caregiverId, 'booking:update', { bookingId, status: newStatus });
 
       // Email
-      await sendBookingConfirmationEmail({ ...booking, totalAmount: payment.amount });
+      await sendBookingConfirmationEmail(booking);
     }
 
     return NextResponse.json({ success: true, message: 'Payment verified', paymentId: payment.id, payment: updated });
