@@ -46,7 +46,8 @@ export async function sendBrevoEmail({
     return { success: false, error: 'Brevo API key not configured' };
   }
 
-  const fromEmail = senderEmail || 'noreply@sevasaathi.in';
+  const defaultSender = await getConfigWithFallback('BREVO', 'SENDER_EMAIL', 'BREVO_SENDER_EMAIL');
+  const fromEmail = senderEmail || defaultSender || 'nishuraj1520005@gmail.com';
 
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {

@@ -97,6 +97,7 @@ export async function seedConfigsFromEnv(): Promise<number> {
     { section: 'SMS', key: 'FAST2SMS_API_KEY', envKey: 'FAST2SMS_API_KEY', label: 'Fast2SMS API Key', isSecret: true },
     // Brevo (Email)
     { section: 'BREVO', key: 'API_KEY', envKey: 'BREVO_API_KEY', label: 'Brevo API Key', isSecret: true },
+    { section: 'BREVO', key: 'SENDER_EMAIL', envKey: 'BREVO_SENDER_EMAIL', label: 'Brevo Sender Email (must be verified in Brevo)', isSecret: false },
     // Firebase (Phone Auth)
     { section: 'FIREBASE', key: 'API_KEY', envKey: 'FIREBASE_API_KEY', label: 'Firebase API Key', isSecret: false },
     { section: 'FIREBASE', key: 'AUTH_DOMAIN', envKey: 'FIREBASE_AUTH_DOMAIN', label: 'Firebase Auth Domain', isSecret: false },
