@@ -63,6 +63,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { PaymentHistory } from '@/components/payment/PaymentHistory';
 import { PhoneVerificationSection } from '@/components/dashboard/PhoneVerification';
+import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 /* ============================================================ */
@@ -256,8 +257,11 @@ function OverviewTab({ user }: { user: User }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Phone verification — auto-verifies silently (sends OTP, if dev mode auto-submits it)
+  // Phone verification — real OTP via Firebase
   const [phoneVerifying, setPhoneVerifying] = useState(false);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const firebase = useFirebasePhoneAuth();
 
   const maskPhone = (p: string) => {
     const d = p.replace(/\D/g, '');
@@ -265,35 +269,53 @@ function OverviewTab({ user }: { user: User }) {
     return '*'.repeat(d.length - 4) + d.slice(-4);
   };
 
-  const handleVerifyPhone = async () => {
+  const handleSendOtp = async () => {
+    if (!firebase.isReady) {
+      toast.error('Phone verification service is not available. Please contact support.');
+      return;
+    }
     setPhoneVerifying(true);
     try {
-      // Step 1: Send OTP
-      const sendRes = await api.auth.sendPhoneOtp(user.phone);
-
-      if (sendRes.devOtp) {
-        // Dev/sandbox mode — auto-verify with the dev OTP so user sees a seamless flow
-        await api.auth.verifyPhoneOtp(user.phone, sendRes.devOtp);
+      const sent = await firebase.sendOtp(user.phone);
+      if (sent) {
+        setShowOtpDialog(true);
+        toast.success('OTP sent to your phone!');
       } else {
-        // Real SMS sent — user needs to enter OTP (show input)
-        // For now, since real SMS delivery has issues, we also auto-verify after a short delay
-        toast.info('OTP sent! Checking delivery...');
-        await new Promise(r => setTimeout(r, 1000));
-        try {
-          await api.auth.verifyPhoneOtp(user.phone, sendRes.devOtp || '000000');
-        } catch {
-          toast.error('Could not auto-verify. Please try again.');
-          setPhoneVerifying(false);
-          return;
-        }
+        toast.error(firebase.error || 'Failed to send OTP. Please try again.');
       }
-
-      toast.success('Phone number verified successfully!');
-      useAuthStore.getState().setAuth({ ...user, phoneVerified: true } as any);
-    } catch (err: any) {
-      toast.error(err.message || 'Phone verification failed');
     } finally {
       setPhoneVerifying(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpValue || otpValue.length !== 6) {
+      toast.error('Enter the 6-digit OTP sent to your phone');
+      return;
+    }
+    try {
+      const result = await firebase.verifyOtp(otpValue);
+      if (!result) {
+        toast.error(firebase.error || 'Invalid OTP. Please try again.');
+        return;
+      }
+      const res = await fetch('/api/auth/verify-phone-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: user.phone, firebaseToken: result.firebaseToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Verification failed');
+        return;
+      }
+      toast.success('Phone number verified successfully!');
+      useAuthStore.getState().setAuth({ ...user, phoneVerified: true } as any);
+      setShowOtpDialog(false);
+      setOtpValue('');
+      firebase.reset();
+    } catch (err: any) {
+      toast.error(err?.message || 'Verification failed');
     }
   };
 
@@ -381,13 +403,53 @@ function OverviewTab({ user }: { user: User }) {
                 <p className="text-xs text-amber-700/70">Required to receive booking requests — {maskPhone(user.phone)}</p>
               </div>
             </div>
-            <Button onClick={handleVerifyPhone} disabled={phoneVerifying} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl shrink-0">
+            <Button onClick={handleSendOtp} disabled={phoneVerifying || !firebase.isReady} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl shrink-0">
               {phoneVerifying && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-              {phoneVerifying ? 'Verifying...' : 'Verify Now'}
+              {phoneVerifying ? 'Sending OTP...' : !firebase.isReady ? 'Unavailable' : 'Send OTP'}
             </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* Phone OTP Dialog */}
+      <Dialog open={showOtpDialog} onOpenChange={(open) => { if (!open) { setShowOtpDialog(false); setOtpValue(''); firebase.reset(); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify Phone Number</DialogTitle>
+            <DialogDescription>Enter the 6-digit OTP sent to {maskPhone(user.phone)}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-sm">OTP</Label>
+              <Input
+                value={otpValue}
+                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter 6-digit OTP"
+                className="mt-1"
+                maxLength={6}
+                autoFocus
+              />
+            </div>
+            <Button
+              onClick={handleVerifyOtp}
+              disabled={firebase.verifying || otpValue.length !== 6}
+              className="w-full bg-forest-900 hover:bg-forest-800 text-white rounded-xl"
+            >
+              {firebase.verifying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Verify OTP
+            </Button>
+            <button
+              type="button"
+              onClick={async () => { setOtpValue(''); firebase.reset(); setShowOtpDialog(false); await handleSendOtp(); }}
+              disabled={firebase.sendingOtp}
+              className="w-full text-xs text-forest-700 hover:text-forest-900 font-medium text-center disabled:opacity-50"
+            >
+              {firebase.sendingOtp ? 'Resending...' : 'Resend OTP'}
+            </button>
+            {firebase.error && <p className="text-xs text-red-500 text-center">{firebase.error}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Welcome */}
       <div>

@@ -756,3 +756,22 @@ Stage Summary:
   3. Caregiver withdrawal: Withdraw Funds button with UPI/Bank Transfer options
   4. Payment flow verified: correct amounts, correct fee split, correct DB records
 - Critical data corruption fixed (booking.totalAmount was overwritten with paise values)
+
+---
+Task ID: phone-verify-fix
+Agent: main
+Task: Remove all fake/auto phone OTP verification — only real Firebase OTP
+
+Work Log:
+- Identified 3 files with fake OTP logic: PhoneVerification.tsx, CaregiverDashboard.tsx (OverviewTab), send-phone-otp route, verify-phone-otp route
+- PhoneVerification.tsx: Removed handleAutoVerify (skipFirebase + devOtp auto-submit), removed devOtp state, now uses only Firebase sendOtp/verifyOtp with manual user entry
+- CaregiverDashboard.tsx: Replaced handleVerifyPhone (auto-verified with devOtp) with handleSendOtp + OTP dialog + handleVerifyOtp using Firebase
+- send-phone-otp/route.ts: Removed skipFirebase param, removed devOtp generation/fallback, only returns useFirebase:true or 503 error
+- verify-phone-otp/route.ts: Removed fallback stored-OTP verification path, only accepts Firebase token
+- api.ts: Removed devOtp from sendPhoneOtp return type
+
+Stage Summary:
+- Phone verification now ONLY works with real Firebase OTP sent to the user's phone
+- User MUST enter the actual 6-digit OTP received on their phone
+- No more auto-verify, no dev mode, no skipFirebase bypass
+- Both OverviewTab banner and ProfileTab PhoneVerificationSection use the same Firebase flow

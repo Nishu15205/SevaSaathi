@@ -35,7 +35,7 @@ export const api = {
         body: JSON.stringify({ email, otp, purpose }),
       }),
     sendPhoneOtp: (phone: string) =>
-      request<{ message: string; devOtp?: string; useFirebase?: boolean }>('/api/auth/send-phone-otp', {
+      request<{ message: string; useFirebase?: boolean }>('/api/auth/send-phone-otp', {
         method: 'POST',
         body: JSON.stringify({ phone }),
       }),

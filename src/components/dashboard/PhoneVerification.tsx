@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { Smartphone, ShieldCheck, Loader2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { toast } from 'sonner';
@@ -20,56 +17,32 @@ const maskPhone = (p: string) => {
 
 /* ============================================================ */
 /* PHONE VERIFICATION SECTION (for ProfileTab)                   */
+/* Only real Firebase OTP — user must enter the OTP received    */
+/* on their phone. No auto-verify, no dev mode.                 */
 /* ============================================================ */
 
 export function PhoneVerificationSection({ user }: { user: { id: string; phone: string; phoneVerified?: boolean } }) {
-  const [verifying, setVerifying] = useState(false);
-  const [useFirebase, setUseFirebase] = useState(false);
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [sendOtpLoading, setSendOtpLoading] = useState(false);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const firebase = useFirebasePhoneAuth();
 
   const handleSendOtp = async () => {
+    if (!firebase.isReady) {
+      toast.error('Phone verification service is not available. Please contact support.');
+      return;
+    }
+
     setSendOtpLoading(true);
     try {
-      const sendRes = await api.auth.sendPhoneOtp(user.phone);
-
-      if (sendRes.useFirebase && firebase.isReady) {
-        // Firebase flow: send OTP via Firebase client SDK
-        setUseFirebase(true);
-        const sent = await firebase.sendOtp(user.phone);
-        if (sent) {
-          setShowOtpInput(true);
-          toast.success('OTP sent to your phone!');
-        } else {
-          // Firebase failed (e.g. region not enabled) — fall back to dev mode / stored OTP
-          console.warn('Firebase sendOtp failed, falling back:', firebase.error);
-          setUseFirebase(false);
-          if (sendRes.devOtp) {
-            setDevOtp(sendRes.devOtp);
-            toast.info('OTP generated (dev mode)');
-          } else {
-            // Re-request from backend without Firebase
-            const fallbackRes = await api.auth.sendPhoneOtp(user.phone + '&forceFallback=true');
-            if (fallbackRes.devOtp) {
-              setDevOtp(fallbackRes.devOtp);
-              toast.info('OTP generated (dev mode)');
-            }
-          }
-          setShowOtpInput(true);
-        }
-        return;
+      const sent = await firebase.sendOtp(user.phone);
+      if (sent) {
+        setShowOtpInput(true);
+        toast.success('OTP sent to your phone!');
+      } else {
+        toast.error(firebase.error || 'Failed to send OTP. Please try again.');
       }
-
-      // Fallback flow (Fast2SMS or dev mode)
-      setUseFirebase(false);
-      if (sendRes.devOtp) {
-        setDevOtp(sendRes.devOtp);
-      }
-      setShowOtpInput(true);
-      toast.success(sendRes.devOtp ? 'OTP generated' : 'OTP sent to your phone!');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to send OTP');
     } finally {
@@ -78,63 +51,54 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   };
 
   const handleVerifyOtp = async () => {
-    if (useFirebase) {
-      // Firebase verify
-      const result = await firebase.verifyOtp(otpValue);
-      if (!result) {
-        toast.error(firebase.error || 'Invalid OTP');
-        return;
-      }
-      // Send Firebase token to backend
-      await api.auth.verifyPhoneOtp(user.phone, '', result.firebaseToken);
-    } else if (devOtp) {
-      // Dev mode: auto-verify
-      await api.auth.verifyPhoneOtp(user.phone, devOtp);
-    } else {
-      // Manual OTP entry (Fast2SMS)
-      if (!otpValue || otpValue.length !== 6) {
-        toast.error('Enter 6-digit OTP');
-        return;
-      }
-      await api.auth.verifyPhoneOtp(user.phone, otpValue);
+    if (!otpValue || otpValue.length !== 6) {
+      toast.error('Enter the 6-digit OTP sent to your phone');
+      return;
     }
 
-    toast.success('Phone number verified successfully!');
-    const currentUser = useAuthStore.getState().user;
-    if (currentUser) {
-      useAuthStore.getState().setAuth({ ...currentUser, phoneVerified: true } as any);
-    }
-    setShowOtpInput(false);
-  };
-
-  // Auto-verify: always use dev/fallback OTP for seamless one-click flow.
-  // Firebase is NOT used here because invisible reCAPTCHA may hang in sandbox.
-  const handleAutoVerify = async () => {
     setVerifying(true);
     try {
-      // Always use the backend fallback (generates stored OTP)
-      // We append a query param to bypass the Firebase config check
-      const sendRes = await fetch('/api/auth/send-phone-otp', {
+      // Verify with Firebase client SDK
+      const result = await firebase.verifyOtp(otpValue);
+      if (!result) {
+        toast.error(firebase.error || 'Invalid OTP. Please try again.');
+        return;
+      }
+
+      // Send Firebase token to backend to mark phone as verified
+      const res = await fetch('/api/auth/verify-phone-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: user.phone, skipFirebase: true }),
-      }).then(r => r.json());
+        body: JSON.stringify({ phone: user.phone, firebaseToken: result.firebaseToken }),
+      });
 
-      if (sendRes.devOtp) {
-        await api.auth.verifyPhoneOtp(user.phone, sendRes.devOtp);
-        toast.success('Phone number verified successfully!');
-        const currentUser = useAuthStore.getState().user;
-        if (currentUser) {
-          useAuthStore.getState().setAuth({ ...currentUser, phoneVerified: true } as any);
-        }
-      } else {
-        toast.error('Could not generate verification code. Please try again.');
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Verification failed');
+        return;
       }
+
+      toast.success('Phone number verified successfully!');
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().setAuth({ ...currentUser, phoneVerified: true } as any);
+      }
+      setShowOtpInput(false);
+      setOtpValue('');
+      firebase.reset();
     } catch (err: any) {
-        toast.error(err?.message || 'Verification failed');
+      toast.error(err?.message || 'Verification failed');
     } finally {
       setVerifying(false);
     }
+  };
+
+  const handleResend = async () => {
+    setOtpValue('');
+    firebase.reset();
+    setShowOtpInput(false);
+    // Small delay before re-sending to avoid rate limits
+    setTimeout(() => handleSendOtp(), 300);
   };
 
   if (user.phoneVerified) {
@@ -178,29 +142,31 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
 
         {!showOtpInput ? (
           <Button
-            onClick={handleAutoVerify}
-            disabled={verifying}
+            onClick={handleSendOtp}
+            disabled={sendOtpLoading || !firebase.isReady}
             className="bg-forest-900 hover:bg-forest-800 text-white rounded-xl gap-2 text-sm"
           >
-            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-            {verifying ? 'Verifying...' : 'Verify Phone Number'}
+            {sendOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+            {sendOtpLoading ? 'Sending OTP...' : !firebase.isReady ? 'Verification Unavailable' : 'Send OTP to Phone'}
           </Button>
         ) : (
           <div className="space-y-3">
+            <p className="text-xs text-gray-500">Enter the 6-digit OTP sent to {maskPhone(user.phone)}</p>
             <div>
-              <Label className="text-xs text-gray-500">Enter 6-digit OTP</Label>
+              <Label className="text-xs text-gray-500">OTP</Label>
               <Input
                 value={otpValue}
                 onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="123456"
+                placeholder="Enter 6-digit OTP"
                 className="mt-1"
                 maxLength={6}
+                autoFocus
               />
             </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleVerifyOtp}
-                disabled={firebase.verifying || verifying || (useFirebase ? otpValue.length !== 6 : (!devOtp && otpValue.length !== 6))}
+                disabled={firebase.verifying || verifying || otpValue.length !== 6}
                 className="bg-forest-900 hover:bg-forest-800 text-white rounded-xl gap-2 text-sm flex-1"
               >
                 {(firebase.verifying || verifying) && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -214,6 +180,14 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
                 Cancel
               </Button>
             </div>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={firebase.sendingOtp}
+              className="text-xs text-forest-700 hover:text-forest-900 font-medium disabled:opacity-50"
+            >
+              {firebase.sendingOtp ? 'Resending...' : 'Resend OTP'}
+            </button>
             {firebase.error && <p className="text-xs text-red-500">{firebase.error}</p>}
           </div>
         )}
