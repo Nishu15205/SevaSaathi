@@ -1036,8 +1036,10 @@ export function AdminDashboard({ activeTab }: { activeTab: string }) {
 const SECTION_INFO: Record<string, { label: string; color: string; description: string }> = {
   GOOGLE_OAUTH: { label: 'Google OAuth', color: 'bg-blue-50 border-blue-200', description: 'Google sign-in credentials' },
   RAZORPAY: { label: 'Razorpay', color: 'bg-blue-50 border-blue-200', description: 'Payment gateway credentials' },
-  SMTP: { label: 'Email (SMTP)', color: 'bg-amber-50 border-amber-200', description: 'Gmail SMTP email sending' },
-  SMS: { label: 'SMS (Fast2SMS)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery' },
+  BREVO: { label: 'Brevo Email', color: 'bg-teal-50 border-teal-200', description: 'Email delivery via Brevo (free 300/day)' },
+  FIREBASE: { label: 'Firebase Phone Auth', color: 'bg-orange-50 border-orange-200', description: 'Phone OTP verification via Firebase' },
+  SMTP: { label: 'Email (SMTP Fallback)', color: 'bg-amber-50 border-amber-200', description: 'Gmail SMTP fallback email sending' },
+  SMS: { label: 'SMS (Fast2SMS Fallback)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery (fallback)' },
   PLATFORM: { label: 'Platform', color: 'bg-purple-50 border-purple-200', description: 'Platform UPI & settings' },
   APP: { label: 'App Config', color: 'bg-gray-50 border-gray-200', description: 'Application settings' },
 };

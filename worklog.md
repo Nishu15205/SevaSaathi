@@ -681,3 +681,25 @@ Stage Summary:
 - Brevo: working, emails will send via Brevo API v3
 - Firebase: working, phone OTP via Firebase client SDK, token verified via REST API
 - Private key not required anymore
+---
+Task ID: 9
+Agent: main
+Task: Full end-to-end testing + Admin credentials UI update
+
+Work Log:
+- Added BREVO and FIREBASE sections to SECTION_INFO in AdminDashboard.tsx
+- Seeded database (was empty) with demo data (3 admins, 5 families, 8 caregivers)
+- Tested admin login → Credentials tab → all 8 sections visible
+- Tested Brevo email: sent real OTP email via Brevo API (logged as EMAIL SENT via Brevo)
+- Tested Firebase: send-phone-otp returns useFirebase:true
+- Tested forgot password flow: no dev OTP text shown, real email sent
+- Tested family login (anita.gupta@email.com) → dashboard loads correctly
+- Tested caregiver login (sunita.care@email.com) → dashboard loads correctly
+- Verified all API endpoints return 200
+- ESLint: zero errors
+
+Stage Summary:
+- All 8 credential sections in Admin Settings: Google OAuth, Razorpay, Brevo, Firebase, SMTP, SMS, Platform, App
+- Brevo: real emails sending successfully
+- Firebase: configured, returns client config to frontend
+- Admin can manage all keys from UI without touching code
