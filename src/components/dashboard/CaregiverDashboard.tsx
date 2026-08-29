@@ -459,24 +459,37 @@ function OverviewTab({ user }: { user: User }) {
         <p className="text-sm text-gray-400 mt-1">Here&apos;s your caregiving dashboard at a glance.</p>
       </div>
 
-      {/* Aadhaar Verification Banner */}
-      {profile && !profile.isVerified && (
-        <Card className="rounded-2xl border-2 border-blue-200 bg-blue-50">
-          <CardContent className="p-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-                <ShieldCheck className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-blue-900">Get Verified - Build Trust</p>
-                <p className="text-xs text-blue-700/70">Enter your Aadhaar number to get the verified badge and more bookings</p>
-              </div>
+      {/* Verification Progress Banner */}
+      {profile && (
+        profile.isVerified ? (
+          <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <ShieldCheck className="h-5 w-5 text-white" />
             </div>
-            <Button size="sm" onClick={() => {}} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shrink-0">
-              <ShieldCheck className="h-4 w-4 mr-1" /> Verify Aadhaar
-            </Button>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm font-semibold text-white">You're a Verified Caregiver!</p>
+              <p className="text-xs text-green-100">Your profile displays the trusted verified badge</p>
+            </div>
+            <CheckCircle2 className="h-6 w-6 text-white ml-auto shrink-0" />
+          </div>
+        ) : (
+          <Card className="rounded-2xl border-2 border-amber-200 bg-amber-50">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-900">Complete Verification — Get More Bookings</p>
+                  <p className="text-xs text-amber-700/70">Verified caregivers get 40% more visibility and a trusted badge</p>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => toast.info('Go to My Profile to complete verification')} className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl shrink-0">
+                <ShieldCheck className="h-4 w-4 mr-1" /> Verify Now
+              </Button>
+            </CardContent>
+          </Card>
+        )
       )}
 
       {/* Stat Cards */}
@@ -1194,8 +1207,8 @@ function ProfileTab({ user }: { user: User }) {
             {/* Phone Verification */}
             <PhoneVerificationSection user={user} />
 
-            {/* Aadhar Verification */}
-            <AadharVerificationSection caregiverId={profile.id} />
+            {/* Verification Progress */}
+            <VerificationProgressSection caregiverId={profile.id} user={user} />
           </CardContent>
         </Card>
       </motion.div>
@@ -1204,15 +1217,47 @@ function ProfileTab({ user }: { user: User }) {
 }
 
 /* ============================================================ */
-/* AADHAR VERIFICATION SECTION                                    */
+/* VERIFICATION PROGRESS SECTION                                   */
 /* ============================================================ */
 
-function AadharVerificationSection({ caregiverId }: { caregiverId: string }) {
-  const [aadharNumber, setAadharNumber] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [verified, setVerified] = useState(false);
-  const [verifiedNumber, setVerifiedNumber] = useState('');
-  const [error, setError] = useState('');
+type DocStatus = 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
+function VerificationProgressSection({ caregiverId, user }: { caregiverId: string; user: User }) {
+  const [aadhaarStatus, setAadhaarStatus] = useState<DocStatus>('NOT_UPLOADED');
+  const [idCardStatus, setIdCardStatus] = useState<DocStatus>('NOT_UPLOADED');
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [idCardFile, setIdCardFile] = useState<File | null>(null);
+  const [aadhaarNumber, setAadhaarNumber] = useState('');
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  const phoneDone = !!user.phoneVerified;
+  const aadhaarDone = aadhaarStatus === 'APPROVED';
+  const idCardDone = idCardStatus === 'APPROVED';
+  const completedCount = [phoneDone, aadhaarDone, idCardDone].filter(Boolean).length;
+  const allDone = completedCount === 3;
+
+  // Fetch verification statuses on mount
+  useEffect(() => {
+    if (user.caregiverProfile?.isVerified) {
+      setAadhaarStatus('APPROVED');
+      setIdCardStatus('APPROVED');
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/caregivers/${caregiverId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const verifications = data.caregiver?.verifications || [];
+        for (const v of verifications) {
+          if (v.docType === 'AADHAAR') setAadhaarStatus(v.status as DocStatus);
+          if (v.docType === 'ID_CARD') setIdCardStatus(v.status as DocStatus);
+        }
+      } catch {
+        // silently fail — local state stays NOT_UPLOADED
+      }
+    })();
+  }, [caregiverId, user.caregiverProfile?.isVerified]);
 
   const formatAadhar = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 12);
@@ -1221,90 +1266,225 @@ function AadharVerificationSection({ caregiverId }: { caregiverId: string }) {
     return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
   };
 
-  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatAadhar(e.target.value);
-    setAadharNumber(formatted);
-    setError('');
-  };
-
-  const handleVerify = async () => {
-    const digits = aadharNumber.replace(/\s/g, '');
-    if (digits.length !== 12) {
-      setError('Enter complete 12-digit Aadhaar number');
+  const handleUpload = async (docType: 'AADHAAR' | 'ID_CARD') => {
+    const file = docType === 'AADHAAR' ? aadhaarFile : idCardFile;
+    if (!file) {
+      toast.error('Please select an image first');
       return;
     }
-    setVerifying(true);
-    setError('');
+    if (docType === 'AADHAAR' && aadhaarNumber.replace(/\s/g, '').length !== 12) {
+      toast.error('Enter complete 12-digit Aadhaar number');
+      return;
+    }
+    setUploading(docType);
     try {
-      const result = await api.verifyAadhar(digits, caregiverId);
-      if (result.verified) {
-        setVerified(true);
-        setVerifiedNumber(result.aadharNumber || aadharNumber);
-        toast.success('Aadhaar verified successfully! You are now a verified caregiver.');
-        // Refresh auth to get updated isVerified status
-        const me = await api.auth.me(useAuthStore.getState().user?.id || '');
-        if (me.user) useAuthStore.getState().setAuth(me.user);
+      const formData = new FormData();
+      formData.append('caregiverId', caregiverId);
+      formData.append('docType', docType);
+      formData.append('file', file);
+      if (docType === 'AADHAAR') formData.append('docNumber', aadhaarNumber.replace(/\s/g, ''));
+      const res = await fetch('/api/caregiver/upload-document', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Upload failed');
+      }
+      toast.success(`${docType === 'AADHAAR' ? 'Aadhaar card' : 'ID card'} uploaded successfully! It will be reviewed shortly.`);
+      if (docType === 'AADHAAR') {
+        setAadhaarStatus('PENDING');
+        setAadhaarFile(null);
       } else {
-        setError(result.error || 'Verification failed');
+        setIdCardStatus('PENDING');
+        setIdCardFile(null);
       }
     } catch (err: any) {
-      setError(err.message || 'Verification failed');
+      toast.error(err.message || 'Upload failed');
     } finally {
-      setVerifying(false);
+      setUploading(null);
     }
   };
 
-  if (verified) {
-    return (
-      <div className="mt-6">
-        <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck className="h-4 w-4 text-green-600" />
-          <p className="text-sm font-semibold text-green-800">Aadhaar Verified</p>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-green-900">Verification Complete</p>
-              <p className="text-sm font-mono text-green-700 mt-0.5">{verifiedNumber}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const statusBadge = (status: DocStatus) => {
+    if (status === 'APPROVED') return <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">✅ Approved</Badge>;
+    if (status === 'PENDING') return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs">⏳ Under Review</Badge>;
+    if (status === 'REJECTED') return <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">❌ Rejected — Upload again</Badge>;
+    return null;
+  };
 
   return (
-    <div className="mt-6">
-      <div className="flex items-center gap-2 mb-3">
-        <ShieldCheck className="h-4 w-4 text-forest-700" />
-        <p className="text-sm font-semibold text-gray-700">Aadhaar Card Verification</p>
-      </div>
-      <div className="bg-gray-50 rounded-2xl p-5">
-        <p className="text-xs text-gray-500 mb-4">Enter your 12-digit Aadhaar number to get verified. Verified caregivers get more bookings and trust from families.</p>
-        <div className="space-y-3">
-          <div className="relative">
-            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              value={aadharNumber}
-              onChange={handleAadharChange}
-              placeholder="XXXX XXXX XXXX"
-              className="pl-10 rounded-xl text-lg font-mono tracking-wider h-12"
-              maxLength={14}
-            />
+    <div className="mt-6 space-y-5">
+      {/* Incentive Banner */}
+      {allDone ? (
+        <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="h-7 w-7 text-white" />
           </div>
-          {error && <p className="text-xs text-red-600">{error}</p>}
-          <Button
-            onClick={handleVerify}
-            disabled={verifying || aadharNumber.replace(/\s/g, '').length !== 12}
-            className="btn-green text-sm gap-2 rounded-xl w-full"
-          >
-            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-            {verifying ? 'Verifying...' : 'Verify Aadhaar'}
-          </Button>
+          <div>
+            <p className="text-base font-bold text-white">You&apos;re a Verified Caregiver!</p>
+            <p className="text-sm text-green-100 mt-0.5">All verification steps are complete. Enjoy higher visibility and more bookings.</p>
+          </div>
         </div>
+      ) : (
+        <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <Sparkles className="h-5 w-5 text-yellow-200" />
+            <p className="text-base font-bold text-white">Get Verified — Get More Bookings</p>
+          </div>
+          <ul className="space-y-2">
+            {[
+              '40% higher visibility in search results',
+              'Priority matching for new bookings',
+              'Trusted verified badge on your profile',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2 text-sm text-green-100">
+                <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Progress Steps */}
+      <div className="bg-gray-50 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="h-4 w-4 text-forest-700" />
+          <p className="text-sm font-semibold text-gray-700">Verification Progress</p>
+          <Badge variant="outline" className="ml-auto text-xs">{completedCount}/3</Badge>
+        </div>
+        <div className="space-y-4">
+          {/* Step 1: Phone */}
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${phoneDone ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+              {phoneDone ? '✓' : '1'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${phoneDone ? 'text-green-800' : 'text-gray-700'}`}>Phone Verification</p>
+              <p className="text-xs text-gray-400">{phoneDone ? 'Verified' : 'Not verified — see above'}</p>
+            </div>
+            {phoneDone && <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />}
+          </div>
+          {/* Step 2: Aadhaar */}
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${aadhaarDone ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+              {aadhaarDone ? '✓' : '2'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${aadhaarDone ? 'text-green-800' : 'text-gray-700'}`}>Aadhaar Card</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                {statusBadge(aadhaarStatus) || <p className="text-xs text-gray-400">Not uploaded</p>}
+              </div>
+            </div>
+            {aadhaarDone && <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />}
+          </div>
+          {/* Step 3: ID Card */}
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${idCardDone ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+              {idCardDone ? '✓' : '3'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${idCardDone ? 'text-green-800' : 'text-gray-700'}`}>ID Card</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                {statusBadge(idCardStatus) || <p className="text-xs text-gray-400">Not uploaded</p>}
+              </div>
+            </div>
+            {idCardDone && <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />}
+          </div>
+        </div>
+      </div>
+
+      {/* Aadhaar Upload */}
+      <div className="bg-gray-50 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="h-4 w-4 text-gray-400" />
+          <p className="text-sm font-semibold text-gray-700">Aadhaar Card Upload</p>
+          {statusBadge(aadhaarStatus)}
+        </div>
+        {aadhaarStatus === 'APPROVED' ? (
+          <div className="flex items-center gap-3 py-2">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <p className="text-sm text-green-800 font-medium">Approved</p>
+          </div>
+        ) : aadhaarStatus === 'PENDING' ? (
+          <div className="flex items-center gap-3 py-2">
+            <Loader2 className="h-5 w-5 text-yellow-500 animate-spin" />
+            <p className="text-sm text-yellow-700">Under review — we&apos;ll notify you once approved</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Aadhaar Number</Label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  value={aadhaarNumber}
+                  onChange={(e) => setAadhaarNumber(formatAadhar(e.target.value))}
+                  placeholder="XXXX XXXX XXXX"
+                  className="pl-10 rounded-xl font-mono tracking-wider"
+                  maxLength={14}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Upload Aadhaar Card Image</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)}
+                className="rounded-xl text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, or WebP. Max 5 MB.</p>
+            </div>
+            <Button
+              onClick={() => handleUpload('AADHAAR')}
+              disabled={uploading === 'AADHAAR' || !aadhaarFile}
+              className="btn-green text-sm gap-2 rounded-xl w-full"
+            >
+              {uploading === 'AADHAAR' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {uploading === 'AADHAAR' ? 'Uploading...' : 'Upload Aadhaar Card'}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ID Card Upload */}
+      <div className="bg-gray-50 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="h-4 w-4 text-gray-400" />
+          <p className="text-sm font-semibold text-gray-700">ID Card Upload</p>
+          {statusBadge(idCardStatus)}
+        </div>
+        {idCardStatus === 'APPROVED' ? (
+          <div className="flex items-center gap-3 py-2">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <p className="text-sm text-green-800 font-medium">Approved</p>
+          </div>
+        ) : idCardStatus === 'PENDING' ? (
+          <div className="flex items-center gap-3 py-2">
+            <Loader2 className="h-5 w-5 text-yellow-500 animate-spin" />
+            <p className="text-sm text-yellow-700">Under review — we&apos;ll notify you once approved</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Upload Government ID Card Image</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setIdCardFile(e.target.files?.[0] || null)}
+                className="rounded-xl text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, or WebP. Max 5 MB.</p>
+            </div>
+            <Button
+              onClick={() => handleUpload('ID_CARD')}
+              disabled={uploading === 'ID_CARD' || !idCardFile}
+              className="btn-green text-sm gap-2 rounded-xl w-full"
+            >
+              {uploading === 'ID_CARD' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {uploading === 'ID_CARD' ? 'Uploading...' : 'Upload ID Card'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -123,7 +123,10 @@ export async function GET(request: NextRequest) {
       // Rating Match: 10%
       const ratingScore = c.totalReviews > 0 ? Math.min(10, (c.overallRating / 5) * 10) : 5
 
-      const totalScore = skillScore + locationScore + experienceScore + availabilityScore + ratingScore
+      // Verification Bonus: +15 points for verified caregivers (priority matching)
+      const verificationBonus = c.isVerified ? 15 : 0
+
+      const totalScore = skillScore + locationScore + experienceScore + availabilityScore + ratingScore + verificationBonus
 
       scored.push({
         id: c.id,

@@ -25,6 +25,7 @@ enum UserRole {
 // Verification document types
 enum VerificationType {
   AADHAAR
+  ID_CARD
   PAN
   DRIVING_LICENSE
   NURSING_CERTIFICATE

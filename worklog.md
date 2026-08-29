@@ -809,3 +809,26 @@ Stage Summary:
 - Phone verification now works for users with no phone: they first save phone, then verify via OTP
 - Firebase hook no longer crashes on tab switch/re-mount
 - reCAPTCHA container properly cleaned up between sends
+
+---
+Task ID: verification-progress-feature
+Agent: main + subagent
+Task: Aadhaar/ID card upload, verification progress UI, search priority
+
+Work Log:
+- Added ID_CARD to VerificationType enum in Prisma schema
+- Fixed update-phone API: was using getServerSession() (returned 401), changed to accept userId from body
+- Created /api/caregiver/upload-document API: multipart upload with file validation (JPG/PNG/WebP, 5MB max), upserts Verification record
+- Added +15 verification bonus to search API scoring for isVerified caregivers
+- Rewrote AadharVerificationSection → VerificationProgressSection with:
+  - Incentive banner (40% visibility, priority matching, verified badge)
+  - 3-step progress tracker (Phone, Aadhaar, ID Card)
+  - File upload for Aadhaar card and ID card
+  - Status display: Pending/Approved/Rejected states
+- Updated OverviewTab banner to show verification progress
+
+Stage Summary:
+- Caregivers see verification progress with clear incentives
+- Document upload works via multipart POST
+- Verified caregivers get +15% boost in search results
+- FamilyDashboard already shows verified badge on caregiver cards

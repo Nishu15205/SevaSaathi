@@ -37,7 +37,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
       const res = await fetch('/api/auth/update-phone', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clean }),
+        body: JSON.stringify({ userId: user.id, phone: clean }),
       });
       const data = await res.json();
       if (!res.ok) {
