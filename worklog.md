@@ -892,3 +892,21 @@ Stage Summary:
 - Phone verification is now Firebase SMS only (no email fallback)
 - When operation-not-allowed occurs, user sees a detailed step-by-step fix guide with direct links
 - Code is clean, no unused variables, lint passes
+---
+Task ID: 21
+Agent: main
+Task: Fix hydration mismatch error and verify Firebase phone auth error handling
+
+Work Log:
+- Diagnosed hydration mismatch: authStore uses `typeof window === "undefined"` causing server to render LandingPage (no auth) while client renders DashboardShell (auth from localStorage)
+- Fixed by adding `useHydrated()` hook using `useSyncExternalStore` with server snapshot returning `false` and client snapshot returning `true`
+- This defers the auth-based conditional rendering until after client hydration completes
+- Both server and client now render LandingPage initially, then client switches to DashboardShell after mount if authenticated
+- Verified via Agent Browser: zero hydration errors in console on both fresh and authenticated page loads
+- Confirmed Firebase `auth/operation-not-allowed` error is correctly captured and displayed (it's a Firebase Console config issue, not a code bug)
+- The state timing bug from previous session was already fixed — `sendOtp` returns `true | string` directly
+
+Stage Summary:
+- Hydration mismatch completely resolved using React's `useSyncExternalStore` pattern
+- Lint passes clean (no `set-state-in-effect` warning)
+- Firebase phone auth code is correct — the `operation-not-allowed` error requires Firebase Console configuration changes (region settings, not code)

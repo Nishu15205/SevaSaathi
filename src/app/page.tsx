@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { AnimatePresence, motion } from "framer-motion";
@@ -84,12 +84,19 @@ function LandingPage({ onGoDashboard }: { onGoDashboard: () => void }) {
   );
 }
 
+// Stable subscription for hydration-safe mounted detection
+const emptySubscribe = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
+
 export default function Home() {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const hydrated = useHydrated();
 
-  const showDashboard = isAuthenticated && !!user;
+  const showDashboard = hydrated && isAuthenticated && !!user;
 
   return (
     <>

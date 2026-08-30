@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion } from 'framer-motion';
+     5→import {
+     6→  CalendarCheck,
+     7→  CheckCircle2,
+     8→  Star,
+     9→  IndianRupee,
+    10→  MapPin,
+    11→  Clock,
+    12→  ShieldCheck,
+    13→  Award,
+    14→  FileText,
+    15→  Send,
+    16→  Loader2,
+    17→  AlertCircle,
+    18→  HeartPulse,
+    19→  Utensils,
+    20→  Pill,
+    21→  MessageCircle,
+    22→  UserRound,
+    23→  ClipboardList,
+    24→  Briefcase,
+    25→  Languages,
+    26→  Stethoscope,
+    27→  ChevronRight,
+    28→  RefreshCw,
+    29→  Sparkles,
+    30→  Activity,
+    31→  XCircle,
+    32→  AlertTriangle,
+    33→  Camera,
+    34→  Upload,
+    35→  Eye,
+    36→  Play,
+    37→  Phone,
+    38→  Hash,
+    39→  Pencil,
+    40→  Wallet,
+    41→  Building2,
+    42→  ArrowDownToLine,
+    43→  Smartphone,
+    44→} from 'lucide-react';
+    45→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    46→import { Button } from '@/components/ui/button';
+    47→import { Input } from '@/components/ui/input';
+    48→import { Badge } from '@/components/ui/badge';
+    49→import { Skeleton } from '@/components/ui/skeleton';
+    50→import { Separator } from '@/components/ui/separator';
+    51→import { Textarea } from '@/components/ui/textarea';
+    52→import { Label } from '@/components/ui/label';
+    53→import {
+    54→  Select,
+    55→  SelectContent,
+    56→  SelectItem,
+    57→  SelectTrigger,
+    58→  SelectValue,
+    59→} from '@/components/ui/select';
+    60→import { api } from '@/lib/api';
+    61→import type { User } from '@/stores/authStore';
+    62→import { useAuthStore } from '@/stores/authStore';
+    63→import { toast } from 'sonner';
+    64→import { PaymentHistory } from '@/components/payment/PaymentHistory';
+    65→import { PhoneVerificationSection } from '@/components/dashboard/PhoneVerification';
+    66→import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
+    67→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+    68→
+    69→/* ============================================================ */
+    70→/* TYPES                                                         */
+    71→/* ============================================================ */
+    72→
+    73→interface CaregiverDashboardProps {
+    74→  activeTab: string;
+    75→  user: User;
+    76→}
+    77→
+    78→interface Booking {
+    79→  id: string;
+    80→  status: string;
+    81→  date: string;
+    82→  startTime: string;
+    83→  endTime: string;
+    84→  shiftType: string;
+    85→  familyName?: string;
+    86→  patientName?: string;
+    87→  patientAge?: number;
+    88→  careType?: string;
+    89→  specialNotes?: string;
+    90→  totalAmount?: number;
+    91→  createdAt: string;
+    92→}
+    93→
+    94→interface Review {
+    95→  id: string;
+    96→  overallRating: number;
+    97→  communicationRating: number;
+    98→  punctualityRating: number;
+    99→  careQualityRating: number;
+   100→  comment: string;
+   101→  familyName?: string;
+   102→  createdAt: string;
+   103→}
+   104→
+   105→/* ============================================================ */
+   106→/* SHARED HELPERS                                                 */
+   107→/* ============================================================ */
+   108→
+   109→const statusColors: Record<string, string> = {
+   110→  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+   111→  CONFIRMED: 'bg-blue-100 text-blue-800 border-blue-200',
+   112→  IN_PROGRESS: 'bg-green-100 text-green-800 border-green-200',
+   113→  COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200',
+   114→  CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+   115→  NO_SHOW: 'bg-orange-100 text-orange-700 border-orange-200',
+   116→};
+   117→
+   118→const statusLabels: Record<string, string> = {
+   119→  PENDING: 'Pending',
+   120→  CONFIRMED: 'Confirmed',
+   121→  IN_PROGRESS: 'In Progress',
+   122→  COMPLETED: 'Completed',
+   123→  CANCELLED: 'Cancelled',
+   124→  NO_SHOW: 'No Show',
+   125→};
+   126→
+   127→const moodIcons: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+   128→  good: { icon: <Sparkles className="h-4 w-4" />, label: 'Good', color: 'text-green-600 bg-green-50' },
+   129→  normal: { icon: <Activity className="h-4 w-4" />, label: 'Normal', color: 'text-blue-600 bg-blue-50' },
+   130→  upset: { icon: <MessageCircle className="h-4 w-4" />, label: 'Upset', color: 'text-orange-600 bg-orange-50' },
+   131→  unwell: { icon: <HeartPulse className="h-4 w-4" />, label: 'Unwell', color: 'text-red-600 bg-red-50' },
+   132→};
+   133→
+   134→const foodIntakeLabels: Record<string, string> = {
+   135→  good: 'Good',
+   136→  normal: 'Normal',
+   137→  poor: 'Poor',
+   138→  refused: 'Refused',
+   139→};
+   140→
+   141→const foodIntakeColors: Record<string, string> = {
+   142→  good: 'text-green-700 bg-green-50',
+   143→  normal: 'text-blue-700 bg-blue-50',
+   144→  poor: 'text-orange-700 bg-orange-50',
+   145→  refused: 'text-red-700 bg-red-50',
+   146→};
+   147→
+   148→function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+   149→  return (
+   150→    <div className="flex flex-col items-center justify-center py-16 text-center">
+   151→      <div className="w-16 h-16 rounded-2xl bg-forest-50 flex items-center justify-center mb-4 text-forest-400">
+   152→        {icon}
+   153→      </div>
+   154→      <h3 className="text-base font-semibold text-gray-800 mb-1">{title}</h3>
+   155→      <p className="text-sm text-gray-400 max-w-sm">{description}</p>
+   156→    </div>
+   157→  );
+   158→}
+   159→
+   160→function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+   161→  return (
+   162→    <div className="flex flex-col items-center justify-center py-16 text-center">
+   163→      <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4 text-red-400">
+   164→        <AlertCircle className="h-7 w-7" />
+   165→      </div>
+   166→      <h3 className="text-base font-semibold text-gray-800 mb-1">Something went wrong</h3>
+   167→      <p className="text-sm text-gray-400 max-w-sm mb-4">{message}</p>
+   168→      {onRetry && (
+   169→        <Button variant="outline" size="sm" onClick={onRetry} className="rounded-xl">
+   170→          Try Again
+   171→        </Button>
+   172→      )}
+   173→    </div>
+   174→  );
+   175→}
+   176→
+   177→function LoadingGrid({ count = 4 }: { count?: number }) {
+   178→  return (
+   179→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   180→      {Array.from({ length: count }).map((_, i) => (
+   181→        <Skeleton key={i} className="h-28 rounded-2xl" />
+   182→      ))}
+   183→    </div>
+   184→  );
+   185→}
+   186→
+   187→function LoadingCards({ count = 3 }: { count?: number }) {
+   188→  return (
+   189→    <div className="space-y-3">
+   190→      {Array.from({ length: count }).map((_, i) => (
+   191→        <Skeleton key={i} className="h-24 rounded-2xl" />
+   192→      ))}
+   193→    </div>
+   194→  );
+   195→}
+   196→
+   197→function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
+   198→  const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4.5 w-4.5';
+   199→  return (
+   200→    <div className="flex items-center gap-0.5">
+   201→      {[1, 2, 3, 4, 5].map((star) => (
+   202→        <Star
+   203→          key={star}
+   204→          className={`${iconSize} ${
+   205→            star <= Math.round(rating)
+   206→              ? 'fill-lime-400 text-lime-400'
+   207→              : 'fill-gray-200 text-gray-200'
+   208→          }`}
+   209→        />
+   210→      ))}
+   211→    </div>
+   212→  );
+   213→}
+   214→
+   215→function parseJsonSafe(input: string | null | undefined | any): string[] {
+   216→  if (!input) return [];
+   217→  if (Array.isArray(input)) return input;
+   218→  try {
+   219→    const parsed = JSON.parse(input);
+   220→    return Array.isArray(parsed) ? parsed : [];
+   221→  } catch {
+   222→    if (typeof input === 'string') {
+   223→      return input.split(',').map((s) => s.trim()).filter(Boolean);
+   224→    }
+   225→    return [];
+   226→  }
+   227→}
+   228→
+   229→function formatDate(dateStr: string): string {
+   230→  try {
+   231→    return new Date(dateStr).toLocaleDateString('en-IN', {
+   232→      day: 'numeric',
+   233→      month: 'short',
+   234→      year: 'numeric',
+   235→    });
+   236→  } catch {
+   237→    return dateStr;
+   238→  }
+   239→}
+   240→
+   241→function getTodayDate(): string {
+   242→  const now = new Date();
+   243→  const year = now.getFullYear();
+   244→  const month = String(now.getMonth() + 1).padStart(2, '0');
+   245→  const day = String(now.getDate()).padStart(2, '0');
+   246→  return `${year}-${month}-${day}`;
+   247→}
+   248→
+   249→/* ============================================================ */
+   250→/* OVERVIEW TAB                                                  */
+   251→/* ============================================================ */
+   252→
+   253→function OverviewTab({ user }: { user: User }) {
+   254→  const profile = user.caregiverProfile;
+   255→  const [bookings, setBookings] = useState<Booking[]>([]);
+   256→  // Start with loading=false so new caregivers (no profile) never see a skeleton flash
+   257→  const [loading, setLoading] = useState(false);
+   258→  const [error, setError] = useState('');
+   259→
+   260→  // Phone verification — Firebase SMS only
+   261→  const [phoneVerifying, setPhoneVerifying] = useState(false);
+   262→  const [showOtpDialog, setShowOtpDialog] = useState(false);
+   263→  const [otpSent, setOtpSent] = useState(false);
+   264→  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+   265→  const [otpValue, setOtpValue] = useState("");
+   266→  const firebase = useFirebasePhoneAuth();
+   267→
+   268→  const maskPhone = (p: string) => {
+   269→    const d = p.replace(/\D/g, '');
+   270→    if (d.length < 4) return p;
+   271→    return '*'.repeat(d.length - 4) + d.slice(-4);
+   272→  };
+   273→
+   274→  const handleSendOtp = async () => {
+   275→    setPhoneVerifying(true);
+   276→    setShowOtpDialog(true);
+   277→    setOtpSent(false);
+   278→    setFirebaseError(null);
+   279→    setOtpValue('');
+   280→
+   281→    if (!firebase.isReady) {
+   282→      setFirebaseError('Firebase is not configured. Please check your Firebase settings.');
+   283→      setPhoneVerifying(false);
+   284→      return;
+   285→    }
+   286→
+   287→    try {
+   288→      const result = await firebase.sendOtp(user.phone);
+   289→      if (result === true) {
+   290→        setOtpSent(true);
+   291→        toast.success('OTP sent to your phone via SMS!');
+   292→      } else {
+   293→        // result is the error string (returned synchronously)
+   294→        console.error('Phone OTP send failed:', result);
+   295→        if (result.includes('operation-not-allowed') || result.includes('not-allowed')) {
+   296→          setFirebaseError('operation-not-allowed');
+   297→        } else {
+   298→          setFirebaseError(result);
+   299→        }
+   300→      }
+   301→    } catch (e: any) {
+   302→      console.error('Phone OTP unexpected error:', e);
+   303→      setFirebaseError(e?.message || 'Something went wrong. Please try again.');
+   304→    } finally {
+   305→      setPhoneVerifying(false);
+   306→    }
+   307→  };
+   308→
+   309→  const handleVerifyOtp = async () => {
+   310→    if (!otpValue || otpValue.length < 6) {
+   311→      toast.error('Enter the 6-digit OTP');
+   312→      return;
+   313→    }
+   314→    try {
+   315→      const result = await firebase.verifyOtp(otpValue);
+   316→      if (!result) {
+   317→        toast.error(firebase.error || 'Invalid OTP. Please try again.');
+   318→        return;
+   319→      }
+   320→
+   321→      const res = await fetch('/api/auth/verify-phone-otp', {
+   322→        method: 'POST',
+   323→        headers: { 'Content-Type': 'application/json' },
+   324→        body: JSON.stringify({
+   325→          phone: user.phone,
+   326→          firebaseToken: result.firebaseToken,
+   327→        }),
+   328→      });
+   329→      const data = await res.json();
+   330→      if (!res.ok) {
+   331→        toast.error(data.error || 'Verification failed');
+   332→        return;
+   333→      }
+   334→      toast.success('Phone number verified successfully!');
+   335→      useAuthStore.getState().setAuth({ ...user, phoneVerified: true } as any);
+   336→      setShowOtpDialog(false);
+   337→      setOtpValue('');
+   338→      firebase.reset();
+   339→    } catch (err: any) {
+   340→      toast.error(err?.message || 'Verification failed');
+   341→    }
+   342→  };
+   343→
+   344→  const fetchData = useCallback(async () => {
+   345→    if (!profile?.id) { setLoading(false); return; }
+   346→    setLoading(true);
+   347→    setError('');
+   348→    try {
+   349→      const res = await api.bookings.list({ caregiverId: profile.id });
+   350→      const all = (res.bookings || []).map((b: any) => ({
+   351→        ...b,
+   352→        date: b.startDate,
+   353→        patientName: b.patient?.name,
+   354→        familyName: b.family?.name,
+   355→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+   356→      }));
+   357→      setBookings(all);
+   358→    } catch (err: any) {
+   359→      setError(err.message || 'Failed to load dashboard data');
+   360→    } finally {
+   361→      setLoading(false);
+   362→    }
+   363→  }, [profile?.id]);
+   364→
+   365→  useEffect(() => {
+   366→    fetchData();
+   367→  }, [fetchData]);
+   368→
+   369→  // No profile yet — show setup guidance immediately, no loading flash
+   370→  if (!profile) {
+   371→    return (
+   372→      <div className="space-y-6">
+   373→        <div>
+   374→          <h2 className="text-2xl font-bold text-gray-900">Welcome, {user.name.split(' ')[0]}!</h2>
+   375→          <p className="text-sm text-gray-400 mt-1">Complete your profile to start receiving care requests.</p>
+   376→        </div>
+   377→        <Card className="rounded-2xl border-dashed border-2 border-forest-200 bg-forest-50/50">
+   378→          <CardContent className="p-8 text-center">
+   379→            <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center mx-auto mb-4">
+   380→              <ClipboardList className="h-7 w-7 text-white" />
+   381→            </div>
+   382→            <h3 className="text-lg font-bold text-gray-800 mb-2">Set Up Your Caregiver Profile</h3>
+   383→            <p className="text-sm text-gray-500 max-w-md mx-auto">Go to the <strong>My Profile</strong> tab to create your caregiver profile. Families will be able to find and book you once your profile is set up.</p>
+   384→          </CardContent>
+   385→        </Card>
+   386→      </div>
+   387→    );
+   388→  }
+   389→
+   390→  if (error) {
+   391→    return <ErrorState message={error} onRetry={fetchData} />;
+   392→  }
+   393→
+   394→  const upcomingBookings = bookings
+   395→    .filter((b) => ['CONFIRMED', 'IN_PROGRESS'].includes(b.status))
+   396→    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   397→
+   398→  const totalBookings = bookings.length;
+   399→  const completedJobs = profile?.completedJobs ?? bookings.filter((b) => b.status === 'COMPLETED').length;
+   400→  const overallRating = profile?.overallRating ?? 0;
+   401→  const hourlyRate = profile?.hourlyRate ?? 0;
+   402→
+   403→  const statCards = [
+   404→    { label: 'Total Bookings', value: totalBookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'bg-forest-50 text-forest-700' },
+   405→    { label: 'Completed Jobs', value: completedJobs, icon: <CheckCircle2 className="h-5 w-5" />, color: 'bg-lime-50 text-lime-700' },
+   406→    { label: 'Overall Rating', value: overallRating.toFixed(1), icon: <Star className="h-5 w-5" />, color: 'bg-amber-50 text-amber-700', suffix: '/5' },
+   407→    { label: 'Hourly Rate', value: `₹${hourlyRate}`, icon: <IndianRupee className="h-5 w-5" />, color: 'bg-purple-50 text-purple-700', isString: true },
+   408→  ];
+   409→
+   410→  const skills = parseJsonSafe(profile?.skills);
+   411→  const languages = parseJsonSafe(profile?.languages);
+   412→
+   413→  return (
+   414→    <div className="space-y-6">
+   415→      {/* Phone Verification Banner */}
+   416→      {!user.phoneVerified && user.phone && (
+   417→        <Card className="rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+   418→          <CardContent className="p-4 flex items-center justify-between gap-4">
+   419→            <div className="flex items-center gap-3 min-w-0">
+   420→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-sm">
+   421→                <Phone className="h-5 w-5 text-white" />
+   422→              </div>
+   423→              <div className="min-w-0">
+   424→                <p className="text-sm font-semibold text-amber-900">Verify Your Phone Number</p>
+   425→                <p className="text-xs text-amber-700/70">Required to receive booking requests — {maskPhone(user.phone)}</p>
+   426→              </div>
+   427→            </div>
+   428→            <Button onClick={handleSendOtp} disabled={phoneVerifying} size="sm" className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shrink-0 shadow-sm">
+   429→              {phoneVerifying && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+   430→              {phoneVerifying ? 'Sending...' : 'Send OTP'}
+   431→            </Button>
+   432→          </CardContent>
+   433→        </Card>
+   434→      )}
+   435→
+   436→      {/* Phone OTP Dialog */}
+   437→      <Dialog open={showOtpDialog} onOpenChange={(open) => { if (!open) { setShowOtpDialog(false); setOtpValue(''); setFirebaseError(null); firebase.reset(); } }}>
+   438→        <DialogContent className="sm:max-w-lg">
+   439→          <DialogHeader>
+   440→            <DialogTitle>Verify Phone Number</DialogTitle>
+   441→            <DialogDescription>Enter the OTP sent via SMS to {maskPhone(user.phone)}</DialogDescription>
+   442→          </DialogHeader>
+   443→          <div className="space-y-4 pt-2">
+   444→            {/* Firebase operation-not-allowed — show fix guide */}
+   445→            {firebaseError === 'operation-not-allowed' && (
+   446→              <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4 space-y-3">
+   447→                <div className="flex items-start gap-2.5">
+   448→                  <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5">
+   449→                    <AlertTriangle className="h-4 w-4 text-white" />
+   450→                  </div>
+   451→                  <div className="space-y-2">
+   452→                    <p className="text-sm font-semibold text-red-800">SMS Service Not Active</p>
+   453→                    <p className="text-xs text-red-600 leading-relaxed">
+   454→                      Firebase Phone Auth is enabled, but the Google Cloud Identity Toolkit API needs to be activated.
+   455→                    </p>
+   456→                  </div>
+   457→                </div>
+   458→                <div className="bg-white/70 rounded-xl p-3 space-y-2.5">
+   459→                  <p className="text-xs font-bold text-gray-700">🔧 Fix it in 2 minutes:</p>
+   460→                  <ol className="text-xs text-gray-600 space-y-1.5 list-decimal list-inside">
+   461→                    <li>Open <strong>Google Cloud Console → APIs &amp; Services → Library</strong></li>
+   462→                    <li>Search: <strong>"Identity Toolkit API"</strong></li>
+   463→                    <li>Click <strong>Enable</strong></li>
+   464→                    <li>Wait 2 minutes, then try again</li>
+   465→                  </ol>
+   466→                  <a href="https://console.cloud.google.com/apis/library/identitytoolkit.googleapis.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline mt-1">
+   467→                    Open Google Cloud Console ↗
+   468→                  </a>
+   469→                </div>
+   470→                <div className="bg-white/70 rounded-xl p-3 space-y-2">
+   471→                  <p className="text-xs font-bold text-gray-700">⚡ Quick Alternative (Works Instantly):</p>
+   472→                  <p className="text-xs text-gray-600 leading-relaxed">Add a <strong>test phone number</strong> in Firebase Console. OTPs for test numbers are shown on screen — no real SMS needed.</p>
+   473→                  <ol className="text-xs text-gray-600 space-y-1.5 list-decimal list-inside">
+   474→                    <li>Firebase Console → <strong>Authentication → Sign-in method</strong></li>
+   475→                    <li>Click <strong>Phone → Phone numbers for testing</strong></li>
+   476→                    <li>Add your number + any 6-digit OTP (e.g. 123456)</li>
+   477→                    <li>Use that OTP to verify instantly</li>
+   478→                  </ol>
+   479→                </div>
+   480→                <Button
+   481→                  onClick={async () => { setFirebaseError(null); setOtpValue(''); firebase.reset(); setShowOtpDialog(false); await handleSendOtp(); }}
+   482→                  variant="outline"
+   483→                  size="sm"
+   484→                  className="w-full rounded-xl gap-2 text-xs border-red-200 text-red-700 hover:bg-red-50"
+   485→                >
+   486→                  <RefreshCw className="h-3 w-3" />
+   487→                  I Fixed It — Try Again
+   488→                </Button>
+   489→              </div>
+   490→            )}
+   491→
+   492→            {/* Other Firebase errors */}
+   493→            {firebaseError && firebaseError !== 'operation-not-allowed' && (
+   494→              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
+   495→                <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+   496→                <p className="text-xs text-red-700">{firebaseError}</p>
+   497→              </div>
+   498→            )}
+   499→
+   500→            {/* OTP sent success */}
+   501→            {otpSent && !firebaseError && (
+   502→              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-3">
+   503→                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+   504→                  <span className="text-white text-xs font-bold">✓</span>
+   505→                </div>
+   506→                <p className="text-xs text-green-700 font-medium">OTP sent to {maskPhone(user.phone)} via SMS</p>
+   507→              </div>
+   508→            )}
+   509→
+   510→            {/* OTP input */}
+   511→            {otpSent && !firebaseError && (
+   512→              <>
+   513→                <div>
+   514→                  <Label className="text-sm">OTP</Label>
+   515→                  <Input
+   516→                    value={otpValue}
+   517→                    onChange={(e) => setOtpValue(e.target.value.replace(/\\D/g, '').slice(0, 6))}
+   518→                    placeholder="6-digit OTP"
+   519→                    className="mt-1 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
+   520→                    maxLength={6}
+   521→                    autoFocus
+   522→                  />
+   523→                </div>
+   524→                <Button
+   525→                  onClick={handleVerifyOtp}
+   526→                  disabled={firebase.verifying || otpValue.length < 6}
+   527→                  className="w-full bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shadow-sm"
+   528→                >
+   529→                  {firebase.verifying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+   530→                  Verify OTP
+   531→                </Button>
+   532→                <button
+   533→                  type="button"
+   534→                  onClick={async () => { setOtpValue(''); firebase.reset(); setShowOtpDialog(false); await handleSendOtp(); }}
+   535→                  disabled={phoneVerifying}
+   536→                  className="w-full text-xs text-forest-700 hover:text-forest-900 font-medium text-center disabled:opacity-50"
+   537→                >
+   538→                  {phoneVerifying ? 'Resending...' : 'Resend OTP'}
+   539→                </button>
+   540→              </>
+   541→            )}
+   542→
+   543→            {/* Still loading */}
+   544→            {phoneVerifying && !firebaseError && !otpSent && (
+   545→              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+   546→                <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+   547→                <p className="text-xs text-amber-700">Sending OTP via SMS...</p>
+   548→              </div>
+   549→            )}
+   550→          </div>
+   551→        </DialogContent>
+   552→      </Dialog>
+   553→
+   554→      {/* Welcome */}
+   555→      <div>
+   556→        <h2 className="text-2xl font-bold text-gray-900">
+   557→          Welcome back, {user.name.split(' ')[0]}!
+   558→        </h2>
+   559→        <p className="text-sm text-gray-400 mt-1">Here&apos;s your caregiving dashboard at a glance.</p>
+   560→      </div>
+   561→
+   562→      {/* Verification Progress Banner */}
+   563→      {profile && (
+   564→        profile.isVerified ? (
+   565→          <div className="rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 p-4 flex items-center gap-3 shadow-sm">
+   566→            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+   567→              <ShieldCheck className="h-5 w-5 text-white" />
+   568→            </div>
+   569→            <div className="flex-1">
+   570→              <div className="flex items-center gap-2">
+   571→                <p className="text-sm font-bold text-white">Verified Caregiver</p>
+   572→                <Badge className="bg-yellow-400/30 text-yellow-100 border-yellow-400/40 text-xs">40% More Visibility</Badge>
+   573→              </div>
+   574→              <p className="text-xs text-emerald-100 mt-0.5">Your profile displays the trusted verified badge to families</p>
+   575→            </div>
+   576→            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+   577→              <CheckCircle2 className="h-5 w-5 text-white" />
+   578→            </div>
+   579→          </div>
+   580→        ) : (
+   581→          <Card className="rounded-2xl border-2 border-amber-200 bg-amber-50">
+   582→            <CardContent className="p-4 flex items-center justify-between gap-4">
+   583→              <div className="flex items-center gap-3 min-w-0">
+   584→                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+   585→                  <ShieldCheck className="h-5 w-5 text-amber-600" />
+   586→                </div>
+   587→                <div className="min-w-0">
+   588→                  <p className="text-sm font-semibold text-amber-900">Complete Verification — Get More Bookings</p>
+   589→                  <p className="text-xs text-amber-700/70">Verified caregivers get 40% more visibility and a trusted badge</p>
+   590→                </div>
+   591→              </div>
+   592→              <Button size="sm" onClick={() => toast.info('Go to My Profile to complete verification')} className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl shrink-0">
+   593→                <ShieldCheck className="h-4 w-4 mr-1" /> Verify Now
+   594→              </Button>
+   595→            </CardContent>
+   596→          </Card>
+   597→        )
+   598→      )}
+   599→
+   600→      {/* Stat Cards */}
+   601→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   602→        {statCards.map((stat, i) => (
+   603→          <motion.div
+   604→            key={stat.label}
+   605→            initial={{ opacity: 0, y: 12 }}
+   606→            animate={{ opacity: 1, y: 0 }}
+   607→            transition={{ delay: i * 0.05 }}
+   608→          >
+   609→            <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow">
+   610→              <CardContent className="p-5">
+   611→                <div className="flex items-center justify-between">
+   612→                  <div>
+   613→                    <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
+   614→                    <div className="flex items-baseline gap-1 mt-1">
+   615→                      <p className="text-3xl font-bold text-gray-900">
+   616→                        {stat.isString ? stat.value : stat.value}
+   617→                      </p>
+   618→                      {stat.suffix && <span className="text-sm text-gray-400">{stat.suffix}</span>}
+   619→                    </div>
+   620→                  </div>
+   621→                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${stat.color}`}>
+   622→                    {stat.icon}
+   623→                  </div>
+   624→                </div>
+   625→              </CardContent>
+   626→            </Card>
+   627→          </motion.div>
+   628→        ))}
+   629→      </div>
+   630→
+   631→      {/* Upcoming Bookings */}
+   632→      <div>
+   633→        <h3 className="text-base font-semibold text-gray-800 mb-3">Upcoming & Active Bookings</h3>
+   634→        {upcomingBookings.length === 0 ? (
+   635→          <EmptyState
+   636→            icon={<CalendarCheck className="h-7 w-7" />}
+   637→            title="No upcoming bookings"
+   638→            description="New bookings from families will appear here once confirmed."
+   639→          />
+   640→        ) : (
+   641→          <div className="space-y-3">
+   642→            {upcomingBookings.map((booking) => (
+   643→              <motion.div
+   644→                key={booking.id}
+   645→                initial={{ opacity: 0, x: -8 }}
+   646→                animate={{ opacity: 1, x: 0 }}
+   647→                transition={{ duration: 0.2 }}
+   648→              >
+   649→                <Card className="rounded-2xl border-gray-100">
+   650→                  <CardContent className="p-4">
+   651→                    <div className="flex items-center justify-between gap-4">
+   652→                      <div className="flex items-center gap-3 min-w-0">
+   653→                        <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+   654→                          <UserRound className="h-5 w-5 text-forest-700" />
+   655→                        </div>
+   656→                        <div className="min-w-0">
+   657→                          <p className="text-sm font-semibold text-gray-800 truncate">
+   658→                            {booking.patientName || 'Patient'}
+   659→                            {booking.familyName && (
+   660→                              <span className="text-gray-400 font-normal"> · {booking.familyName}</span>
+   661→                            )}
+   662→                          </p>
+   663→                          <p className="text-xs text-gray-400 mt-0.5">
+   664→                            {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || ''} - ${booking.endTime || ''}`}
+   665→                          </p>
+   666→                        </div>
+   667→                      </div>
+   668→                      <Badge
+   669→                        variant="outline"
+   670→                        className={`shrink-0 text-xs rounded-full ${statusColors[booking.status] || ''}`}
+   671→                      >
+   672→                        {statusLabels[booking.status] || booking.status}
+   673→                      </Badge>
+   674→                    </div>
+   675→                  </CardContent>
+   676→                </Card>
+   677→              </motion.div>
+   678→            ))}
+   679→          </div>
+   680→        )}
+   681→      </div>
+   682→
+   683→      {/* Profile Summary Card */}
+   684→      <div>
+   685→        <h3 className="text-base font-semibold text-gray-800 mb-3">Profile Summary</h3>
+   686→        <Card className="rounded-2xl border-gray-100">
+   687→          <CardContent className="p-5">
+   688→            <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+   689→              <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center shrink-0">
+   690→                <span className="text-xl font-bold text-white">
+   691→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+   692→                </span>
+   693→              </div>
+   694→              <div className="flex-1 min-w-0 space-y-3">
+   695→                <div>
+   696→                  <div className="flex items-center gap-2">
+   697→                    <h4 className="text-lg font-bold text-gray-900">{user.name}</h4>
+   698→                    {profile?.isVerified && (
+   699→                      <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+   700→                        <ShieldCheck className="h-3 w-3" /> Verified
+   701→                      </Badge>
+   702→                    )}
+   703→                  </div>
+   704→                  <p className="text-sm text-gray-400 mt-0.5 flex items-center gap-1.5">
+   705→                    <MapPin className="h-3.5 w-3.5" /> {profile?.city || 'Not set'}
+   706→                    <span className="text-gray-300">·</span>
+   707→                    <Briefcase className="h-3.5 w-3.5" /> {profile?.yearsExperience || 0} yrs experience
+   708→                    <span className="text-gray-300">·</span>
+   709→                    <IndianRupee className="h-3.5 w-3.5" /> {profile?.hourlyRate || 0}/hr
+   710→                  </p>
+   711→                </div>
+   712→
+   713→                {skills.length > 0 && (
+   714→                  <div className="flex flex-wrap gap-1.5">
+   715→                    {skills.map((skill) => (
+   716→                      <Badge key={skill} variant="secondary" className="bg-forest-50 text-forest-700 border-forest-100 rounded-full text-xs">
+   717→                        {skill}
+   718→                      </Badge>
+   719→                    ))}
+   720→                  </div>
+   721→                )}
+   722→
+   723→                {languages.length > 0 && (
+   724→                  <p className="text-xs text-gray-500 flex items-center gap-1.5">
+   725→                    <Languages className="h-3.5 w-3.5" />
+   726→                    {languages.join(', ')}
+   727→                  </p>
+   728→                )}
+   729→
+   730→                {profile?.bio && (
+   731→                  <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">{profile.bio}</p>
+   732→                )}
+   733→              </div>
+   734→            </div>
+   735→          </CardContent>
+   736→        </Card>
+   737→      </div>
+   738→    </div>
+   739→  );
+   740→}
+   741→
+   742→/* ============================================================ */
+   743→/* CREATE PROFILE FORM                                           */
+   744→/* ============================================================ */
+   745→
+   746→const ALL_SKILLS = ['elderly-care', 'bedridden-care', 'feeding', 'wound-care', 'medicine-management', 'dementia-care', 'physiotherapy-assist', 'post-surgery-care', 'mobility-support', 'hygiene-care', 'elderly-companionship', 'ventilator-care'];
+   747→
+   748→function CreateProfileForm({ userId, onCreated }: { userId: string; onCreated: (profile: any) => void }) {
+   749→  const [saving, setSaving] = useState(false);
+   750→  const [selectedSkills, setSelectedSkills] = useState<string[]>(['elderly-care']);
+   751→  const [form, setForm] = useState({
+   752→    city: '', yearsExperience: '', hourlyRate: '', qualifications: '', languages: 'Hindi, English', bio: '',
+   753→  });
+   754→
+   755→  const toggleSkill = (skill: string) => {
+   756→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   757→  };
+   758→
+   759→  const handleSubmit = async (e: React.FormEvent) => {
+   760→    e.preventDefault();
+   761→    if (!form.city || !form.yearsExperience || !form.hourlyRate) {
+   762→      toast.error('Please fill in City, Experience, and Hourly Rate.');
+   763→      return;
+   764→    }
+   765→    if (selectedSkills.length === 0) {
+   766→      toast.error('Please select at least one skill.');
+   767→      return;
+   768→    }
+   769→    setSaving(true);
+   770→    try {
+   771→      const res = await api.caregivers.create({
+   772→        userId,
+   773→        city: form.city,
+   774→        yearsExperience: parseInt(form.yearsExperience),
+   775→        hourlyRate: parseInt(form.hourlyRate),
+   776→        skills: JSON.stringify(selectedSkills),
+   777→        qualifications: form.qualifications ? JSON.stringify(form.qualifications.split(',').map((s: string) => s.trim()).filter(Boolean)) : JSON.stringify(['Caregiver']),
+   778→        languages: JSON.stringify(form.languages.split(',').map((s: string) => s.trim()).filter(Boolean)),
+   779→        bio: form.bio,
+   780→      });
+   781→      toast.success('Profile created successfully!');
+   782→      onCreated(res.caregiver);
+   783→    } catch (err: any) {
+   784→      toast.error(err.message || 'Failed to create profile');
+   785→    } finally {
+   786→      setSaving(false);
+   787→    }
+   788→  };
+   789→
+   790→  return (
+   791→    <div className="space-y-6 max-w-2xl">
+   792→      <div>
+   793→        <h2 className="text-2xl font-bold text-gray-900">Create Your Profile</h2>
+   794→        <p className="text-sm text-gray-400 mt-1">Set up your caregiver profile to start receiving booking requests from families.</p>
+   795→      </div>
+   796→      <Card className="rounded-2xl border-gray-100">
+   797→        <CardContent className="p-6">
+   798→          <form onSubmit={handleSubmit} className="space-y-4">
+   799→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   800→              <div>
+   801→                <Label className="text-xs font-medium text-gray-600">City *</Label>
+   802→                <Input value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="e.g., Delhi" className="mt-1 rounded-xl" required />
+   803→              </div>
+   804→              <div>
+   805→                <Label className="text-xs font-medium text-gray-600">Years of Experience *</Label>
+   806→                <Input type="number" min="0" max="50" value={form.yearsExperience} onChange={e => setForm(p => ({...p, yearsExperience: e.target.value}))} placeholder="e.g., 5" className="mt-1 rounded-xl" required />
+   807→              </div>
+   808→              <div>
+   809→                <Label className="text-xs font-medium text-gray-600">Hourly Rate (INR) *</Label>
+   810→                <Input type="number" min="50" max="5000" value={form.hourlyRate} onChange={e => setForm(p => ({...p, hourlyRate: e.target.value}))} placeholder="e.g., 250" className="mt-1 rounded-xl" required />
+   811→              </div>
+   812→              <div>
+   813→                <Label className="text-xs font-medium text-gray-600">Qualifications</Label>
+   814→                <Input value={form.qualifications} onChange={e => setForm(p => ({...p, qualifications: e.target.value}))} placeholder="e.g., BSc Nursing, GNM" className="mt-1 rounded-xl" />
+   815→              </div>
+   816→            </div>
+   817→            <div>
+   818→              <Label className="text-xs font-medium text-gray-600">Languages</Label>
+   819→              <Input value={form.languages} onChange={e => setForm(p => ({...p, languages: e.target.value}))} placeholder="e.g., Hindi, English, Punjabi" className="mt-1 rounded-xl" />
+   820→            </div>
+   821→            <div>
+   822→              <Label className="text-xs font-medium text-gray-600 mb-2 block">Skills *</Label>
+   823→              <div className="flex flex-wrap gap-2">
+   824→                {ALL_SKILLS.map(skill => (
+   825→                  <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selectedSkills.includes(skill) ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
+   826→                    {skill}
+   827→                  </button>
+   828→                ))}
+   829→              </div>
+   830→            </div>
+   831→            <div>
+   832→              <Label className="text-xs font-medium text-gray-600">Bio</Label>
+   833→              <Textarea value={form.bio} onChange={e => setForm(p => ({...p, bio: e.target.value}))} placeholder="Tell families about your experience and care approach..." className="mt-1 rounded-xl min-h-[100px]" />
+   834→            </div>
+   835→            <Button type="submit" disabled={saving} className="btn-black text-sm gap-2 rounded-full">
+   836→              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+   837→              Create Profile
+   838→            </Button>
+   839→          </form>
+   840→        </CardContent>
+   841→      </Card>
+   842→    </div>
+   843→  );
+   844→}
+   845→
+   846→/* ============================================================ */
+   847→/* EDIT PROFILE FORM                                             */
+   848→/* ============================================================ */
+   849→
+   850→function EditProfileForm({ profile, userId, onSaved, onCancel }: { profile: any; userId: string; onSaved: (updated: any) => void; onCancel: () => void }) {
+   851→  const [saving, setSaving] = useState(false);
+   852→  const [selectedSkills, setSelectedSkills] = useState<string[]>(parseJsonSafe(profile.skills));
+   853→  const [form, setForm] = useState({
+   854→    city: profile.city || '',
+   855→    yearsExperience: String(profile.yearsExperience || ''),
+   856→    hourlyRate: String(profile.hourlyRate || ''),
+   857→    qualifications: parseJsonSafe(profile.qualifications).join(', '),
+   858→    languages: parseJsonSafe(profile.languages).join(', '),
+   859→    bio: profile.bio || '',
+   860→  });
+   861→
+   862→  const toggleSkill = (skill: string) => {
+   863→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   864→  };
+   865→
+   866→  const handleSubmit = async (e: React.FormEvent) => {
+   867→    e.preventDefault();
+   868→    if (!form.city || !form.yearsExperience || !form.hourlyRate) {
+   869→      toast.error('Please fill in City, Experience, and Hourly Rate.');
+   870→      return;
+   871→    }
+   872→    if (selectedSkills.length === 0) {
+   873→      toast.error('Please select at least one skill.');
+   874→      return;
+   875→    }
+   876→    setSaving(true);
+   877→    try {
+   878→      const res = await api.caregivers.update(profile.id, {
+   879→        city: form.city,
+   880→        yearsExperience: parseInt(form.yearsExperience),
+   881→        hourlyRate: parseInt(form.hourlyRate),
+   882→        skills: JSON.stringify(selectedSkills),
+   883→        qualifications: form.qualifications ? JSON.stringify(form.qualifications.split(',').map((s: string) => s.trim()).filter(Boolean)) : JSON.stringify(['Caregiver']),
+   884→        languages: JSON.stringify(form.languages.split(',').map((s: string) => s.trim()).filter(Boolean)),
+   885→        bio: form.bio,
+   886→      });
+   887→      toast.success('Profile updated successfully!');
+   888→      onSaved(res.caregiver);
+   889→    } catch (err: any) {
+   890→      toast.error(err.message || 'Failed to update profile');
+   891→    } finally {
+   892→      setSaving(false);
+   893→    }
+   894→  };
+   895→
+   896→  return (
+   897→    <div className="space-y-6 max-w-2xl">
+   898→      <div>
+   899→        <h2 className="text-2xl font-bold text-gray-900">Edit Profile</h2>
+   900→        <p className="text-sm text-gray-400 mt-1">Update your caregiver profile information.</p>
+   901→      </div>
+   902→      <Card className="rounded-2xl border-gray-100">
+   903→        <CardContent className="p-6">
+   904→          <form onSubmit={handleSubmit} className="space-y-4">
+   905→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   906→              <div>
+   907→                <Label className="text-xs font-medium text-gray-600">City *</Label>
+   908→                <Input value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="e.g., Delhi" className="mt-1 rounded-xl" required />
+   909→              </div>
+   910→              <div>
+   911→                <Label className="text-xs font-medium text-gray-600">Years of Experience *</Label>
+   912→                <Input type="number" min="0" max="50" value={form.yearsExperience} onChange={e => setForm(p => ({...p, yearsExperience: e.target.value}))} placeholder="e.g., 5" className="mt-1 rounded-xl" required />
+   913→              </div>
+   914→              <div>
+   915→                <Label className="text-xs font-medium text-gray-600">Hourly Rate (INR) *</Label>
+   916→                <Input type="number" min="50" max="5000" value={form.hourlyRate} onChange={e => setForm(p => ({...p, hourlyRate: e.target.value}))} placeholder="e.g., 250" className="mt-1 rounded-xl" required />
+   917→              </div>
+   918→              <div>
+   919→                <Label className="text-xs font-medium text-gray-600">Qualifications</Label>
+   920→                <Input value={form.qualifications} onChange={e => setForm(p => ({...p, qualifications: e.target.value}))} placeholder="e.g., BSc Nursing, GNM" className="mt-1 rounded-xl" />
+   921→              </div>
+   922→            </div>
+   923→            <div>
+   924→              <Label className="text-xs font-medium text-gray-600">Languages</Label>
+   925→              <Input value={form.languages} onChange={e => setForm(p => ({...p, languages: e.target.value}))} placeholder="e.g., Hindi, English, Punjabi" className="mt-1 rounded-xl" />
+   926→            </div>
+   927→            <div>
+   928→              <Label className="text-xs font-medium text-gray-600 mb-2 block">Skills *</Label>
+   929→              <div className="flex flex-wrap gap-2">
+   930→                {ALL_SKILLS.map(skill => (
+   931→                  <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selectedSkills.includes(skill) ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
+   932→                    {skill}
+   933→                  </button>
+   934→                ))}
+   935→              </div>
+   936→            </div>
+   937→            <div>
+   938→              <Label className="text-xs font-medium text-gray-600">Bio</Label>
+   939→              <Textarea value={form.bio} onChange={e => setForm(p => ({...p, bio: e.target.value}))} placeholder="Tell families about your experience and care approach..." className="mt-1 rounded-xl min-h-[100px]" />
+   940→            </div>
+   941→            <div className="flex gap-3">
+   942→              <Button type="button" variant="outline" onClick={onCancel} className="rounded-full">Cancel</Button>
+   943→              <Button type="submit" disabled={saving} className="btn-black text-sm gap-2 rounded-full">
+   944→                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+   945→                Save Changes
+   946→              </Button>
+   947→            </div>
+   948→          </form>
+   949→        </CardContent>
+   950→      </Card>
+   951→    </div>
+   952→  );
+   953→}
+   954→
+   955→/* ============================================================ */
+   956→/* WITHDRAWAL FORM                                               */
+   957→/* ============================================================ */
+   958→
+   959→function WithdrawalForm({ caregiverId, userId, availableBalance }: { caregiverId: string; userId: string; availableBalance: number }) {
+   960→  const [open, setOpen] = useState(false);
+   961→  const [method, setMethod] = useState<'upi' | 'bank_transfer'>('upi');
+   962→  const [amount, setAmount] = useState('');
+   963→  const [upiId, setUpiId] = useState('');
+   964→  const [bankName, setBankName] = useState('');
+   965→  const [accountNumber, setAccountNumber] = useState('');
+   966→  const [ifscCode, setIfscCode] = useState('');
+   967→  const [accountHolder, setAccountHolder] = useState('');
+   968→  const [submitting, setSubmitting] = useState(false);
+   969→
+   970→  const resetForm = () => {
+   971→    setAmount(''); setUpiId(''); setBankName(''); setAccountNumber(''); setIfscCode(''); setAccountHolder(''); setMethod('upi');
+   972→  };
+   973→
+   974→  const handleSubmit = async (e: React.FormEvent) => {
+   975→    e.preventDefault();
+   976→    const amountPaise = Math.round(parseFloat(amount) * 100);
+   977→    if (!amountPaise || amountPaise <= 0) { toast.error('Enter a valid amount'); return; }
+   978→    if (amountPaise > availableBalance) { toast.error(`Insufficient balance. Available: ₹${(availableBalance / 100).toLocaleString('en-IN')}`); return; }
+   979→    if (method === 'upi' && !upiId) { toast.error('Enter UPI ID'); return; }
+   980→    if (method === 'bank_transfer' && (!bankName || !accountNumber || !ifscCode || !accountHolder)) { toast.error('Fill all bank details'); return; }
+   981→
+   982→    setSubmitting(true);
+   983→    try {
+   984→      await api.withdrawals.create({
+   985→        userId, caregiverId, amount: amountPaise, method,
+   986→        upiId: method === 'upi' ? upiId : undefined,
+   987→        bankName: method === 'bank_transfer' ? bankName : undefined,
+   988→        accountNumber: method === 'bank_transfer' ? accountNumber : undefined,
+   989→        ifscCode: method === 'bank_transfer' ? ifscCode : undefined,
+   990→        accountHolder: method === 'bank_transfer' ? accountHolder : undefined,
+   991→      });
+   992→      toast.success('Withdrawal request submitted! Admin will process it soon.');
+   993→      setOpen(false);
+   994→      resetForm();
+   995→    } catch (err: any) {
+   996→      toast.error(err.message || 'Failed to submit withdrawal');
+   997→    } finally {
+   998→      setSubmitting(false);
+   999→    }
+  1000→  };
+  1001→
+  1002→  return (
+  1003→    <>
+  1004→      <Button onClick={() => setOpen(true)} className="btn-green text-sm gap-2 rounded-xl">
+  1005→        <Wallet className="h-4 w-4" /> Withdraw Funds
+  1006→      </Button>
+  1007→
+  1008→      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+  1009→        <DialogContent className="max-w-md rounded-2xl">
+  1010→          <DialogHeader>
+  1011→            <DialogTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-forest-800" /> Withdraw Funds</DialogTitle>
+  1012→            <DialogDescription>Available: <span className="font-semibold text-forest-700">₹{(availableBalance / 100).toLocaleString('en-IN')}</span></DialogDescription>
+  1013→          </DialogHeader>
+  1014→          <form onSubmit={handleSubmit} className="space-y-4 mt-3">
+  1015→            <div>
+  1016→              <Label className="text-xs font-medium text-gray-600">Amount (INR) *</Label>
+  1017→              <Input type="number" min="1" step="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Enter amount" className="mt-1 rounded-xl" required />
+  1018→            </div>
+  1019→
+  1020→            {/* Method Toggle */}
+  1021→            <div>
+  1022→              <Label className="text-xs font-medium text-gray-600 mb-2 block">Withdrawal Method</Label>
+  1023→              <div className="grid grid-cols-2 gap-2">
+  1024→                <button type="button" onClick={() => setMethod('upi')} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${method === 'upi' ? 'border-forest-500 bg-forest-50 text-forest-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+  1025→                  <Smartphone className="h-4 w-4" /> UPI
+  1026→                </button>
+  1027→                <button type="button" onClick={() => setMethod('bank_transfer')} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${method === 'bank_transfer' ? 'border-forest-500 bg-forest-50 text-forest-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+  1028→                  <Building2 className="h-4 w-4" /> Bank Transfer
+  1029→                </button>
+  1030→              </div>
+  1031→            </div>
+  1032→
+  1033→            {method === 'upi' ? (
+  1034→              <div>
+  1035→                <Label className="text-xs font-medium text-gray-600">UPI ID *</Label>
+  1036→                <Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="yourname@upi" className="mt-1 rounded-xl" required />
+  1037→              </div>
+  1038→            ) : (
+  1039→              <div className="space-y-3">
+  1040→                <div>
+  1041→                  <Label className="text-xs font-medium text-gray-600">Account Holder Name *</Label>
+  1042→                  <Input value={accountHolder} onChange={e => setAccountHolder(e.target.value)} placeholder="Full name" className="mt-1 rounded-xl" required />
+  1043→                </div>
+  1044→                <div>
+  1045→                  <Label className="text-xs font-medium text-gray-600">Bank Name *</Label>
+  1046→                  <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g., SBI, HDFC" className="mt-1 rounded-xl" required />
+  1047→                </div>
+  1048→                <div>
+  1049→                  <Label className="text-xs font-medium text-gray-600">Account Number *</Label>
+  1050→                  <Input value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/\D/g, ''))} placeholder="Enter account number" className="mt-1 rounded-xl" required />
+  1051→                </div>
+  1052→                <div>
+  1053→                  <Label className="text-xs font-medium text-gray-600">IFSC Code *</Label>
+  1054→                  <Input value={ifscCode} onChange={e => setIfscCode(e.target.value.toUpperCase())} placeholder="e.g., SBIN0001234" className="mt-1 rounded-xl font-mono" required />
+  1055→                </div>
+  1056→              </div>
+  1057→            )}
+  1058→
+  1059→            <div className="flex gap-2 pt-1">
+  1060→              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1 rounded-full">Cancel</Button>
+  1061→              <Button type="submit" disabled={submitting} className="btn-black flex-1 text-sm gap-2 rounded-full">
+  1062→                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+  1063→                {submitting ? 'Submitting...' : 'Submit Request'}
+  1064→              </Button>
+  1065→            </div>
+  1066→          </form>
+  1067→        </DialogContent>
+  1068→      </Dialog>
+  1069→    </>
+  1070→  );
+  1071→}
+  1072→
+  1073→/* ============================================================ */
+  1074→/* PROFILE TAB                                                   */
+  1075→/* ============================================================ */
+  1076→
+  1077→function ProfileTab({ user }: { user: User }) {
+  1078→  const profile = user.caregiverProfile;
+  1079→  const [editing, setEditing] = useState(false);
+  1080→  const skills = parseJsonSafe(profile?.skills);
+  1081→  const languages = parseJsonSafe(profile?.languages);
+  1082→
+  1083→  if (!profile) {
+  1084→    return (
+  1085→      <CreateProfileForm
+  1086→        userId={user.id}
+  1087→        onCreated={(createdProfile: any) => {
+  1088→          if (createdProfile) {
+  1089→            const current = useAuthStore.getState().user;
+  1090→            if (current) {
+  1091→              useAuthStore.getState().setAuth({
+  1092→                ...current,
+  1093→                caregiverProfile: createdProfile,
+  1094→              });
+  1095→              return;
+  1096→            }
+  1097→          }
+  1098→          api.auth.me(user.id).then(res => {
+  1099→            if (res.user) useAuthStore.getState().setAuth(res.user);
+  1100→          }).catch(() => {
+  1101→            window.location.reload();
+  1102→          });
+  1103→        }}
+  1104→      />
+  1105→    );
+  1106→  }
+  1107→
+  1108→  if (editing) {
+  1109→    return (
+  1110→      <EditProfileForm
+  1111→        profile={profile}
+  1112→        userId={user.id}
+  1113→        onSaved={async (updated) => {
+  1114→          setEditing(false);
+  1115→          // Re-fetch fresh user data from /api/auth/me to ensure correct format
+  1116→          try {
+  1117→            const me = await api.auth.me(user.id);
+  1118→            if (me.user) {
+  1119→              useAuthStore.getState().setAuth(me.user);
+  1120→            } else {
+  1121→              // Fallback: use the raw updated profile
+  1122→              const current = useAuthStore.getState().user;
+  1123→              if (current) {
+  1124→                useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
+  1125→              }
+  1126→            }
+  1127→          } catch {
+  1128→            // Last resort: fallback to raw update
+  1129→            const current = useAuthStore.getState().user;
+  1130→            if (current) {
+  1131→              useAuthStore.getState().setAuth({ ...current, caregiverProfile: updated });
+  1132→            }
+  1133→          }
+  1134→        }}
+  1135→        onCancel={() => setEditing(false)}
+  1136→      />
+  1137→    );
+  1138→  }
+  1139→
+  1140→  return (
+  1141→    <div className="space-y-6">
+  1142→      <div className="flex items-center justify-between">
+  1143→        <div>
+  1144→          <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
+  1145→          <p className="text-sm text-gray-400 mt-1">Your caregiver profile details as seen by families.</p>
+  1146→        </div>
+  1147→        <Button onClick={() => setEditing(true)} variant="outline" className="gap-2 rounded-xl text-sm border-forest-200 text-forest-700 hover:bg-forest-50">
+  1148→          <Pencil className="h-4 w-4" /> Edit Profile
+  1149→        </Button>
+  1150→      </div>
+  1151→
+  1152→      <motion.div
+  1153→        initial={{ opacity: 0, y: 12 }}
+  1154→        animate={{ opacity: 1, y: 0 }}
+  1155→        transition={{ duration: 0.3 }}
+  1156→      >
+  1157→        <Card className="rounded-2xl border-gray-100 overflow-hidden">
+  1158→          {/* Header Banner */}
+  1159→          <div className="green-gradient-bg h-28 sm:h-36 relative">
+  1160→            <div className="absolute -bottom-10 left-6">
+  1161→              <div className="w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center border-4 border-white">
+  1162→                <span className="text-2xl font-bold text-forest-900">
+  1163→                  {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+  1164→                </span>
+  1165→              </div>
+  1166→            </div>
+  1167→          </div>
+  1168→
+  1169→          <CardContent className="pt-14 pb-6 px-6">
+  1170→            {/* Name & Verification */}
+  1171→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+  1172→              <div>
+  1173→                <div className="flex items-center gap-2">
+  1174→                  <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
+  1175→                  {profile.isVerified && (
+  1176→                    <Badge className="bg-forest-100 text-forest-700 border-forest-200 rounded-full text-xs gap-1">
+  1177→                      <ShieldCheck className="h-3 w-3" /> Verified
+  1178→                    </Badge>
+  1179→                  )}
+  1180→                </div>
+  1181→                <p className="text-sm text-gray-400 mt-0.5">{user.email} · {user.phone}</p>
+  1182→              </div>
+  1183→              <div className="flex items-center gap-2 bg-forest-50 rounded-xl px-4 py-2">
+  1184→                <Star className="h-5 w-5 fill-lime-400 text-lime-400" />
+  1185→                <span className="text-lg font-bold text-gray-900">{profile.overallRating.toFixed(1)}</span>
+  1186→                <span className="text-xs text-gray-400">({profile.totalReviews} reviews)</span>
+  1187→              </div>
+  1188→            </div>
+  1189→
+  1190→            <Separator className="bg-gray-100 mb-6" />
+  1191→
+  1192→            {/* Info Grid */}
+  1193→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+  1194→              <div className="flex items-start gap-3">
+  1195→                <div className="w-10 h-10 rounded-xl bg-forest-50 flex items-center justify-center shrink-0">
+  1196→                  <MapPin className="h-5 w-5 text-forest-700" />
+  1197→                </div>
+  1198→                <div>
+  1199→                  <p className="text-xs text-gray-400 font-medium">City</p>
+  1200→                  <p className="text-sm font-semibold text-gray-800">{profile.city}</p>
+  1201→                </div>
+  1202→              </div>
+  1203→
+  1204→              <div className="flex items-start gap-3">
+  1205→                <div className="w-10 h-10 rounded-xl bg-lime-50 flex items-center justify-center shrink-0">
+  1206→                  <Briefcase className="h-5 w-5 text-lime-700" />
+  1207→                </div>
+  1208→                <div>
+  1209→                  <p className="text-xs text-gray-400 font-medium">Experience</p>
+  1210→                  <p className="text-sm font-semibold text-gray-800">{profile.yearsExperience} years</p>
+  1211→                </div>
+  1212→              </div>
+  1213→
+  1214→              <div className="flex items-start gap-3">
+  1215→                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+  1216→                  <IndianRupee className="h-5 w-5 text-amber-700" />
+  1217→                </div>
+  1218→                <div>
+  1219→                  <p className="text-xs text-gray-400 font-medium">Hourly Rate</p>
+  1220→                  <p className="text-sm font-semibold text-gray-800">₹{profile.hourlyRate}/hour</p>
+  1221→                </div>
+  1222→              </div>
+  1223→
+  1224→              <div className="flex items-start gap-3">
+  1225→                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+  1226→                  <CheckCircle2 className="h-5 w-5 text-purple-700" />
+  1227→                </div>
+  1228→                <div>
+  1229→                  <p className="text-xs text-gray-400 font-medium">Completed Jobs</p>
+  1230→                  <p className="text-sm font-semibold text-gray-800">{profile.completedJobs} jobs</p>
+  1231→                </div>
+  1232→              </div>
+  1233→
+  1234→              <div className="flex items-start gap-3">
+  1235→                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+  1236→                  <Star className="h-5 w-5 text-blue-700" />
+  1237→                </div>
+  1238→                <div>
+  1239→                  <p className="text-xs text-gray-400 font-medium">Rating</p>
+  1240→                  <p className="text-sm font-semibold text-gray-800">{profile.overallRating.toFixed(1)} / 5.0</p>
+  1241→                </div>
+  1242→              </div>
+  1243→
+  1244→              <div className="flex items-start gap-3">
+  1245→                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+  1246→                  <ShieldCheck className="h-5 w-5 text-green-700" />
+  1247→                </div>
+  1248→                <div>
+  1249→                  <p className="text-xs text-gray-400 font-medium">Verification</p>
+  1250→                  <p className={`text-sm font-semibold ${profile.isVerified ? 'text-green-700' : 'text-gray-500'}`}>
+  1251→                    {profile.isVerified ? 'Verified' : 'Pending Verification'}
+  1252→                  </p>
+  1253→                </div>
+  1254→              </div>
+  1255→            </div>
+  1256→
+  1257→            {/* Skills */}
+  1258→            {skills.length > 0 && (
+  1259→              <div className="mb-6">
+  1260→                <div className="flex items-center gap-2 mb-3">
+  1261→                  <Stethoscope className="h-4 w-4 text-gray-400" />
+  1262→                  <p className="text-sm font-semibold text-gray-700">Skills</p>
+  1263→                </div>
+  1264→                <div className="flex flex-wrap gap-2">
+  1265→                  {skills.map((skill) => (
+  1266→                    <Badge
+  1267→                      key={skill}
+  1268→                      variant="outline"
+  1269→                      className="bg-forest-50 text-forest-700 border-forest-200 rounded-full px-3 py-1 text-xs font-medium"
+  1270→                    >
+  1271→                      {skill}
+  1272→                    </Badge>
+  1273→                  ))}
+  1274→                </div>
+  1275→              </div>
+  1276→            )}
+  1277→
+  1278→            {/* Languages */}
+  1279→            {languages.length > 0 && (
+  1280→              <div className="mb-6">
+  1281→                <div className="flex items-center gap-2 mb-3">
+  1282→                  <Languages className="h-4 w-4 text-gray-400" />
+  1283→                  <p className="text-sm font-semibold text-gray-700">Languages</p>
+  1284→                </div>
+  1285→                <div className="flex flex-wrap gap-2">
+  1286→                  {languages.map((lang) => (
+  1287→                    <Badge
+  1288→                      key={lang}
+  1289→                      variant="outline"
+  1290→                      className="bg-lime-50 text-lime-700 border-lime-200 rounded-full px-3 py-1 text-xs font-medium"
+  1291→                    >
+  1292→                      {lang}
+  1293→                    </Badge>
+  1294→                  ))}
+  1295→                </div>
+  1296→              </div>
+  1297→            )}
+  1298→
+  1299→            {/* Bio */}
+  1300→            {profile.bio && (
+  1301→              <div className="mb-6">
+  1302→                <div className="flex items-center gap-2 mb-3">
+  1303→                  <FileText className="h-4 w-4 text-gray-400" />
+  1304→                  <p className="text-sm font-semibold text-gray-700">About</p>
+  1305→                </div>
+  1306→                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4">
+  1307→                  {profile.bio}
+  1308→                </p>
+  1309→              </div>
+  1310→            )}
+  1311→
+  1312→            {/* Phone Verification */}
+  1313→            <PhoneVerificationSection user={user} />
+  1314→
+  1315→            {/* Verification Progress */}
+  1316→            <VerificationProgressSection caregiverId={profile.id} user={user} />
+  1317→          </CardContent>
+  1318→        </Card>
+  1319→      </motion.div>
+  1320→    </div>
+  1321→  );
+  1322→}
+  1323→
+  1324→/* ============================================================ */
+  1325→/* VERIFICATION PROGRESS SECTION                                   */
+  1326→/* ============================================================ */
+  1327→
+  1328→type DocStatus = 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  1329→
+  1330→function VerificationProgressSection({ caregiverId, user }: { caregiverId: string; user: User }) {
+  1331→  const [aadhaarStatus, setAadhaarStatus] = useState<DocStatus>('NOT_UPLOADED');
+  1332→  const [idCardStatus, setIdCardStatus] = useState<DocStatus>('NOT_UPLOADED');
+  1333→  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  1334→  const [idCardFile, setIdCardFile] = useState<File | null>(null);
+  1335→  const [aadhaarNumber, setAadhaarNumber] = useState('');
+  1336→  const [uploading, setUploading] = useState<string | null>(null);
+  1337→
+  1338→  const phoneDone = !!user.phoneVerified;
+  1339→  const aadhaarDone = aadhaarStatus === 'APPROVED';
+  1340→  const idCardDone = idCardStatus === 'APPROVED';
+  1341→  const completedCount = [phoneDone, aadhaarDone, idCardDone].filter(Boolean).length;
+  1342→  const allDone = completedCount === 3;
+  1343→
+  1344→  // Fetch verification statuses on mount
+  1345→  useEffect(() => {
+  1346→    if (user.caregiverProfile?.isVerified) {
+  1347→      setAadhaarStatus('APPROVED');
+  1348→      setIdCardStatus('APPROVED');
+  1349→      return;
+  1350→    }
+  1351→    (async () => {
+  1352→      try {
+  1353→        const res = await fetch(`/api/caregivers/${caregiverId}`);
+  1354→        if (!res.ok) return;
+  1355→        const data = await res.json();
+  1356→        const verifications = data.caregiver?.verifications || [];
+  1357→        for (const v of verifications) {
+  1358→          if (v.docType === 'AADHAAR') setAadhaarStatus(v.status as DocStatus);
+  1359→          if (v.docType === 'ID_CARD') setIdCardStatus(v.status as DocStatus);
+  1360→        }
+  1361→      } catch {
+  1362→        // silently fail — local state stays NOT_UPLOADED
+  1363→      }
+  1364→    })();
+  1365→  }, [caregiverId, user.caregiverProfile?.isVerified]);
+  1366→
+  1367→  const formatAadhar = (value: string) => {
+  1368→    const digits = value.replace(/\D/g, '').slice(0, 12);
+  1369→    if (digits.length <= 4) return digits;
+  1370→    if (digits.length <= 8) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+  1371→    return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
+  1372→  };
+  1373→
+  1374→  const handleUpload = async (docType: 'AADHAAR' | 'ID_CARD') => {
+  1375→    const file = docType === 'AADHAAR' ? aadhaarFile : idCardFile;
+  1376→    if (!file) {
+  1377→      toast.error('Please select an image first');
+  1378→      return;
+  1379→    }
+  1380→    if (docType === 'AADHAAR' && aadhaarNumber.replace(/\s/g, '').length !== 12) {
+  1381→      toast.error('Enter complete 12-digit Aadhaar number');
+  1382→      return;
+  1383→    }
+  1384→    setUploading(docType);
+  1385→    try {
+  1386→      const formData = new FormData();
+  1387→      formData.append('caregiverId', caregiverId);
+  1388→      formData.append('docType', docType);
+  1389→      formData.append('file', file);
+  1390→      if (docType === 'AADHAAR') formData.append('docNumber', aadhaarNumber.replace(/\s/g, ''));
+  1391→      const res = await fetch('/api/caregiver/upload-document', { method: 'POST', body: formData });
+  1392→      if (!res.ok) {
+  1393→        const err = await res.json();
+  1394→        throw new Error(err.error || 'Upload failed');
+  1395→      }
+  1396→      toast.success(`${docType === 'AADHAAR' ? 'Aadhaar card' : 'ID card'} uploaded successfully! It will be reviewed shortly.`);
+  1397→      if (docType === 'AADHAAR') {
+  1398→        setAadhaarStatus('PENDING');
+  1399→        setAadhaarFile(null);
+  1400→      } else {
+  1401→        setIdCardStatus('PENDING');
+  1402→        setIdCardFile(null);
+  1403→      }
+  1404→    } catch (err: any) {
+  1405→      toast.error(err.message || 'Upload failed');
+  1406→    } finally {
+  1407→      setUploading(null);
+  1408→    }
+  1409→  };
+  1410→
+  1411→  const statusBadge = (status: DocStatus) => {
+  1412→    if (status === 'APPROVED') return <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">✅ Approved</Badge>;
+  1413→    if (status === 'PENDING') return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs">⏳ Under Review</Badge>;
+  1414→    if (status === 'REJECTED') return <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">❌ Rejected — Upload again</Badge>;
+  1415→    return null;
+  1416→  };
+  1417→
+  1418→  return (
+  1419→    <div className="mt-6 space-y-5">
+  1420→      {/* Incentive Banner */}
+  1421→      {allDone ? (
+  1422→        <div className="rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 p-5 flex items-center gap-4 shadow-sm">
+  1423→          <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+  1424→            <CheckCircle2 className="h-7 w-7 text-white" />
+  1425→          </div>
+  1426→          <div>
+  1427→            <p className="text-base font-bold text-white">You&apos;re a Verified Caregiver!</p>
+  1428→            <p className="text-sm text-emerald-100 mt-0.5">All verification steps complete. Enjoy higher visibility and more bookings.</p>
+  1429→          </div>
+  1430→        </div>
+  1431→      ) : (
+  1432→        <div className="rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 p-5 shadow-sm">
+  1433→          <div className="flex items-center gap-3 mb-3">
+  1434→            <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+  1435→              <Sparkles className="h-4 w-4 text-yellow-200" />
+  1436→            </div>
+  1437→            <p className="text-base font-bold text-white">Get Verified — Get More Bookings</p>
+  1438→          </div>
+  1439→          <ul className="space-y-2">
+  1440→            {[
+  1441→              '40% higher visibility in search results',
+  1442→              'Priority matching for new bookings',
+  1443→              'Trusted verified badge on your profile',
+  1444→            ].map((item) => (
+  1445→              <li key={item} className="flex items-start gap-2 text-sm text-emerald-100">
+  1446→                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
+  1447→                  <ChevronRight className="h-3 w-3 text-white" />
+  1448→                </div>
+  1449→                {item}
+  1450→              </li>
+  1451→            ))}
+  1452→          </ul>
+  1453→        </div>
+  1454→      )}
+  1455→
+  1456→      {/* Progress Steps */}
+  1457→      <div className="bg-gray-50 rounded-2xl p-5">
+  1458→        <div className="flex items-center gap-2 mb-4">
+  1459→          <ShieldCheck className="h-4 w-4 text-forest-700" />
+  1460→          <p className="text-sm font-semibold text-gray-700">Verification Progress</p>
+  1461→          <Badge variant="outline" className="ml-auto text-xs">{completedCount}/3</Badge>
+  1462→        </div>
+  1463→        <div className="space-y-4">
+  1464→          {/* Step 1: Phone */}
+  1465→          <div className="flex items-center gap-3">
+  1466→            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${phoneDone ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+  1467→              {phoneDone ? '✓' : '1'}
+  1468→            </div>
+  1469→            <div className="flex-1 min-w-0">
+  1470→              <p className={`text-sm font-medium ${phoneDone ? 'text-green-800' : 'text-gray-700'}`}>Phone Verification</p>
+  1471→              <p className="text-xs text-gray-400">{phoneDone ? 'Verified' : 'Not verified — see above'}</p>
+  1472→            </div>
+  1473→            {phoneDone && <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />}
+  1474→          </div>
+  1475→          {/* Step 2: Aadhaar */}
+  1476→          <div className="flex items-center gap-3">
+  1477→            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${aadhaarDone ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+  1478→              {aadhaarDone ? '✓' : '2'}
+  1479→            </div>
+  1480→            <div className="flex-1 min-w-0">
+  1481→              <p className={`text-sm font-medium ${aadhaarDone ? 'text-green-800' : 'text-gray-700'}`}>Aadhaar Card</p>
+  1482→              <div className="flex items-center gap-2 mt-0.5">
+  1483→                {statusBadge(aadhaarStatus) || <p className="text-xs text-gray-400">Not uploaded</p>}
+  1484→              </div>
+  1485→            </div>
+  1486→            {aadhaarDone && <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />}
+  1487→          </div>
+  1488→          {/* Step 3: ID Card */}
+  1489→          <div className="flex items-center gap-3">
+  1490→            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${idCardDone ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+  1491→              {idCardDone ? '✓' : '3'}
+  1492→            </div>
+  1493→            <div className="flex-1 min-w-0">
+  1494→              <p className={`text-sm font-medium ${idCardDone ? 'text-green-800' : 'text-gray-700'}`}>ID Card</p>
+  1495→              <div className="flex items-center gap-2 mt-0.5">
+  1496→                {statusBadge(idCardStatus) || <p className="text-xs text-gray-400">Not uploaded</p>}
+  1497→              </div>
+  1498→            </div>
+  1499→            {idCardDone && <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />}
+  1500→          </div>
+  1501→        </div>
+  1502→      </div>
+  1503→
+  1504→      {/* Aadhaar Upload */}
+  1505→      <div className="relative rounded-2xl overflow-hidden">
+  1506→        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-green-500/5 to-teal-500/10 pointer-events-none" />
+  1507→        <div className="relative bg-white border border-emerald-200/60 rounded-2xl p-5">
+  1508→          <div className="flex items-center gap-3 mb-4">
+  1509→            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm">
+  1510→              <FileText className="h-4 w-4 text-white" />
+  1511→            </div>
+  1512→            <div className="flex-1">
+  1513→              <p className="text-sm font-bold text-gray-800">Aadhaar Card Upload</p>
+  1514→              <p className="text-xs text-gray-400">Government-issued identity proof</p>
+  1515→            </div>
+  1516→            {statusBadge(aadhaarStatus)}
+  1517→          </div>
+  1518→          {aadhaarStatus === 'APPROVED' ? (
+  1519→            <div className="flex items-center gap-3 py-3 bg-green-50 rounded-xl px-4">
+  1520→              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+  1521→                <CheckCircle2 className="h-4 w-4 text-white" />
+  1522→              </div>
+  1523→              <div>
+  1524→                <p className="text-sm font-semibold text-green-800">Approved</p>
+  1525→                <p className="text-xs text-green-600">Your Aadhaar card has been verified</p>
+  1526→              </div>
+  1527→            </div>
+  1528→          ) : aadhaarStatus === 'PENDING' ? (
+  1529→            <div className="flex items-center gap-3 py-3 bg-amber-50 rounded-xl px-4">
+  1530→              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
+  1531→                <Loader2 className="h-4 w-4 text-white animate-spin" />
+  1532→              </div>
+  1533→              <div>
+  1534→                <p className="text-sm font-semibold text-amber-800">Under Review</p>
+  1535→                <p className="text-xs text-amber-600">We&apos;ll notify you once approved</p>
+  1536→              </div>
+  1537→            </div>
+  1538→          ) : (
+  1539→            <div className="space-y-3">
+  1540→              <div>
+  1541→                <Label className="text-xs text-gray-500 mb-1.5 block font-medium">Aadhaar Number</Label>
+  1542→                <div className="relative">
+  1543→                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+  1544→                  <Input
+  1545→                    value={aadhaarNumber}
+  1546→                    onChange={(e) => setAadhaarNumber(formatAadhar(e.target.value))}
+  1547→                    placeholder="XXXX XXXX XXXX"
+  1548→                    className="pl-10 rounded-xl font-mono tracking-wider border-gray-200"
+  1549→                    maxLength={14}
+  1550→                  />
+  1551→                </div>
+  1552→              </div>
+  1553→              <div>
+  1554→                <Label className="text-xs text-gray-500 mb-1.5 block font-medium">Upload Aadhaar Card Image</Label>
+  1555→                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 cursor-pointer hover:bg-emerald-50 hover:border-emerald-400 transition-colors group">
+  1556→                  <Upload className="h-6 w-6 text-emerald-400 group-hover:text-emerald-500 transition-colors mb-1" />
+  1557→                  <p className="text-xs font-medium text-emerald-700">Click to upload</p>
+  1558→                  <p className="text-xs text-emerald-500/70">JPG, PNG, or WebP · Max 5 MB</p>
+  1559→                  <input type="file" accept="image/*" onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)} className="hidden" />
+  1560→                </label>
+  1561→                {aadhaarFile && (
+  1562→                  <p className="text-xs text-emerald-600 mt-1.5 font-medium">{aadhaarFile.name}</p>
+  1563→                )}
+  1564→              </div>
+  1565→              <Button
+  1566→                onClick={() => handleUpload('AADHAAR')}
+  1567→                disabled={uploading === 'AADHAAR' || !aadhaarFile}
+  1568→                className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-sm gap-2 rounded-xl w-full shadow-sm text-white font-semibold"
+  1569→              >
+  1570→                {uploading === 'AADHAAR' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+  1571→                {uploading === 'AADHAAR' ? 'Uploading...' : 'Upload Aadhaar Card'}
+  1572→              </Button>
+  1573→            </div>
+  1574→          )}
+  1575→        </div>
+  1576→      </div>
+  1577→
+  1578→      {/* ID Card Upload */}
+  1579→      <div className="relative rounded-2xl overflow-hidden">
+  1580→        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 pointer-events-none" />
+  1581→        <div className="relative bg-white border border-violet-200/60 rounded-2xl p-5">
+  1582→          <div className="flex items-center gap-3 mb-4">
+  1583→            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+  1584→              <FileText className="h-4 w-4 text-white" />
+  1585→            </div>
+  1586→            <div className="flex-1">
+  1587→              <p className="text-sm font-bold text-gray-800">ID Card Upload</p>
+  1588→              <p className="text-xs text-gray-400">Any government-issued photo ID</p>
+  1589→            </div>
+  1590→            {statusBadge(idCardStatus)}
+  1591→          </div>
+  1592→          {idCardStatus === 'APPROVED' ? (
+  1593→            <div className="flex items-center gap-3 py-3 bg-green-50 rounded-xl px-4">
+  1594→              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+  1595→                <CheckCircle2 className="h-4 w-4 text-white" />
+  1596→              </div>
+  1597→              <div>
+  1598→                <p className="text-sm font-semibold text-green-800">Approved</p>
+  1599→                <p className="text-xs text-green-600">Your ID card has been verified</p>
+  1600→              </div>
+  1601→            </div>
+  1602→          ) : idCardStatus === 'PENDING' ? (
+  1603→            <div className="flex items-center gap-3 py-3 bg-amber-50 rounded-xl px-4">
+  1604→              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
+  1605→                <Loader2 className="h-4 w-4 text-white animate-spin" />
+  1606→              </div>
+  1607→              <div>
+  1608→                <p className="text-sm font-semibold text-amber-800">Under Review</p>
+  1609→                <p className="text-xs text-amber-600">We&apos;ll notify you once approved</p>
+  1610→              </div>
+  1611→            </div>
+  1612→          ) : (
+  1613→            <div className="space-y-3">
+  1614→              <div>
+  1615→                <Label className="text-xs text-gray-500 mb-1.5 block font-medium">Upload Government ID Card Image</Label>
+  1616→                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50/50 cursor-pointer hover:bg-violet-50 hover:border-violet-400 transition-colors group">
+  1617→                  <Upload className="h-6 w-6 text-violet-400 group-hover:text-violet-500 transition-colors mb-1" />
+  1618→                  <p className="text-xs font-medium text-violet-700">Click to upload</p>
+  1619→                  <p className="text-xs text-violet-500/70">JPG, PNG, or WebP · Max 5 MB</p>
+  1620→                  <input type="file" accept="image/*" onChange={(e) => setIdCardFile(e.target.files?.[0] || null)} className="hidden" />
+  1621→                </label>
+  1622→                {idCardFile && (
+  1623→                  <p className="text-xs text-violet-600 mt-1.5 font-medium">{idCardFile.name}</p>
+  1624→                )}
+  1625→              </div>
+  1626→              <Button
+  1627→                onClick={() => handleUpload('ID_CARD')}
+  1628→                disabled={uploading === 'ID_CARD' || !idCardFile}
+  1629→                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-sm gap-2 rounded-xl w-full shadow-sm text-white font-semibold"
+  1630→              >
+  1631→                {uploading === 'ID_CARD' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+  1632→                {uploading === 'ID_CARD' ? 'Uploading...' : 'Upload ID Card'}
+  1633→              </Button>
+  1634→            </div>
+  1635→          )}
+  1636→        </div>
+  1637→      </div>
+  1638→    </div>
+  1639→  );
+  1640→}
+  1641→
+  1642→/* ============================================================ */
+  1643→/* BOOKINGS TAB                                                  */
+  1644→/* ============================================================ */
+  1645→
+  1646→function BookingsTab({ user }: { user: User }) {
+  1647→  const profile = user.caregiverProfile;
+  1648→  const [bookings, setBookings] = useState<Booking[]>([]);
+  1649→  const [loading, setLoading] = useState(true);
+  1650→  const [error, setError] = useState('');
+  1651→  const [completingId, setCompletingId] = useState<string | null>(null);
+  1652→  const [statusFilter, setStatusFilter] = useState('');
+  1653→
+  1654→  const fetchBookings = useCallback(async () => {
+  1655→    if (!profile?.id) return;
+  1656→    setLoading(true);
+  1657→    setError('');
+  1658→    try {
+  1659→      const params: any = { caregiverId: profile.id };
+  1660→      if (statusFilter) params.status = statusFilter;
+  1661→      const res = await api.bookings.list(params);
+  1662→      const mapped = (res.bookings || []).map((b: any) => ({
+  1663→        ...b,
+  1664→        date: b.startDate,
+  1665→        patientName: b.patient?.name,
+  1666→        familyName: b.family?.name,
+  1667→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+  1668→      }));
+  1669→      setBookings(mapped);
+  1670→    } catch (err: any) {
+  1671→      setError(err.message || 'Failed to load bookings');
+  1672→    } finally {
+  1673→      setLoading(false);
+  1674→    }
+  1675→  }, [profile?.id, statusFilter]);
+  1676→
+  1677→  useEffect(() => {
+  1678→    fetchBookings();
+  1679→  }, [fetchBookings]);
+  1680→
+  1681→  const handleStatusChange = async (bookingId: string, status: string, reason?: string) => {
+  1682→    setCompletingId(bookingId);
+  1683→    try {
+  1684→      await api.bookings.updateStatus(bookingId, { status, cancellationReason: reason });
+  1685→      const labels: Record<string, string> = {
+  1686→        CONFIRMED: 'Booking accepted!',
+  1687→        IN_PROGRESS: 'Care started!',
+  1688→        COMPLETED: 'Booking completed!',
+  1689→        CANCELLED: 'Booking declined.',
+  1690→      };
+  1691→      toast.success(labels[status] || `Booking updated`);
+  1692→      fetchBookings();
+  1693→    } catch (err: any) {
+  1694→      toast.error(err.message || 'Failed to update booking');
+  1695→    } finally {
+  1696→      setCompletingId(null);
+  1697→    }
+  1698→  };
+  1699→
+  1700→  if (error) {
+  1701→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1702→  }
+  1703→
+  1704→  if (bookings.length === 0) {
+  1705→    return (
+  1706→      <div className="space-y-6">
+  1707→        <div>
+  1708→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+  1709→          <p className="text-sm text-gray-400 mt-1">Manage all your care bookings.</p>
+  1710→        </div>
+  1711→        <EmptyState
+  1712→          icon={<CalendarCheck className="h-7 w-7" />}
+  1713→          title="No bookings yet"
+  1714→          description="When families book your services, their requests will appear here."
+  1715→        />
+  1716→      </div>
+  1717→    );
+  1718→  }
+  1719→
+  1720→  const sorted = [...bookings].sort(
+  1721→    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  1722→  );
+  1723→
+  1724→  return (
+  1725→    <div className="space-y-6">
+  1726→      <div className="flex items-center justify-between flex-wrap gap-3">
+  1727→        <div>
+  1728→          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+  1729→          <p className="text-sm text-gray-400 mt-1">Manage and respond to care booking requests.</p>
+  1730→        </div>
+  1731→        <Button
+  1732→          variant="outline"
+  1733→          size="sm"
+  1734→          onClick={fetchBookings}
+  1735→          className="rounded-xl gap-1.5"
+  1736→        >
+  1737→          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+  1738→        </Button>
+  1739→      </div>
+  1740→
+  1741→      <div className="flex gap-2 flex-wrap">
+  1742→        {['', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
+  1743→          <Button
+  1744→            key={f}
+  1745→            variant={statusFilter === f ? 'default' : 'outline'}
+  1746→            size="sm"
+  1747→            className={statusFilter === f ? 'bg-[#14532d] hover:bg-[#14532d]/90 text-white rounded-full' : 'rounded-full'}
+  1748→            onClick={() => setStatusFilter(f)}
+  1749→          >
+  1750→            {f || 'All'}
+  1751→          </Button>
+  1752→        ))}
+  1753→      </div>
+  1754→
+  1755→      <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+  1756→        {sorted.map((booking, i) => (
+  1757→          <motion.div
+  1758→            key={booking.id}
+  1759→            initial={{ opacity: 0, y: 8 }}
+  1760→            animate={{ opacity: 1, y: 0 }}
+  1761→            transition={{ delay: i * 0.03 }}
+  1762→          >
+  1763→            <Card className="rounded-2xl border-gray-100 hover:shadow-sm transition-shadow">
+  1764→              <CardContent className="p-4">
+  1765→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  1766→                  <div className="flex items-start gap-3 min-w-0 flex-1">
+  1767→                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+  1768→                      booking.status === 'IN_PROGRESS'
+  1769→                        ? 'bg-green-100 text-green-700'
+  1770→                        : booking.status === 'COMPLETED'
+  1771→                        ? 'bg-gray-100 text-gray-500'
+  1772→                        : 'bg-forest-50 text-forest-700'
+  1773→                    }`}>
+  1774→                      <UserRound className="h-5 w-5" />
+  1775→                    </div>
+  1776→                    <div className="min-w-0">
+  1777→                      <div className="flex items-center gap-2 flex-wrap">
+  1778→                        <p className="text-sm font-semibold text-gray-800">
+  1779→                          {booking.patientName || 'Patient'}
+  1780→                        </p>
+  1781→                        <Badge
+  1782→                          variant="outline"
+  1783→                          className={`text-[11px] rounded-full ${statusColors[booking.status] || ''}`}
+  1784→                        >
+  1785→                          {statusLabels[booking.status] || booking.status}
+  1786→                        </Badge>
+  1787→                      </div>
+  1788→                      <p className="text-xs text-gray-400 mt-0.5">
+  1789→                        {booking.familyName && `${booking.familyName} · `}
+  1790→                        {formatDate(booking.date)} · {booking.shiftType || `${booking.startTime || '—'} - ${booking.endTime || '—'}`}
+  1791→                      </p>
+  1792→                      {booking.careType && (
+  1793→                        <p className="text-xs text-gray-500 mt-0.5">{booking.careType}</p>
+  1794→                      )}
+  1795→                    </div>
+  1796→                  </div>
+  1797→
+  1798→                  <div className="flex items-center gap-2 sm:shrink-0 flex-wrap">
+  1799→                    {booking.totalAmount && (
+  1800→                      <span className="text-sm font-semibold text-gray-700">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+  1801→                    )}
+  1802→                    {booking.status === 'PENDING' && (
+  1803→                      <>
+  1804→                        <Button
+  1805→                          size="sm"
+  1806→                          onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
+  1807→                          disabled={completingId === booking.id}
+  1808→                          className="btn-green text-xs px-3 h-8"
+  1809→                        >
+  1810→                          {completingId === booking.id ? (
+  1811→                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1812→                          ) : (
+  1813→                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Accept</>
+  1814→                          )}
+  1815→                        </Button>
+  1816→                        <Button
+  1817→                          size="sm"
+  1818→                          variant="outline"
+  1819→                          onClick={() => handleStatusChange(booking.id, 'CANCELLED', 'Caregiver declined the booking')}
+  1820→                          disabled={completingId === booking.id}
+  1821→                          className="text-red-600 border-red-200 hover:bg-red-50 text-xs px-3 h-8 rounded-full"
+  1822→                        >
+  1823→                          <XCircle className="h-3.5 w-3.5 mr-1" />
+  1824→                          Decline
+  1825→                        </Button>
+  1826→                      </>
+  1827→                    )}
+  1828→                    {booking.status === 'CONFIRMED' && (
+  1829→                      <Button
+  1830→                        size="sm"
+  1831→                        onClick={() => handleStatusChange(booking.id, 'IN_PROGRESS')}
+  1832→                        disabled={completingId === booking.id}
+  1833→                        className="btn-black text-xs px-3 h-8"
+  1834→                      >
+  1835→                        {completingId === booking.id ? (
+  1836→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1837→                        ) : (
+  1838→                          <><Play className="h-3.5 w-3.5 mr-1" />Start Care</>
+  1839→                        )}
+  1840→                      </Button>
+  1841→                    )}
+  1842→                    {booking.status === 'IN_PROGRESS' && (
+  1843→                      <Button
+  1844→                        size="sm"
+  1845→                        onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
+  1846→                        disabled={completingId === booking.id}
+  1847→                        className="btn-green text-xs px-4 h-8"
+  1848→                      >
+  1849→                        {completingId === booking.id ? (
+  1850→                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1851→                        ) : (
+  1852→                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Complete</>
+  1853→                        )}
+  1854→                      </Button>
+  1855→                    )}
+  1856→                  </div>
+  1857→                </div>
+  1858→              </CardContent>
+  1859→            </Card>
+  1860→          </motion.div>
+  1861→        ))}
+  1862→      </div>
+  1863→    </div>
+  1864→  );
+  1865→}
+  1866→
+  1867→/* ============================================================ */
+  1868→/* SUBMIT REPORT TAB                                             */
+  1869→/* ============================================================ */
+  1870→
+  1871→const ACTIVITY_OPTIONS = [
+  1872→  { value: 'feeding', label: 'Feeding' },
+  1873→  { value: 'bathing', label: 'Bathing' },
+  1874→  { value: 'hygiene', label: 'Hygiene' },
+  1875→  { value: 'mobility', label: 'Mobility' },
+  1876→  { value: 'medicine', label: 'Medicine' },
+  1877→  { value: 'exercise', label: 'Exercise' },
+  1878→  { value: 'companionship', label: 'Companionship' },
+  1879→  { value: 'vital_check', label: 'Vital Check' },
+  1880→  { value: 'wound_care', label: 'Wound Care' },
+  1881→];
+  1882→
+  1883→function SubmitReportTab({ user }: { user: User }) {
+  1884→  const profile = user.caregiverProfile;
+  1885→  const [bookings, setBookings] = useState<Booking[]>([]);
+  1886→  const [loading, setLoading] = useState(true);
+  1887→  const [error, setError] = useState('');
+  1888→  const [submitting, setSubmitting] = useState(false);
+  1889→
+  1890→  const [selectedBookingId, setSelectedBookingId] = useState('');
+  1891→  const [reportDate, setReportDate] = useState(getTodayDate());
+  1892→  const [activities, setActivities] = useState('');
+  1893→  const [summary, setSummary] = useState('');
+  1894→  const [mood, setMood] = useState('');
+  1895→  const [foodIntake, setFoodIntake] = useState('');
+  1896→  const [medicines, setMedicines] = useState('');
+  1897→  const [concerns, setConcerns] = useState('');
+  1898→
+  1899→  const fetchBookings = useCallback(async () => {
+  1900→    if (!profile?.id) return;
+  1901→    setLoading(true);
+  1902→    setError('');
+  1903→    try {
+  1904→      const res = await api.bookings.list({ caregiverId: profile.id });
+  1905→      const mapped = (res.bookings || []).map((b: any) => ({
+  1906→        ...b,
+  1907→        date: b.startDate,
+  1908→        patientName: b.patient?.name,
+  1909→        familyName: b.family?.name,
+  1910→        careType: b.careRequirements ? (typeof b.careRequirements === 'string' ? JSON.parse(b.careRequirements) : b.careRequirements)?.needs?.join(', ') : undefined,
+  1911→      }));
+  1912→      const eligible = mapped.filter((b: any) =>
+  1913→        ['IN_PROGRESS', 'CONFIRMED'].includes(b.status)
+  1914→      );
+  1915→      setBookings(eligible);
+  1916→      if (eligible.length > 0 && !selectedBookingId) {
+  1917→        setSelectedBookingId(eligible[0].id);
+  1918→      }
+  1919→    } catch (err: any) {
+  1920→      setError(err.message || 'Failed to load bookings');
+  1921→    } finally {
+  1922→      setLoading(false);
+  1923→    }
+  1924→  }, [profile?.id]);
+  1925→
+  1926→  useEffect(() => {
+  1927→    fetchBookings();
+  1928→  }, [fetchBookings]);
+  1929→
+  1930→  const resetForm = () => {
+  1931→    setActivities('');
+  1932→    setSummary('');
+  1933→    setMood('');
+  1934→    setFoodIntake('');
+  1935→    setMedicines('');
+  1936→    setConcerns('');
+  1937→  };
+  1938→
+  1939→  const handleSubmit = async (e: React.FormEvent) => {
+  1940→    e.preventDefault();
+  1941→    if (!selectedBookingId) {
+  1942→      toast.error('Please select a booking.');
+  1943→      return;
+  1944→    }
+  1945→    if (!reportDate) {
+  1946→      toast.error('Please select a report date.');
+  1947→      return;
+  1948→    }
+  1949→
+  1950→    setSubmitting(true);
+  1951→    try {
+  1952→      const activityList = activities
+  1953→        .split(',')
+  1954→        .map((a) => a.trim())
+  1955→        .filter(Boolean);
+  1956→
+  1957→      const medicineLines = medicines
+  1958→        .split('\n')
+  1959→        .map((line) => line.trim())
+  1960→        .filter(Boolean);
+  1961→
+  1962→      const medicineEntries = medicineLines.map((line) => {
+  1963→        const parts = line.split(',').map((p) => p.trim());
+  1964→        return {
+  1965→          name: parts[0] || '',
+  1966→          time: parts[1] || '',
+  1967→          given: parts[2]?.toLowerCase() === 'yes',
+  1968→        };
+  1969→      });
+  1970→
+  1971→      await api.reports.create({
+  1972→        bookingId: selectedBookingId,
+  1973→        caregiverId: profile?.id,
+  1974→        reportDate,
+  1975→        activities: JSON.stringify(activityList),
+  1976→        summary,
+  1977→        mood,
+  1978→        foodIntake,
+  1979→        medicinesGiven: JSON.stringify(medicineEntries),
+  1980→        concerns,
+  1981→      });
+  1982→
+  1983→      toast.success('Care report submitted successfully!');
+  1984→      resetForm();
+  1985→    } catch (err: any) {
+  1986→      toast.error(err.message || 'Failed to submit report');
+  1987→    } finally {
+  1988→      setSubmitting(false);
+  1989→    }
+  1990→  };
+  1991→
+  1992→  if (error) {
+  1993→    return <ErrorState message={error} onRetry={fetchBookings} />;
+  1994→  }
+  1995→
+  1996→  if (bookings.length === 0) {
+  1997→    return (
+  1998→      <div className="space-y-6">
+  1999→        <div>
+  2000→          <h2 className="text-2xl font-bold text-gray-900">Submit Care Report</h2>
+
+[showing lines 1-2000 of 2698; use offset=2001 with limit to continue reading]
