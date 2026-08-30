@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
+import { useHydrated } from "@/hooks/useHydrated";
 
 const navLinks = [
   { label: "How It Works", href: "#how-it-works" },
@@ -33,7 +34,10 @@ export default function Navbar({
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const user = useAuthStore((s) => s.user);
+  const hydrated = useHydrated();
+  // Treat user as null until client hydration to prevent mismatch
+  const rawUser = useAuthStore((s) => s.user);
+  const user = hydrated ? rawUser : null;
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   useEffect(() => {

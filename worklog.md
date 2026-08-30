@@ -910,3 +910,20 @@ Stage Summary:
 - Hydration mismatch completely resolved using React's `useSyncExternalStore` pattern
 - Lint passes clean (no `set-state-in-effect` warning)
 - Firebase phone auth code is correct — the `operation-not-allowed` error requires Firebase Console configuration changes (region settings, not code)
+---
+Task ID: 22
+Agent: main
+Task: Fix Navbar hydration mismatch (second hydration error)
+
+Work Log:
+- Diagnosed second hydration error: Navbar reads `user` from authStore on line 36, causing server (user=null → nav links rendered) vs client (user from localStorage → nav links hidden)
+- Extracted `useHydrated()` hook to shared file `src/hooks/useHydrated.ts` using `useSyncExternalStore`
+- Updated Navbar to use `useHydrated()` — treats `user` as `null` until client hydration completes
+- Updated page.tsx to import from shared hook instead of inline definition
+- Verified zero hydration errors via Agent Browser (both with and without auth)
+- Lint passes clean, dev log shows only 200 responses
+
+Stage Summary:
+- All hydration mismatches resolved
+- Shared `useHydrated()` hook available for any future components that need client-only state
+- Firebase `auth/operation-not-allowed` remains a Firebase Console config issue (not code)

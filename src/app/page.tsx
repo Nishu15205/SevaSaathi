@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useSyncExternalStore } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { useHydrated } from "@/hooks/useHydrated";
 
 import Navbar from "@/components/sevasaathi/Navbar";
 import HeroSection from "@/components/sevasaathi/HeroSection";
@@ -82,12 +83,6 @@ function LandingPage({ onGoDashboard }: { onGoDashboard: () => void }) {
       </AnimatePresence>
     </div>
   );
-}
-
-// Stable subscription for hydration-safe mounted detection
-const emptySubscribe = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(emptySubscribe, () => true, () => false);
 }
 
 export default function Home() {
