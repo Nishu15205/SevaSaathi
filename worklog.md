@@ -873,3 +873,22 @@ Stage Summary:
 - Phone verification now works even without Firebase SMS: OTP goes to user's email via Brevo
 - Flow: Click Send OTP → try Firebase → fails → auto-sends email OTP → user enters in dialog → verified
 - Backend stores OTP securely (salted hash), 10-min expiry
+
+---
+Task ID: firebase-sms-only
+Agent: main
+Task: Make phone verification Firebase SMS only, remove email fallback, show helpful error guide for operation-not-allowed
+
+Work Log:
+- Rewrote PhoneVerification.tsx — Firebase SMS only, no email fallback
+- Updated useFirebasePhoneAuth hook — returns 'operation-not-allowed' as raw identifier for component to detect
+- Updated CaregiverDashboard.tsx OverviewTab — removed email OTP fallback, added comprehensive fix guide dialog for operation-not-allowed error
+- Fix guide shows two solutions: (1) Enable Identity Toolkit API in Google Cloud Console with direct link, (2) Add test phone numbers in Firebase Console as instant workaround
+- Removed unused Mail import from CaregiverDashboard
+- Verified: no lint errors, compilation successful, browser renders correctly
+- Browser test showed Firebase reCAPTCHA actually appearing (SMS service may be working now, reCAPTCHA blocks headless browser)
+
+Stage Summary:
+- Phone verification is now Firebase SMS only (no email fallback)
+- When operation-not-allowed occurs, user sees a detailed step-by-step fix guide with direct links
+- Code is clean, no unused variables, lint passes

@@ -42,7 +42,6 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
           return;
         }
 
-        // Check if already initialized (survives tab switch / remount)
         let app;
         const existing = getApps().find(a => a.name === APP_NAME);
         if (existing) {
@@ -105,7 +104,7 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
 
       recaptchaRef.current = recaptchaVerifier;
 
-      // Format phone number for Firebase - use as-is if already has country code
+      // Format phone — keep as-is if already has country code
       let formattedPhone = phone.replace(/\s/g, '');
       if (!formattedPhone.startsWith('+')) {
         formattedPhone = '+91' + formattedPhone;
@@ -119,15 +118,16 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
     } catch (err: any) {
       console.error('Firebase send OTP error:', err);
       const msg = err?.message || 'Failed to send OTP';
+      // Pass the raw error identifier so the component can show the right guide
       const friendlyMsg = msg.includes('too-many')
         ? 'Too many OTP attempts. Please wait a few minutes and try again.'
         : msg.includes('reCAPTCHA')
           ? 'Security check failed. Please refresh the page and try again.'
-          : msg.includes('operation-not-allowed') || msg.includes('not-allowed')
-            ? 'Phone verification is being configured by our team. It will be available soon.'
-          : msg.includes('invalid-phone')
-            ? 'This phone number format is not supported. Please check and try again.'
-          : msg;
+        : msg.includes('operation-not-allowed') || msg.includes('not-allowed')
+          ? 'operation-not-allowed'
+        : msg.includes('invalid-phone')
+          ? 'This phone number format is not supported. Please check and try again.'
+        : msg;
       setError(friendlyMsg);
       setCodeSent(false);
       return false;
@@ -153,7 +153,7 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
       console.error('Firebase verify OTP error:', err);
       const msg = err?.message || 'Invalid OTP';
       setError(msg.includes('invalid-verification-code')
-        ? 'Invalid OTP. Please try again.'
+        ? 'Invalid OTP. Please check and try again.'
         : msg);
       return null;
     } finally {

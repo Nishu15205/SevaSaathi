@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Smartphone, ShieldCheck, Loader2, Globe, ChevronDown, Mail } from 'lucide-react';
+import { Smartphone, ShieldCheck, Loader2, Globe, ChevronDown, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,13 +29,12 @@ const maskPhone = (p: string) => {
   return '*'.repeat(d.length - 4) + d.slice(-4);
 };
 
-export function PhoneVerificationSection({ user }: { user: { id: string; phone: string; phoneVerified?: boolean } }) {
+export function PhoneVerificationSection({ user }: { user: { id: string; phone: string; phoneVerified?: boolean; email?: string } }) {
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [sendOtpLoading, setSendOtpLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [otpSentVia, setOtpSentVia] = useState<'sms' | 'email' | null>(null);
-  const [otpEmailHint, setOtpEmailHint] = useState('');
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
   const firebase = useFirebasePhoneAuth();
 
   // Phone number input (when user has no phone)
@@ -70,41 +69,31 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
 
   const handleSendOtp = async () => {
     setSendOtpLoading(true);
-    setShowOtpInput(true);
-    setOtpSentVia(null);
-    setOtpEmailHint('');
+    setFirebaseError(null);
     setOtpValue('');
+    setShowOtpInput(true);
 
-    // Try Firebase SMS first
-    if (firebase.isReady) {
-      try {
-        const sent = await firebase.sendOtp(user.phone);
-        if (sent) {
-          setOtpSentVia('sms');
-          toast.success('OTP sent to your phone!');
-          setSendOtpLoading(false);
-          return;
-        }
-      } catch {}
+    if (!firebase.isReady) {
+      setFirebaseError('Firebase is not configured. Please check your Firebase settings.');
+      setSendOtpLoading(false);
+      return;
     }
 
-    // Fallback: send OTP via email
     try {
-      const res = await fetch('/api/auth/send-phone-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: user.phone, userId: user.id }),
-      });
-      const data = await res.json();
-      if (res.ok && data.sent) {
-        setOtpSentVia('email');
-        setOtpEmailHint(data.email || 'your email');
-        toast.success(`OTP sent to ${data.email || 'your email'}!`);
+      const sent = await firebase.sendOtp(user.phone);
+      if (sent) {
+        toast.success('OTP sent to your phone via SMS!');
       } else {
-        toast.error(data.error || 'Failed to send OTP. Please try again.');
+        // Firebase returned false with error
+        const err = firebase.error;
+        if (err.includes('operation-not-allowed') || err.includes('not-allowed')) {
+          setFirebaseError('operation-not-allowed');
+        } else {
+          setFirebaseError(err || 'Failed to send OTP');
+        }
       }
     } catch {
-      toast.error('Failed to send OTP. Please try again.');
+      setFirebaseError('Something went wrong. Please try again.');
     } finally {
       setSendOtpLoading(false);
     }
@@ -112,23 +101,24 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
 
   const handleVerifyOtp = async () => {
     if (!otpValue || otpValue.length < 4) {
-      toast.error('Enter the OTP sent to you');
+      toast.error('Enter the OTP sent to your phone');
       return;
     }
     setVerifying(true);
     try {
-      let firebaseToken: string | null = null;
-      if (otpSentVia === 'sms' && firebase.codeSent) {
-        const result = await firebase.verifyOtp(otpValue);
-        if (result) firebaseToken = result.firebaseToken;
+      const result = await firebase.verifyOtp(otpValue);
+      if (!result) {
+        toast.error(firebase.error || 'Invalid OTP. Please try again.');
+        return;
       }
 
+      // Verify with backend
       const res = await fetch('/api/auth/verify-phone-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: user.phone,
-          ...(firebaseToken ? { firebaseToken } : { otp: otpValue }),
+          firebaseToken: result.firebaseToken,
         }),
       });
       const data = await res.json();
@@ -155,7 +145,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     setTimeout(() => handleSendOtp(), 300);
   };
 
-  // Verified state
+  // ✅ Verified state
   if (user.phoneVerified) {
     return (
       <div className="mt-6">
@@ -178,7 +168,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     );
   }
 
-  // No phone number
+  // 📱 No phone number — add phone first
   if (!user.phone) {
     return (
       <div className="mt-6">
@@ -236,7 +226,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     );
   }
 
-  // Has phone but not verified
+  // ⏳ Has phone but not verified — Send OTP
   return (
     <div className="mt-6">
       <div className="flex items-center gap-2 mb-3">
@@ -254,54 +244,120 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
           </div>
         </div>
 
-        {!showOtpInput ? (
-          <Button onClick={handleSendOtp} disabled={sendOtpLoading} className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm shadow-sm">
-            {sendOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-            {sendOtpLoading ? 'Sending OTP...' : 'Send OTP'}
-          </Button>
-        ) : (
-          <div className="space-y-3">
-            {otpSentVia === 'email' ? (
-              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
-                  <Mail className="h-3 w-3 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-blue-700 font-medium">OTP sent to {otpEmailHint}</p>
-                  <p className="text-xs text-blue-500 mt-0.5">Check your email inbox (and spam folder)</p>
-                </div>
+        {/* Firebase operation-not-allowed — show fix guide */}
+        {firebaseError === 'operation-not-allowed' && (
+          <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle className="h-4 w-4 text-white" />
               </div>
-            ) : otpSentVia === 'sms' ? (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-red-800">SMS Service Not Active</p>
+                <p className="text-xs text-red-600 leading-relaxed">
+                  Firebase Phone Auth is enabled, but the Google Cloud Identity Toolkit API needs to be activated.
+                </p>
+              </div>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 space-y-2.5">
+              <p className="text-xs font-bold text-gray-700">🔧 Fix it in 2 minutes:</p>
+              <ol className="text-xs text-gray-600 space-y-1.5 list-decimal list-inside">
+                <li>Open <strong>Google Cloud Console</strong> → <strong>APIs & Services → Library</strong></li>
+                <li>Search: <strong>"Identity Toolkit API"</strong></li>
+                <li>Click <strong>Enable</strong></li>
+                <li>Wait 2 minutes, then try again</li>
+              </ol>
+              <a href="https://console.cloud.google.com/apis/library/identitytoolkit.googleapis.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline mt-1">
+                Open Google Cloud Console <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="bg-white/70 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-bold text-gray-700">⚡ Quick Alternative (Works Instantly):</p>
+              <p className="text-xs text-gray-600 leading-relaxed">Add a <strong>test phone number</strong> in Firebase Console. OTPs for test numbers are shown on screen — no real SMS needed.</p>
+              <ol className="text-xs text-gray-600 space-y-1.5 list-decimal list-inside">
+                <li>Firebase Console → <strong>Authentication → Sign-in method</strong></li>
+                <li>Click <strong>Phone → Phone numbers for testing</strong></li>
+                <li>Add your number (e.g. <strong>+91XXXXXXXXXX</strong>) and any 6-digit OTP (e.g. <strong>123456</strong>)</li>
+                <li>Use that OTP to verify instantly</li>
+              </ol>
+            </div>
+            <Button
+              onClick={handleResend}
+              variant="outline"
+              size="sm"
+              className="w-full rounded-xl gap-2 text-xs border-red-200 text-red-700 hover:bg-red-50"
+            >
+              <RefreshCw className="h-3 w-3" />
+              I Fixed It — Try Again
+            </Button>
+          </div>
+        )}
+
+        {/* Other Firebase errors */}
+        {firebaseError && firebaseError !== 'operation-not-allowed' && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
+            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-red-700">{firebaseError}</p>
+          </div>
+        )}
+
+        {/* OTP Input Section */}
+        {showOtpInput && !firebaseError ? (
+          <div className="space-y-3">
+            {firebase.codeSent && (
               <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-3">
                 <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
                   <span className="text-white text-xs font-bold">✓</span>
                 </div>
                 <p className="text-xs text-green-700 font-medium">OTP sent to {maskPhone(user.phone)}</p>
               </div>
-            ) : !sendOtpLoading ? (
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
-                  <span className="text-white text-xs">!</span>
-                </div>
-                <p className="text-xs text-amber-700">Sending OTP...</p>
-              </div>
-            ) : null}
+            )}
             <div>
-              <Label className="text-xs text-gray-500">Enter OTP</Label>
-              <Input value={otpValue} onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit OTP" className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono" maxLength={6} autoFocus />
+              <Label className="text-xs text-gray-500">Enter 6-digit OTP</Label>
+              <Input
+                value={otpValue}
+                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter OTP"
+                className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono"
+                maxLength={6}
+                autoFocus
+              />
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleVerifyOtp} disabled={verifying || otpValue.length < 4} className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm flex-1 shadow-sm">
+              <Button
+                onClick={handleVerifyOtp}
+                disabled={verifying || otpValue.length < 6}
+                className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm flex-1 shadow-sm"
+              >
                 {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
-                Verify OTP
+                {verifying ? 'Verifying...' : 'Verify OTP'}
               </Button>
-              <Button variant="outline" onClick={() => { setShowOtpInput(false); setOtpValue(''); firebase.reset(); }} className="rounded-xl text-sm">Cancel</Button>
+              <Button
+                variant="outline"
+                onClick={() => { setShowOtpInput(false); setOtpValue(''); setFirebaseError(null); firebase.reset(); }}
+                className="rounded-xl text-sm"
+              >
+                Cancel
+              </Button>
             </div>
-            <button type="button" onClick={handleResend} disabled={sendOtpLoading} className="text-xs text-forest-700 hover:text-forest-900 font-medium disabled:opacity-50">
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={sendOtpLoading}
+              className="text-xs text-forest-700 hover:text-forest-900 font-medium disabled:opacity-50"
+            >
               {sendOtpLoading ? 'Resending...' : 'Resend OTP'}
             </button>
           </div>
-        )}
+        ) : !firebaseError ? (
+          <Button
+            onClick={handleSendOtp}
+            disabled={sendOtpLoading || !firebase.isReady}
+            className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm shadow-sm"
+          >
+            {sendOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+            {sendOtpLoading ? 'Sending OTP...' : firebase.isReady ? 'Send OTP via SMS' : 'Loading...'}
+          </Button>
+        ) : null}
       </div>
     </div>
   );
