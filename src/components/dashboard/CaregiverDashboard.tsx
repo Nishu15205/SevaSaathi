@@ -264,6 +264,7 @@ function OverviewTab({ user }: { user: User }) {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [otpVia, setOtpVia] = useState<'sms' | 'dev' | 'msg91'>('sms');
 
   const maskPhone = (p: string) => {
     const d = p.replace(/\D/g, '');
@@ -293,6 +294,7 @@ function OverviewTab({ user }: { user: User }) {
       }
 
       setOtpSent(true);
+      setOtpVia(data.via || 'sms');
       if (data.via === 'dev' && data.devOtp) {
         setDevOtp(data.devOtp);
       }
@@ -309,7 +311,7 @@ function OverviewTab({ user }: { user: User }) {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 6) {
+    if (!otpValue || otpValue.length < (otpVia === 'msg91' ? 4 : 6)) {
       toast.error('Enter the 6-digit OTP');
       return;
     }
@@ -473,16 +475,16 @@ function OverviewTab({ user }: { user: User }) {
                   <Label className="text-sm">OTP</Label>
                   <Input
                     value={otpValue}
-                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="6-digit OTP"
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, otpVia === 'msg91' ? 4 : 6))}
+                    placeholder={otpVia === 'msg91' ? '4-digit OTP' : '6-digit OTP'}
                     className="mt-1 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
-                    maxLength={6}
+                    maxLength={otpVia === 'msg91' ? 4 : 6}
                     autoFocus
                   />
                 </div>
                 <Button
                   onClick={handleVerifyOtp}
-                  disabled={otpValue.length < 6}
+                  disabled={otpValue.length < (otpVia === 'msg91' ? 4 : 6)}
                   className="w-full bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shadow-sm"
                 >
                   Verify OTP

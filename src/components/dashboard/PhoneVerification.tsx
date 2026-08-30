@@ -111,8 +111,9 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 6) {
-      toast.error('Enter the 6-digit OTP');
+    const minLen = otpVia === 'msg91' ? 4 : 6;
+    if (!otpValue || otpValue.length < minLen) {
+      toast.error(otpVia === 'msg91' ? 'Enter the 4-digit OTP' : 'Enter the 6-digit OTP');
       return;
     }
     setVerifying(true);
@@ -295,13 +296,13 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             )}
 
             <div>
-              <Label className="text-xs text-gray-500">Enter 6-digit OTP</Label>
+              <Label className="text-xs text-gray-500">{otpVia === 'msg91' ? 'Enter 4-digit OTP' : 'Enter 6-digit OTP'}</Label>
               <Input
                 value={otpValue}
-                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter OTP"
+                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, otpVia === 'msg91' ? 4 : 6))}
+                placeholder={otpVia === 'msg91' ? '4-digit OTP' : 'Enter OTP'}
                 className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono"
-                maxLength={6}
+                maxLength={otpVia === 'msg91' ? 4 : 6}
                 autoFocus
               />
             </div>
