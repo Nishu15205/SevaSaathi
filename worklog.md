@@ -946,3 +946,25 @@ Stage Summary:
 - Dev endpoint is security-gated: only works on localhost/development
 - Firebase config confirmed correct: project `web-wallah`, API key present
 - The actual Firebase fix still requires enabling Phone Auth in Firebase Console (Authentication → Sign-in method → Phone → Enable → Save)
+
+---
+Task ID: 3
+Agent: main
+Task: Replace Firebase Phone Auth with Fast2SMS OTP for phone verification
+
+Work Log:
+- Found existing Fast2SMS infrastructure: src/lib/sms.ts (sendPhoneOtp), src/lib/config.ts (getFast2SmsApiKey)
+- Found existing server-side OTP verify route (verify-phone-otp) that supports both Firebase token and OTP paths
+- Rewrote src/app/api/auth/send-phone-otp/route.ts — removed Brevo email fallback, now uses sendPhoneOtp() from sms.ts
+  - Rate limiting (60s between sends)
+- Rewrote src/components/dashboard/PhoneVerification.tsx — removed useFirebasePhoneAuth, uses /api/auth/send-phone-otp + /api/auth/verify-phone-otp
+  - Shows dev OTP when FAST2SMS_API_KEY not configured (from server console or response)
+- Rewrote CaregiverDashboard.tsx OTP section — removed Firebase hook, dev bypass button, operation-not-allowed error guide
+  - Clean server-side OTP flow
+  - Dev OTP displayed in dialog when no API key configured
+
+Stage Summary:
+- Phone verification now uses Fast2SMS (free tier) instead of Firebase Phone Auth (requires Blaze plan)
+- Server-side OTP: generate → hash in DB → send via Fast2SMS → verify from DB
+- Dev mode: when no FAST2SMS_API_KEY set, OTP is logged to console and returned in response
+- Zero Firebase dependency for phone verification now
