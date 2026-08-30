@@ -257,7 +257,7 @@ function OverviewTab({ user }: { user: User }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Phone verification — Fast2SMS OTP
+  // Phone verification — MSG91 OTP
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
   const [otpSent, setOtpSent] = useState(false);

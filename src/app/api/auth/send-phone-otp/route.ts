@@ -11,7 +11,7 @@ const RATE_LIMIT_MS = 60_000; // 1 minute between sends
  * POST /api/auth/send-phone-otp
  * 
  * Generates a 6-digit OTP, stores its hash in the user's otpSecret,
- * and sends it via Fast2SMS.
+ * and sends it via MSG91.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -70,12 +70,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Send OTP via Fast2SMS
+    // Send OTP via MSG91
     const smsResult: SmsResult = await sendPhoneOtp(cleanPhone, otp);
 
     if (smsResult.success) {
       if (smsResult.actuallyDelivered) {
-        console.log(`📱 OTP sent via Fast2SMS to ${cleanPhone}`);
+        console.log(`📱 OTP sent via MSG91 to ${cleanPhone}`);
         return NextResponse.json({
           message: 'OTP sent to your phone via SMS',
           sent: true,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         console.log(`\n📱 ===== DEV MODE =====`);
         console.log(`   PHONE: ${cleanPhone}`);
         console.log(`   OTP:   ${otp}`);
-        console.log(`   Add FAST2SMS_API_KEY to .env or Admin > Credentials for real SMS delivery`);
+        console.log(`   Add MSG91_AUTH_KEY + MSG91_TEMPLATE_ID to .env or Admin > Credentials`);
         console.log(`=======================\n`);
         return NextResponse.json({
           message: 'OTP generated (dev mode — check server console)',
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
         });
       }
     } else {
-      // Fast2SMS returned a DLT/account error
+      // MSG91 returned an account error
       const errMsg = smsResult.error || 'SMS delivery failed';
-      console.error(`📱 Fast2SMS delivery failed for ${cleanPhone}: ${errMsg}`);
+      console.error(`📱 MSG91 delivery failed for ${cleanPhone}: ${errMsg}`);
       return NextResponse.json(
         { error: `Failed to send SMS: ${errMsg}. Please contact support.` },
         { status: 503 }

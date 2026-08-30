@@ -968,3 +968,26 @@ Stage Summary:
 - Server-side OTP: generate → hash in DB → send via Fast2SMS → verify from DB
 - Dev mode: when no FAST2SMS_API_KEY set, OTP is logged to console and returned in response
 - Zero Firebase dependency for phone verification now
+
+---
+Task ID: 4
+Agent: main
+Task: Switch SMS provider from Fast2SMS to MSG91
+
+Work Log:
+- Rewrote src/lib/sms.ts — replaced Fast2SMS API with MSG91 Flow API
+  - Uses MSG91 Flow API endpoint: https://api.msg91.com/api/v5/flow/
+  - Sends OTP as var1 in template, phone as 10-digit + 91 prefix
+  - Handles account/DLT errors gracefully (falls back to dev mode)
+- Updated src/lib/config.ts — replaced FAST2SMS_API_KEY with MSG91_AUTH_KEY + MSG91_TEMPLATE_ID
+  - Added getMsg91AuthKey() and getMsg91TemplateId() convenience getters
+  - Updated seedConfigsFromEnv() with new env var names
+- Updated send-phone-otp/route.ts comments from Fast2SMS to MSG91
+- Updated AdminDashboard.tsx label from 'SMS (Fast2SMS Fallback)' to 'SMS (MSG91)'
+- Updated CaregiverDashboard.tsx comment from 'Fast2SMS OTP' to 'MSG91 OTP'
+
+Stage Summary:
+- SMS provider switched from Fast2SMS to MSG91
+- Env vars needed: MSG91_AUTH_KEY + MSG91_TEMPLATE_ID (set via .env or Admin > Credentials)
+- MSG91 template needs var1 placeholder for OTP value
+- Dev mode works without credentials (OTP shown in dialog + server console)
