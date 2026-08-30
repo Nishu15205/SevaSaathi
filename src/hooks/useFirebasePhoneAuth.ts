@@ -12,7 +12,8 @@ interface UseFirebasePhoneAuthReturn {
   sendingOtp: boolean;
   verifying: boolean;
   error: string;
-  sendOtp: (phone: string, recaptchaContainerId?: string) => Promise<boolean>;
+  /** Send OTP — returns true on success, or error string on failure */
+  sendOtp: (phone: string, recaptchaContainerId?: string) => Promise<true | string>;
   verifyOtp: (code: string) => Promise<{ firebaseToken: string } | null>;
   reset: () => void;
 }
@@ -72,10 +73,27 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
     return () => { mounted = false; };
   }, []);
 
-  const sendOtp = useCallback(async (phone: string, recaptchaContainerId: string = 'recaptcha-container'): Promise<boolean> => {
+  /**
+   * Build a friendly error string from the raw Firebase error.
+   * Returns 'operation-not-allowed' as an exact identifier for the UI guide.
+   */
+  function classifyError(err: any): string {
+    const { code, message } = getErrorDetails(err);
+    const t = (code + ' ' + message).toLowerCase();
+
+    if (t.includes('operation-not-allowed') || t.includes('not-allowed')) return 'operation-not-allowed';
+    if (t.includes('too-many') || t.includes('too many')) return 'Too many OTP attempts. Please wait a few minutes and try again.';
+    if (t.includes('recaptcha') || t.includes('captcha')) return 'Security check (reCAPTCHA) failed. Please refresh the page and try again.';
+    if (t.includes('invalid-phone') || t.includes('malformed')) return 'This phone number format is not supported. Please check and try again.';
+    if (t.includes('network') || t.includes('fetch') || t.includes('timeout')) return 'Network error. Please check your internet connection and try again.';
+    return message || 'Failed to send OTP';
+  }
+
+  const sendOtp = useCallback(async (phone: string, recaptchaContainerId: string = 'recaptcha-container'): Promise<true | string> => {
     if (!authRef.current) {
-      setError('Firebase not initialized');
-      return false;
+      const msg = 'Firebase not initialized';
+      setError(msg);
+      return msg;
     }
 
     setSendingOtp(true);
@@ -125,7 +143,6 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
 
       console.log('firebase-phone-auth: sending OTP to', formattedPhone);
 
-      // Render the reCAPTCHA first, then sign in
       await recaptchaVerifier.render();
       const confirmationResult = await signInWithPhoneNumber(authRef.current, formattedPhone, recaptchaVerifier);
       confirmationRef.current = confirmationResult;
@@ -133,29 +150,10 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
       return true;
     } catch (err: any) {
       console.error('Firebase send OTP error:', err);
-      const { code, message } = getErrorDetails(err);
-      console.error('Firebase error details — code:', code, 'message:', message);
-
-      const fullText = (code + ' ' + message).toLowerCase();
-      let friendlyMsg: string;
-
-      if (fullText.includes('too-many') || fullText.includes('too many')) {
-        friendlyMsg = 'Too many OTP attempts. Please wait a few minutes and try again.';
-      } else if (fullText.includes('recaptcha') || fullText.includes('captcha')) {
-        friendlyMsg = 'Security check (reCAPTCHA) failed. Please refresh the page and try again.';
-      } else if (fullText.includes('operation-not-allowed') || fullText.includes('not-allowed')) {
-        friendlyMsg = 'operation-not-allowed';
-      } else if (fullText.includes('invalid-phone') || fullText.includes('malformed')) {
-        friendlyMsg = 'This phone number format is not supported. Please check and try again.';
-      } else if (fullText.includes('network') || fullText.includes('fetch') || fullText.includes('timeout')) {
-        friendlyMsg = 'Network error. Please check your internet connection and try again.';
-      } else {
-        friendlyMsg = message || 'Failed to send OTP';
-      }
-
+      const friendlyMsg = classifyError(err);
       setError(friendlyMsg);
       setCodeSent(false);
-      return false;
+      return friendlyMsg;          // ← return error string directly (synchronous!)
     } finally {
       setSendingOtp(false);
     }

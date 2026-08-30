@@ -80,16 +80,15 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
     }
 
     try {
-      const sent = await firebase.sendOtp(user.phone);
-      if (sent) {
+      const result = await firebase.sendOtp(user.phone);
+      if (result === true) {
         toast.success('OTP sent to your phone via SMS!');
       } else {
-        // Firebase returned false with error
-        const err = firebase.error;
-        if (err.includes('operation-not-allowed') || err.includes('not-allowed')) {
+        // result is the error string (returned synchronously)
+        if (result.includes('operation-not-allowed') || result.includes('not-allowed')) {
           setFirebaseError('operation-not-allowed');
         } else {
-          setFirebaseError(err || 'Failed to send OTP');
+          setFirebaseError(result);
         }
       }
     } catch (e: any) {

@@ -285,17 +285,17 @@ function OverviewTab({ user }: { user: User }) {
     }
 
     try {
-      const sent = await firebase.sendOtp(user.phone);
-      if (sent) {
+      const result = await firebase.sendOtp(user.phone);
+      if (result === true) {
         setOtpSent(true);
         toast.success('OTP sent to your phone via SMS!');
       } else {
-        const err = firebase.error;
-        console.error('Phone OTP send failed. Firebase error:', err);
-        if (err.includes('operation-not-allowed') || err.includes('not-allowed')) {
+        // result is the error string (returned synchronously)
+        console.error('Phone OTP send failed:', result);
+        if (result.includes('operation-not-allowed') || result.includes('not-allowed')) {
           setFirebaseError('operation-not-allowed');
         } else {
-          setFirebaseError(err || 'Failed to send OTP');
+          setFirebaseError(result);
         }
       }
     } catch (e: any) {
