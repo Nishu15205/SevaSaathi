@@ -41,6 +41,7 @@ import {
   Building2,
   ArrowDownToLine,
   Smartphone,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -263,6 +264,7 @@ function OverviewTab({ user }: { user: User }) {
   const [otpSent, setOtpSent] = useState(false);
   const [firebaseError, setFirebaseError] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState("");
+  const [devBypassLoading, setDevBypassLoading] = useState(false);
   const firebase = useFirebasePhoneAuth();
 
   const maskPhone = (p: string) => {
@@ -338,6 +340,32 @@ function OverviewTab({ user }: { user: User }) {
       firebase.reset();
     } catch (err: any) {
       toast.error(err?.message || 'Verification failed');
+    }
+  };
+
+  const handleDevBypass = async () => {
+    setDevBypassLoading(true);
+    try {
+      const res = await fetch('/api/auth/dev-verify-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: user.phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Dev bypass failed');
+        return;
+      }
+      toast.success('Phone verified successfully (dev mode)!');
+      useAuthStore.getState().setAuth({ ...user, phoneVerified: true } as any);
+      setShowOtpDialog(false);
+      setOtpValue('');
+      setFirebaseError(null);
+      firebase.reset();
+    } catch (err: any) {
+      toast.error(err?.message || 'Something went wrong');
+    } finally {
+      setDevBypassLoading(false);
     }
   };
 
@@ -485,6 +513,20 @@ function OverviewTab({ user }: { user: User }) {
                 >
                   <RefreshCw className="h-3 w-3" />
                   I Fixed It — Try Again
+                </Button>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                  <div className="relative flex justify-center text-xs"><span className="bg-white px-2 text-gray-400">or</span></div>
+                </div>
+                <Button
+                  onClick={handleDevBypass}
+                  disabled={devBypassLoading}
+                  size="sm"
+                  className="w-full rounded-xl gap-2 text-xs bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+                >
+                  {devBypassLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+                  <Zap className="h-3 w-3" />
+                  Skip Verification (Dev Mode)
                 </Button>
               </div>
             )}

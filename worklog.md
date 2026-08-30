@@ -927,3 +927,22 @@ Stage Summary:
 - All hydration mismatches resolved
 - Shared `useHydrated()` hook available for any future components that need client-only state
 - Firebase `auth/operation-not-allowed` remains a Firebase Console config issue (not code)
+---
+Task ID: 23
+Agent: main
+Task: Add dev-mode OTP bypass for Firebase operation-not-allowed error
+
+Work Log:
+- Created `/api/auth/dev-verify-phone` endpoint that marks phone as verified without OTP (localhost-only, blocked in production)
+- Added `handleDevBypass` function in CaregiverDashboard OverviewTab
+- Added "Skip Verification (Dev Mode)" button (violet, with Zap icon) in the operation-not-allowed error dialog
+- Added `Zap` to lucide-react imports, `devBypassLoading` state
+- Tested endpoint via curl: returns `{verified: true}` successfully
+- Lint passes clean
+
+Stage Summary:
+- When Firebase returns `operation-not-allowed`, user now sees a "Skip Verification (Dev Mode)" button
+- Clicking it calls the dev-verify-phone API which marks the phone as verified in DB
+- Dev endpoint is security-gated: only works on localhost/development
+- Firebase config confirmed correct: project `web-wallah`, API key present
+- The actual Firebase fix still requires enabling Phone Auth in Firebase Console (Authentication → Sign-in method → Phone → Enable → Save)
