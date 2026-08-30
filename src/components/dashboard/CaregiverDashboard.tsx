@@ -35,6 +35,7 @@ import {
   Eye,
   Play,
   Phone,
+  Mail,
   Hash,
   Pencil,
   Wallet,
@@ -257,10 +258,12 @@ function OverviewTab({ user }: { user: User }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Phone verification — real OTP via Firebase
+  // Phone verification — Firebase SMS with email OTP fallback
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [otpSentVia, setOtpSentVia] = useState<'sms' | 'email' | null>(null);
+  const [otpEmailHint, setOtpEmailHint] = useState('');
   const [otpValue, setOtpValue] = useState("");
   const firebase = useFirebasePhoneAuth();
 
@@ -274,44 +277,66 @@ function OverviewTab({ user }: { user: User }) {
     setPhoneVerifying(true);
     setShowOtpDialog(true);
     setOtpSent(false);
+    setOtpSentVia(null);
+    setOtpEmailHint('');
     setOtpValue('');
 
-    if (!firebase.isReady) {
-      toast.error('OTP service is initializing. If you received an OTP, enter it below.');
-      setPhoneVerifying(false);
-      return;
+    // Try Firebase SMS first
+    if (firebase.isReady) {
+      try {
+        const sent = await firebase.sendOtp(user.phone);
+        if (sent) {
+          setOtpSent(true);
+          setOtpSentVia('sms');
+          toast.success('OTP sent to your phone!');
+          setPhoneVerifying(false);
+          return;
+        }
+      } catch {}
     }
 
+    // Fallback: send OTP via email
     try {
-      const sent = await firebase.sendOtp(user.phone);
-      if (sent) {
+      const res = await fetch('/api/auth/send-phone-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: user.phone, userId: user.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.sent) {
         setOtpSent(true);
-        toast.success('OTP sent to your phone!');
+        setOtpSentVia('email');
+        setOtpEmailHint(data.email || 'your email');
+        toast.success(`OTP sent to ${data.email || 'your email'}!`);
       } else {
-        toast.error(firebase.error || 'Could not send OTP automatically. Enter it if received.');
+        toast.error(data.error || 'Failed to send OTP');
       }
-    } catch (err: any) {
-      toast.error(err?.message || 'OTP sending failed. Enter it if received.');
+    } catch {
+      toast.error('Failed to send OTP. Please try again.');
     } finally {
       setPhoneVerifying(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length !== 6) {
-      toast.error('Enter the 6-digit OTP sent to your phone');
+    if (!otpValue || otpValue.length < 4) {
+      toast.error('Enter the OTP');
       return;
     }
     try {
-      const result = await firebase.verifyOtp(otpValue);
-      if (!result) {
-        toast.error(firebase.error || 'Invalid OTP. Please try again.');
-        return;
+      let firebaseToken: string | null = null;
+      if (otpSentVia === 'sms' && firebase.codeSent) {
+        const result = await firebase.verifyOtp(otpValue);
+        if (result) firebaseToken = result.firebaseToken;
       }
+
       const res = await fetch('/api/auth/verify-phone-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: user.phone, firebaseToken: result.firebaseToken }),
+        body: JSON.stringify({
+          phone: user.phone,
+          ...(firebaseToken ? { firebaseToken } : { otp: otpValue }),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -425,22 +450,32 @@ function OverviewTab({ user }: { user: User }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Verify Phone Number</DialogTitle>
-            <DialogDescription>Enter the OTP sent to {maskPhone(user.phone)}</DialogDescription>
+            <DialogDescription>{otpSentVia === 'email' ? `Enter the OTP sent to ${otpEmailHint}` : `Enter the OTP for ${maskPhone(user.phone)}`}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            {otpSent ? (
+            {otpSentVia === 'email' ? (
+              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                  <Mail className="h-3 w-3 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-blue-700 font-medium">OTP sent to {otpEmailHint}</p>
+                  <p className="text-xs text-blue-500 mt-0.5">Check your inbox (and spam folder)</p>
+                </div>
+              </div>
+            ) : otpSentVia === 'sms' ? (
               <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-3">
                 <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
                   <span className="text-white text-xs font-bold">✓</span>
                 </div>
-                <p className="text-xs text-green-700 font-medium">OTP sent! Check your phone.</p>
+                <p className="text-xs text-green-700 font-medium">OTP sent to {maskPhone(user.phone)}</p>
               </div>
             ) : !phoneVerifying ? (
               <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                 <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
-                  <span className="text-white text-xs">!</span>
+                  <Loader2 className="h-3 w-3 text-white animate-spin" />
                 </div>
-                <p className="text-xs text-amber-700">{firebase.error || 'OTP may take a moment. Enter it if received.'}</p>
+                <p className="text-xs text-amber-700">Sending OTP...</p>
               </div>
             ) : null}
             <div>
@@ -465,10 +500,10 @@ function OverviewTab({ user }: { user: User }) {
             <button
               type="button"
               onClick={async () => { setOtpValue(''); firebase.reset(); setShowOtpDialog(false); await handleSendOtp(); }}
-              disabled={firebase.sendingOtp}
+              disabled={phoneVerifying}
               className="w-full text-xs text-forest-700 hover:text-forest-900 font-medium text-center disabled:opacity-50"
             >
-              {firebase.sendingOtp ? 'Resending...' : 'Resend OTP'}
+              {phoneVerifying ? 'Resending...' : 'Resend OTP'}
             </button>
           </div>
         </DialogContent>

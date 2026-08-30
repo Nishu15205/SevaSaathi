@@ -856,3 +856,20 @@ Stage Summary:
 - Upload cards: Aadhaar (emerald green) and ID Card (violet/purple) are visually distinct and attractive
 - Verified badge system: Backend requires phone + Aadhaar + ID card, auto-checks on both phone verify and doc approve
 - Search priority: Verified caregivers appear first in results
+---
+Task ID: 6
+Agent: Main Agent
+Task: Implement email OTP fallback when Firebase SMS fails
+
+Work Log:
+- Rewrote /api/auth/send-phone-otp to generate 6-digit OTP, store salted hash in user.otpSecret, send via Brevo email
+- Rewrote /api/auth/verify-phone-otp to accept both firebaseToken AND plain otp (email fallback path)
+- Updated PhoneVerification.tsx: try Firebase SMS first, if fails auto-fallback to email OTP via /api/auth/send-phone-otp
+- Updated CaregiverDashboard OverviewTab: same fallback logic, shows blue email banner vs green SMS banner
+- Added Mail icon import, otpSentVia state, otpEmailHint state
+- OTP expires in 10 minutes, hashed with SHA-256 + random salt
+
+Stage Summary:
+- Phone verification now works even without Firebase SMS: OTP goes to user's email via Brevo
+- Flow: Click Send OTP → try Firebase → fails → auto-sends email OTP → user enters in dialog → verified
+- Backend stores OTP securely (salted hash), 10-min expiry
