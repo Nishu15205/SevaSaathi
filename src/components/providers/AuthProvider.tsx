@@ -70,6 +70,7 @@ function AuthSync() {
               email: fullUser.email,
               name: fullUser.name,
               phone: fullUser.phone || "",
+              phoneVerified: fullUser.phoneVerified || false,
               role: fullUser.role,
               avatarUrl: fullUser.avatarUrl || null,
               subscription: fullUser.subscription || "NONE",
