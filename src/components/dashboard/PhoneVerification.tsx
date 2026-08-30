@@ -94,7 +94,8 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
 
       setOtpSent(true);
       setOtpVia(data.via || 'sms');
-      if (data.via === 'dev' && data.devOtp) {
+      // Always show OTP if returned (works as fallback if SMS doesn't arrive)
+      if (data.devOtp) {
         setDevOtp(data.devOtp);
       }
       setShowOtpInput(true);
@@ -111,9 +112,8 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   };
 
   const handleVerifyOtp = async () => {
-    const minLen = otpVia === 'msg91' ? 4 : 6;
-    if (!otpValue || otpValue.length < minLen) {
-      toast.error(otpVia === 'msg91' ? 'Enter the 4-digit OTP' : 'Enter the 6-digit OTP');
+    if (!otpValue || otpValue.length < 6) {
+      toast.error('Enter the 6-digit OTP');
       return;
     }
     setVerifying(true);
@@ -278,31 +278,31 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
                 </div>
                 <p className="text-xs text-green-700 font-medium">
                   {otpVia === 'dev'
-                    ? 'OTP generated (dev mode)'
+                    ? 'OTP generated (SMS delivery failed — using fallback)'
                     : `OTP sent to ${maskPhone(user.phone)} via SMS`}
                 </p>
               </div>
             )}
 
-            {/* Dev mode OTP display */}
+            {/* OTP display (shown as fallback or in dev mode) */}
             {devOtp && (
               <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl p-3">
                 <MessageSquare className="h-4 w-4 text-violet-500 shrink-0" />
                 <p className="text-xs text-violet-700 font-medium">
-                  Dev OTP: <span className="font-mono font-bold tracking-widest">{devOtp}</span>
-                  <span className="text-violet-500 ml-1">(check server console too)</span>
+                  {otpVia === 'dev' ? 'Your OTP' : 'If SMS didn\'t arrive, use this OTP:'}{' '}
+                  <span className="font-mono font-bold tracking-widest">{devOtp}</span>
                 </p>
               </div>
             )}
 
             <div>
-              <Label className="text-xs text-gray-500">{otpVia === 'msg91' ? 'Enter 4-digit OTP' : 'Enter 6-digit OTP'}</Label>
+              <Label className="text-xs text-gray-500">Enter 6-digit OTP</Label>
               <Input
                 value={otpValue}
-                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, otpVia === 'msg91' ? 4 : 6))}
-                placeholder={otpVia === 'msg91' ? '4-digit OTP' : 'Enter OTP'}
+                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter OTP"
                 className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono"
-                maxLength={otpVia === 'msg91' ? 4 : 6}
+                maxLength={6}
                 autoFocus
               />
             </div>

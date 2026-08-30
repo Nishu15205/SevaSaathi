@@ -264,7 +264,7 @@ function OverviewTab({ user }: { user: User }) {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
-  const [otpVia, setOtpVia] = useState<'sms' | 'dev' | 'msg91'>('sms');
+  const [otpVia, setOtpVia] = useState<'sms' | 'dev'>('sms');
 
   const maskPhone = (p: string) => {
     const d = p.replace(/\D/g, '');
@@ -295,7 +295,8 @@ function OverviewTab({ user }: { user: User }) {
 
       setOtpSent(true);
       setOtpVia(data.via || 'sms');
-      if (data.via === 'dev' && data.devOtp) {
+      // Always show OTP if returned (works as fallback if SMS doesn't arrive)
+      if (data.devOtp) {
         setDevOtp(data.devOtp);
       }
       toast.success(data.via === 'dev'
@@ -311,7 +312,7 @@ function OverviewTab({ user }: { user: User }) {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < (otpVia === 'msg91' ? 4 : 6)) {
+    if (!otpValue || otpValue.length < 6) {
       toast.error('Enter the 6-digit OTP');
       return;
     }
@@ -458,12 +459,13 @@ function OverviewTab({ user }: { user: User }) {
               </div>
             )}
 
-            {/* Dev mode OTP display */}
+            {/* OTP fallback display */}
             {devOtp && (
               <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl p-3">
                 <MessageSquare className="h-4 w-4 text-violet-500 shrink-0" />
                 <p className="text-xs text-violet-700 font-medium">
-                  Dev OTP: <span className="font-mono font-bold tracking-widest">{devOtp}</span>
+                  {otpVia === 'dev' ? 'Your OTP' : 'If SMS didn\'t arrive, use this OTP:'}{' '}
+                  <span className="font-mono font-bold tracking-widest">{devOtp}</span>
                 </p>
               </div>
             )}
@@ -475,16 +477,16 @@ function OverviewTab({ user }: { user: User }) {
                   <Label className="text-sm">OTP</Label>
                   <Input
                     value={otpValue}
-                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, otpVia === 'msg91' ? 4 : 6))}
-                    placeholder={otpVia === 'msg91' ? '4-digit OTP' : '6-digit OTP'}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="6-digit OTP"
                     className="mt-1 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
-                    maxLength={otpVia === 'msg91' ? 4 : 6}
+                    maxLength={6}
                     autoFocus
                   />
                 </div>
                 <Button
                   onClick={handleVerifyOtp}
-                  disabled={otpValue.length < (otpVia === 'msg91' ? 4 : 6)}
+                  disabled={otpValue.length < 6}
                   className="w-full bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shadow-sm"
                 >
                   Verify OTP

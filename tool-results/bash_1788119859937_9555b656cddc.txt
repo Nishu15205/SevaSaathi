@@ -1,0 +1,200 @@
+prisma:query SELECT 1
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+ GET /api/auth/firebase-config 200 in 23ms (compile: 14ms, proxy.ts: 6ms, render: 3ms)
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 19ms (compile: 7ms, render: 12ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 71ms (compile: 50ms, proxy.ts: 14ms, render: 7ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+prisma:query BEGIN IMMEDIATE
+prisma:query UPDATE `main`.`users` SET `phone_verified` = ?, `otp_secret` = ?, `updated_at` = ? WHERE `main`.`users`.`phone` = ?
+prisma:query COMMIT
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`user_id`, `main`.`caregivers`.`gender`, `main`.`caregivers`.`date_of_birth`, `main`.`caregivers`.`address`, `main`.`caregivers`.`city`, `main`.`caregivers`.`pincode`, `main`.`caregivers`.`latitude`, `main`.`caregivers`.`longitude`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`qualifications`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`availability_json`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`created_at`, `main`.`caregivers`.`updated_at` FROM `main`.`caregivers` WHERE (`main`.`caregivers`.`user_id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`verifications`.`id`, `main`.`verifications`.`caregiver_id`, `main`.`verifications`.`doc_type`, `main`.`verifications`.`doc_number`, `main`.`verifications`.`doc_url`, `main`.`verifications`.`status`, `main`.`verifications`.`reviewed_by`, `main`.`verifications`.`reviewed_at`, `main`.`verifications`.`rejection_reason`, `main`.`verifications`.`expires_at`, `main`.`verifications`.`created_at`, `main`.`verifications`.`updated_at` FROM `main`.`verifications` WHERE `main`.`verifications`.`caregiver_id` = ? LIMIT ? OFFSET ?
+ POST /api/auth/dev-verify-phone 200 in 18ms (compile: 4ms, proxy.ts: 4ms, render: 10ms)
+ GET /api/auth/session 200 in 60ms (compile: 46ms, proxy.ts: 3ms, render: 11ms)
+ GET /api/auth/session 200 in 67ms (compile: 54ms, proxy.ts: 4ms, render: 9ms)
+ GET / 200 in 128ms (compile: 7ms, render: 121ms)
+ GET / 200 in 103ms (compile: 4ms, render: 100ms)
+ GET /api/auth/session 200 in 63ms (compile: 44ms, proxy.ts: 6ms, render: 13ms)
+ GET / 200 in 118ms (compile: 8ms, render: 110ms)
+ GET / 200 in 95ms (compile: 3ms, render: 92ms)
+ GET /api/auth/session 200 in 55ms (compile: 41ms, proxy.ts: 4ms, render: 10ms)
+ GET / 200 in 119ms (compile: 9ms, render: 110ms)
+ GET /api/auth/session 200 in 57ms (compile: 43ms, proxy.ts: 4ms, render: 10ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 30ms (compile: 4ms, proxy.ts: 8ms, render: 18ms)
+ GET / 200 in 94ms (compile: 3ms, render: 91ms)
+ GET / 200 in 95ms (compile: 5ms, render: 90ms)
+ GET /api/auth/session 200 in 73ms (compile: 60ms, proxy.ts: 4ms, render: 10ms)
+ GET / 200 in 88ms (compile: 4ms, render: 84ms)
+ GET / 200 in 76ms (compile: 3ms, render: 72ms)
+ GET /api/auth/session 200 in 53ms (compile: 41ms, proxy.ts: 3ms, render: 8ms)
+ GET / 200 in 77ms (compile: 4ms, render: 73ms)
+ GET /api/auth/session 200 in 102ms (compile: 87ms, proxy.ts: 3ms, render: 11ms)
+ GET / 200 in 73ms (compile: 3ms, render: 70ms)
+ GET /api/auth/session 200 in 66ms (compile: 50ms, proxy.ts: 4ms, render: 12ms)
+✓ Compiled in 452ms
+✓ Compiled in 1268ms
+✓ Compiled in 731ms
+ GET / 200 in 877ms (compile: 282ms, render: 595ms)
+ GET /api/auth/session 200 in 178ms (compile: 156ms, proxy.ts: 8ms, render: 14ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+ POST /api/auth/send-phone-otp 404 in 181ms (compile: 164ms, proxy.ts: 5ms, render: 12ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 21ms (compile: 9ms, proxy.ts: 3ms, render: 9ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 18ms (compile: 7ms, proxy.ts: 4ms, render: 7ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+ POST /api/auth/send-phone-otp 400 in 17ms (compile: 6ms, proxy.ts: 4ms, render: 7ms)
+ POST /api/auth/send-phone-otp 400 in 11ms (compile: 3ms, proxy.ts: 4ms, render: 5ms)
+ GET / 200 in 83ms (compile: 3ms, render: 80ms)
+ GET / 200 in 104ms (compile: 3ms, render: 101ms)
+ GET /api/auth/session 200 in 65ms (compile: 52ms, proxy.ts: 3ms, render: 11ms)
+✓ Compiled in 292ms
+✓ Compiled in 267ms
+✓ Compiled in 0ms
+ GET / 200 in 938ms (compile: 184ms, render: 754ms)
+ GET /api/auth/session 200 in 102ms (compile: 84ms, proxy.ts: 3ms, render: 15ms)
+ GET / 200 in 108ms (compile: 6ms, render: 101ms)
+ GET / 200 in 95ms (compile: 3ms, render: 92ms)
+ GET /api/auth/session 200 in 59ms (compile: 45ms, proxy.ts: 4ms, render: 10ms)
+ POST /api/auth/send-phone-otp 400 in 70ms (compile: 53ms, proxy.ts: 4ms, render: 13ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`users` SET `otp_secret` = ?, `updated_at` = ? WHERE (`main`.`users`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `password_hash` AS `password_hash`, `phone` AS `phone`, `name` AS `name`, `role` AS `role`, `avatar_url` AS `avatar_url`, `subscription` AS `subscription`, `is_active` AS `is_active`, `phone_verified` AS `phone_verified`, `otp_secret` AS `otp_secret`, `last_login_at` AS `last_login_at`, `created_at` AS `created_at`, `updated_at` AS `updated_at`
+prisma:query SELECT `main`.`system_configs`.`id`, `main`.`system_configs`.`section`, `main`.`system_configs`.`key`, `main`.`system_configs`.`value`, `main`.`system_configs`.`label`, `main`.`system_configs`.`is_secret`, `main`.`system_configs`.`updated_at`, `main`.`system_configs`.`created_at` FROM `main`.`system_configs` WHERE 1=1 LIMIT ? OFFSET ?
+📱 MSG91 OTP response for 918076998046: {"request_id":"3668453071624579564e4333","type":"success"}
+📱 OTP sent via MSG91 to +918076998046
+ POST /api/auth/send-phone-otp 200 in 273ms (compile: 3ms, proxy.ts: 4ms, render: 266ms)
+ GET / 200 in 91ms (compile: 4ms, render: 87ms)
+ GET / 200 in 96ms (compile: 3ms, render: 93ms)
+ GET /api/auth/session 200 in 55ms (compile: 43ms, proxy.ts: 3ms, render: 9ms)
+ GET /api/auth/session 200 in 81ms (compile: 52ms, proxy.ts: 4ms, render: 25ms)
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 198ms (compile: 118ms, render: 80ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+ POST /api/auth/send-phone-otp 400 in 15ms (compile: 3ms, proxy.ts: 4ms, render: 8ms)
+ GET / 200 in 93ms (compile: 4ms, render: 89ms)
+ GET /api/auth/session 200 in 99ms (compile: 74ms, proxy.ts: 4ms, render: 20ms)
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 21ms (compile: 13ms, render: 8ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 36ms (compile: 19ms, proxy.ts: 10ms, render: 7ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+ POST /api/auth/send-phone-otp 400 in 19ms (compile: 4ms, proxy.ts: 6ms, render: 9ms)
+ GET / 200 in 101ms (compile: 3ms, render: 97ms)
+ GET / 200 in 90ms (compile: 5ms, render: 85ms)
+ GET /api/auth/session 200 in 63ms (compile: 51ms, proxy.ts: 3ms, render: 10ms)
+ GET /api/auth/session 200 in 59ms (compile: 45ms, proxy.ts: 4ms, render: 10ms)
+ GET / 200 in 80ms (compile: 3ms, render: 77ms)
+ GET / 200 in 87ms (compile: 7ms, render: 80ms)
+ GET /api/auth/session 200 in 60ms (compile: 45ms, proxy.ts: 4ms, render: 11ms)
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 14ms (compile: 2ms, render: 11ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 19ms (compile: 6ms, proxy.ts: 4ms, render: 9ms)
+ GET /api/auth/session 200 in 65ms (compile: 44ms, proxy.ts: 4ms, render: 17ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+ POST /api/auth/send-phone-otp 400 in 14ms (compile: 3ms, proxy.ts: 4ms, render: 7ms)
+✓ Compiled in 308ms
+ GET / 200 in 684ms (compile: 287ms, render: 397ms)
+ GET /api/auth/session 200 in 113ms (compile: 87ms, proxy.ts: 9ms, render: 17ms)
+ GET / 200 in 133ms (compile: 6ms, render: 127ms)
+ GET / 200 in 75ms (compile: 5ms, render: 70ms)
+ GET /api/auth/session 200 in 63ms (compile: 50ms, proxy.ts: 4ms, render: 9ms)
+ GET /api/auth/session 200 in 64ms (compile: 53ms, proxy.ts: 3ms, render: 8ms)
+ POST /api/auth/send-phone-otp 400 in 17ms (compile: 3ms, proxy.ts: 4ms, render: 10ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+ GET / 200 in 85ms (compile: 4ms, render: 81ms)
+ GET /api/auth/session 200 in 66ms (compile: 50ms, proxy.ts: 4ms, render: 13ms)
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 16ms (compile: 6ms, render: 11ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 21ms (compile: -32µs, proxy.ts: 15ms, render: 6ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`user_id`, `main`.`caregivers`.`gender`, `main`.`caregivers`.`date_of_birth`, `main`.`caregivers`.`address`, `main`.`caregivers`.`city`, `main`.`caregivers`.`pincode`, `main`.`caregivers`.`latitude`, `main`.`caregivers`.`longitude`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`qualifications`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`availability_json`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`created_at`, `main`.`caregivers`.`updated_at`, COALESCE(`aggr_selection_0_Review`.`_aggr_count_reviews`, 0) AS `_aggr_count_reviews`, COALESCE(`aggr_selection_1_Booking`.`_aggr_count_bookings`, 0) AS `_aggr_count_bookings`, COALESCE(`aggr_selection_2_CareReport`.`_aggr_count_careReports`, 0) AS `_aggr_count_careReports` FROM `main`.`caregivers` LEFT JOIN (SELECT `main`.`reviews`.`caregiver_id`, COUNT(*) AS `_aggr_count_reviews` FROM `main`.`reviews` WHERE 1=1 GROUP BY `main`.`reviews`.`caregiver_id`) AS `aggr_selection_0_Review` ON (`main`.`caregivers`.`id` = `aggr_selection_0_Review`.`caregiver_id`) LEFT JOIN (SELECT `main`.`bookings`.`caregiver_id`, COUNT(*) AS `_aggr_count_bookings` FROM `main`.`bookings` WHERE 1=1 GROUP BY `main`.`bookings`.`caregiver_id`) AS `aggr_selection_1_Booking` ON (`main`.`caregivers`.`id` = `aggr_selection_1_Booking`.`caregiver_id`) LEFT JOIN (SELECT `main`.`care_reports`.`caregiver_id`, COUNT(*) AS `_aggr_count_careReports` FROM `main`.`care_reports` WHERE 1=1 GROUP BY `main`.`care_reports`.`caregiver_id`) AS `aggr_selection_2_CareReport` ON (`main`.`caregivers`.`id` = `aggr_selection_2_CareReport`.`caregiver_id`) WHERE (`main`.`caregivers`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`email`, `main`.`users`.`avatar_url`, `main`.`users`.`is_active` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`verifications`.`id`, `main`.`verifications`.`doc_type`, `main`.`verifications`.`doc_number`, `main`.`verifications`.`status`, `main`.`verifications`.`reviewed_at`, `main`.`verifications`.`rejection_reason`, `main`.`verifications`.`caregiver_id` FROM `main`.`verifications` WHERE `main`.`verifications`.`caregiver_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`reviews`.`id`, `main`.`reviews`.`rating`, `main`.`reviews`.`comment`, `main`.`reviews`.`created_at`, `main`.`reviews`.`family_id`, `main`.`reviews`.`caregiver_id` FROM `main`.`reviews` WHERE (`main`.`reviews`.`is_published` = ? AND `main`.`reviews`.`caregiver_id` IN (?)) ORDER BY `main`.`reviews`.`created_at` DESC LIMIT ? OFFSET ?
+ GET /api/caregivers/cmteobke7000nquuwcdcdywyk 200 in 81ms (compile: 71ms, render: 10ms)
+ GET / 200 in 87ms (compile: 6ms, render: 82ms)
+ GET / 200 in 76ms (compile: 3ms, render: 73ms)
+ GET /api/auth/session 200 in 64ms (compile: 50ms, proxy.ts: 4ms, render: 10ms)
+ GET /api/auth/session 200 in 68ms (compile: 50ms, proxy.ts: 6ms, render: 12ms)
+ GET / 200 in 178ms (compile: 6ms, render: 171ms)
+ GET /api/auth/session 200 in 77ms (compile: 54ms, proxy.ts: 5ms, render: 18ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 21ms (compile: 4ms, render: 17ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`name`, `main`.`users`.`phone`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`phone_verified`, `main`.`users`.`is_active`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`patients`.`id`, `main`.`patients`.`name`, `main`.`patients`.`age`, `main`.`patients`.`gender`, `main`.`patients`.`relationship`, `main`.`patients`.`city`, `main`.`patients`.`mobility_status`, `main`.`patients`.`is_active`, `main`.`patients`.`family_id` FROM `main`.`patients` WHERE `main`.`patients`.`family_id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`caregivers`.`id`, `main`.`caregivers`.`city`, `main`.`caregivers`.`years_experience`, `main`.`caregivers`.`skills`, `main`.`caregivers`.`languages`, `main`.`caregivers`.`hourly_rate`, `main`.`caregivers`.`overall_rating`, `main`.`caregivers`.`total_reviews`, `main`.`caregivers`.`completed_jobs`, `main`.`caregivers`.`is_verified`, `main`.`caregivers`.`is_active`, `main`.`caregivers`.`bio`, `main`.`caregivers`.`user_id` FROM `main`.`caregivers` WHERE `main`.`caregivers`.`user_id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/me?userId=cmteoarnr000lquuw03zl594x 200 in 17ms (compile: 3ms, proxy.ts: 4ms, render: 9ms)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`users` SET `otp_secret` = ?, `updated_at` = ? WHERE (`main`.`users`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `password_hash` AS `password_hash`, `phone` AS `phone`, `name` AS `name`, `role` AS `role`, `avatar_url` AS `avatar_url`, `subscription` AS `subscription`, `is_active` AS `is_active`, `phone_verified` AS `phone_verified`, `otp_secret` AS `otp_secret`, `last_login_at` AS `last_login_at`, `created_at` AS `created_at`, `updated_at` AS `updated_at`
+📱 MSG91 OTP response for 918076998046: {"request_id":"366845303374674661674950","type":"success"}
+📱 OTP sent via MSG91 to +918076998046
+ POST /api/auth/send-phone-otp 200 in 183ms (compile: 4ms, proxy.ts: 7ms, render: 172ms)
+✓ Compiled in 207ms
+✓ Compiled in 276ms
+✓ Compiled in 749ms
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 9ms (compile: 2ms, render: 7ms)
+✓ Compiled in 279ms
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 10ms (compile: 3ms, render: 8ms)
+✓ Compiled in 256ms
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`bookings`.`id` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`bookings`.`id`, `main`.`bookings`.`patient_id`, `main`.`bookings`.`caregiver_id`, `main`.`bookings`.`family_id`, `main`.`bookings`.`shift_type`, `main`.`bookings`.`start_date`, `main`.`bookings`.`end_date`, `main`.`bookings`.`start_time`, `main`.`bookings`.`end_time`, `main`.`bookings`.`care_requirements`, `main`.`bookings`.`status`, `main`.`bookings`.`family_notes`, `main`.`bookings`.`caregiver_notes`, `main`.`bookings`.`cancellation_reason`, `main`.`bookings`.`total_amount`, `main`.`bookings`.`platform_fee`, `main`.`bookings`.`created_at`, `main`.`bookings`.`updated_at` FROM `main`.`bookings` WHERE `main`.`bookings`.`caregiver_id` = ? ORDER BY `main`.`bookings`.`created_at` DESC LIMIT ? OFFSET ?
+ GET /api/bookings?caregiverId=cmteobke7000nquuwcdcdywyk 200 in 11ms (compile: 4ms, render: 8ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`system_configs`.`id`, `main`.`system_configs`.`section`, `main`.`system_configs`.`key`, `main`.`system_configs`.`value`, `main`.`system_configs`.`label`, `main`.`system_configs`.`is_secret`, `main`.`system_configs`.`updated_at`, `main`.`system_configs`.`created_at` FROM `main`.`system_configs` WHERE 1=1 LIMIT ? OFFSET ?
+📱 MSG91 OTP response for 918076998046: {"request_id":"366845616575474368566230","type":"success"}
+📱 OTP sent via MSG91 (MSG91-generated) to +918076998046
+ POST /api/auth/send-phone-otp 200 in 403ms (compile: 90ms, proxy.ts: 4ms, render: 309ms)
+ GET / 200 in 350ms (compile: 80ms, render: 271ms)
+ GET / 200 in 195ms (compile: 4ms, render: 192ms)
+ GET /api/auth/session 200 in 64ms (compile: 47ms, proxy.ts: 4ms, render: 13ms)
+ GET /api/auth/session 200 in 81ms (compile: 68ms, proxy.ts: 4ms, render: 9ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password_hash`, `main`.`users`.`phone`, `main`.`users`.`name`, `main`.`users`.`role`, `main`.`users`.`avatar_url`, `main`.`users`.`subscription`, `main`.`users`.`is_active`, `main`.`users`.`phone_verified`, `main`.`users`.`otp_secret`, `main`.`users`.`last_login_at`, `main`.`users`.`created_at`, `main`.`users`.`updated_at` FROM `main`.`users` WHERE `main`.`users`.`phone` = ? LIMIT ? OFFSET ?
+📱 MSG91 OTP response for 918076998046: {"request_id":"366845617869314c346c6375","type":"success"}
+📱 OTP sent via MSG91 (MSG91-generated) to +918076998046
+ POST /api/auth/send-phone-otp 200 in 297ms (compile: 3ms, proxy.ts: 4ms, render: 290ms)

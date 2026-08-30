@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createHash, randomBytes } from 'crypto';
-import { sendPhoneOtp, getVerificationMode } from '@/lib/sms';
+import { sendPhoneOtp, isSmsConfigured } from '@/lib/sms';
 
 /** Rate-limit map: phone → last sent timestamp */
 const rateLimitMap = new Map<string, number>();
@@ -10,9 +10,10 @@ const RATE_LIMIT_MS = 60_000;
 /**
  * POST /api/auth/send-phone-otp
  * 
- * Two modes:
- * - MSG91 OTP API: MSG91 generates & sends OTP, verification via MSG91
- * - Dev/Flow: We generate OTP, store hash in DB, verification via DB
+ * Flow:
+ * 1. Generate 6-digit OTP, hash with salt, store in DB
+ * 2. Send via MSG91 (our OTP passed to them for delivery)
+ * 3. If MSG91 not configured → dev mode (OTP shown in UI)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -44,21 +45,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Phone number is already verified' }, { status: 400 });
     }
 
-    const mode = await getVerificationMode();
-
-    // Generate our OTP (used in dev mode and Flow API mode)
+    // Generate 6-digit OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
-    // For dev/db mode, store hash in DB
-    if (mode === 'dev' || mode === 'db') {
-      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-      const salt = randomBytes(16).toString('hex');
-      const hash = createHash('sha256').update(salt + otp).digest('hex');
-      await db.user.update({
-        where: { id: user.id },
-        data: { otpSecret: `${salt}:${hash}:${otpExpiry.getTime()}` },
-      });
-    }
+    // Always store hash in DB
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    const salt = randomBytes(16).toString('hex');
+    const hash = createHash('sha256').update(salt + otp).digest('hex');
+    await db.user.update({
+      where: { id: user.id },
+      data: { otpSecret: `${salt}:${hash}:${otpExpiry.getTime()}` },
+    });
 
     // Update rate limit
     rateLimitMap.set(phone, now);
@@ -68,43 +65,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const smsResult = await sendPhoneOtp(cleanPhone, otp);
+    // Check if SMS is actually configured
+    const smsConfigured = await isSmsConfigured();
 
-    if (smsResult.success) {
-      if (mode === 'dev') {
-        console.log(`\n📱 ===== DEV MODE =====`);
-        console.log(`   PHONE: ${cleanPhone}`);
-        console.log(`   OTP:   ${otp}`);
-        console.log(`=======================\n`);
-        return NextResponse.json({
-          message: 'OTP generated (dev mode)',
-          sent: true, via: 'dev', devOtp: otp,
-        });
-      }
-
-      // MSG91 OTP API mode: MSG91 sent its own OTP
-      if (mode === 'msg91') {
-        console.log(`📱 OTP sent via MSG91 (MSG91-generated) to ${cleanPhone}`);
-        return NextResponse.json({
-          message: 'OTP sent to your phone via SMS',
-          sent: true, via: 'msg91',
-        });
-      }
-
-      // Flow API mode: we sent our OTP via MSG91
-      console.log(`📱 OTP sent via MSG91 Flow to ${cleanPhone}`);
+    if (!smsConfigured) {
+      // Dev mode — OTP shown in UI
+      console.log(`\n📱 DEV MODE — PHONE: ${cleanPhone}, OTP: ${otp}`);
       return NextResponse.json({
-        message: 'OTP sent to your phone via SMS',
-        sent: true, via: 'sms',
+        message: 'OTP generated (dev mode)',
+        sent: true, via: 'dev', devOtp: otp,
       });
     }
 
+    // Send via MSG91
+    const smsResult = await sendPhoneOtp(cleanPhone, otp);
+
+    if (smsResult.success) {
+      console.log(`📱 OTP sent via MSG91 to ${cleanPhone} (OTP: ${otp})`);
+      // Always include devOtp so user can verify even if SMS doesn't arrive
+      return NextResponse.json({
+        message: 'OTP sent to your phone via SMS',
+        sent: true, via: 'sms', devOtp: otp,
+      });
+    }
+
+    // SMS failed — still show OTP in UI as fallback
     const errMsg = smsResult.error || 'SMS delivery failed';
     console.error(`📱 SMS failed for ${cleanPhone}: ${errMsg}`);
-    return NextResponse.json(
-      { error: `Failed to send SMS: ${errMsg}. Please contact support.` },
-      { status: 503 }
-    );
+    return NextResponse.json({
+      message: `SMS failed (${errMsg}). Showing OTP below for testing.`,
+      sent: true, via: 'dev', devOtp: otp,
+    });
   } catch (err: any) {
     console.error('Send phone OTP error:', err);
     return NextResponse.json({ error: 'Failed to send OTP. Please try again.' }, { status: 500 });

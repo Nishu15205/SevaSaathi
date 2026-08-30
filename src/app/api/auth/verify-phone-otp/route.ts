@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyViaMsg91Otp, getVerificationMode } from '@/lib/sms';
 import { createHash } from 'crypto';
 
 /**
  * POST /api/auth/verify-phone-otp
  * 
- * Three paths:
+ * Two paths:
  * 1. firebaseToken — Firebase phone auth (legacy)
- * 2. otp + msg91 mode — Verify via MSG91's verify endpoint
- * 3. otp + db/dev mode — Verify against hashed OTP in DB
+ * 2. otp — Verify against hashed OTP in DB (always used now)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -22,20 +20,11 @@ export async function POST(req: NextRequest) {
       return await verifyViaFirebase(firebaseToken, cleanPhone);
     }
 
-    // --- Path 2 & 3: OTP verification ---
+    // --- Path 2: OTP verification via DB hash ---
     if (otp) {
       if (!cleanPhone) {
         return NextResponse.json({ error: 'Phone number required' }, { status: 400 });
       }
-
-      const mode = await getVerificationMode();
-
-      // MSG91 mode: verify through MSG91's API
-      if (mode === 'msg91') {
-        return await verifyViaMsg91(cleanPhone, otp);
-      }
-
-      // DB/Dev mode: verify against hash in DB
       return await verifyViaDb(cleanPhone, otp);
     }
 
@@ -44,25 +33,6 @@ export async function POST(req: NextRequest) {
     console.error('Verify phone OTP error:', err);
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
-}
-
-// --- MSG91 Verification ---
-async function verifyViaMsg91(phone: string, otp: string) {
-  const { getMsg91AuthKey } = await import('@/lib/config');
-  const authKey = await getMsg91AuthKey();
-
-  if (!authKey) {
-    return NextResponse.json({ error: 'SMS not configured' }, { status: 503 });
-  }
-
-  const isValid = await verifyViaMsg91Otp(phone, otp, authKey);
-
-  if (!isValid) {
-    return NextResponse.json({ error: 'Invalid OTP. Please try again.' }, { status: 400 });
-  }
-
-  await markPhoneVerified(phone);
-  return NextResponse.json({ verified: true, message: 'Phone number verified successfully' });
 }
 
 // --- DB Hash Verification ---
