@@ -92,8 +92,9 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
           setFirebaseError(err || 'Failed to send OTP');
         }
       }
-    } catch {
-      setFirebaseError('Something went wrong. Please try again.');
+    } catch (e: any) {
+      console.error('Phone OTP unexpected error:', e);
+      setFirebaseError(e?.message || 'Something went wrong. Please try again.');
     } finally {
       setSendOtpLoading(false);
     }

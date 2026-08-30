@@ -17,6 +17,12 @@ interface UseFirebasePhoneAuthReturn {
   reset: () => void;
 }
 
+function getErrorDetails(err: any): { code: string; message: string } {
+  const code = err?.code || '';
+  const message = err?.message || err?.toString?.() || String(err) || 'Unknown error';
+  return { code, message };
+}
+
 export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
   const [isReady, setIsReady] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
@@ -100,6 +106,13 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
       const recaptchaVerifier = new RecaptchaVerifier(authRef.current, recaptchaContainerId, {
         size: 'invisible',
         callback: () => {},
+        'expired-callback': () => {
+          console.error('firebase-phone-auth: reCAPTCHA expired');
+          setError('Security check expired. Please try again.');
+        },
+        'error-callback': (err: any) => {
+          console.error('firebase-phone-auth: reCAPTCHA error', err);
+        },
       });
 
       recaptchaRef.current = recaptchaVerifier;
@@ -111,23 +124,35 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
       }
 
       console.log('firebase-phone-auth: sending OTP to', formattedPhone);
+
+      // Render the reCAPTCHA first, then sign in
+      await recaptchaVerifier.render();
       const confirmationResult = await signInWithPhoneNumber(authRef.current, formattedPhone, recaptchaVerifier);
       confirmationRef.current = confirmationResult;
       setCodeSent(true);
       return true;
     } catch (err: any) {
       console.error('Firebase send OTP error:', err);
-      const msg = err?.message || 'Failed to send OTP';
-      // Pass the raw error identifier so the component can show the right guide
-      const friendlyMsg = msg.includes('too-many')
-        ? 'Too many OTP attempts. Please wait a few minutes and try again.'
-        : msg.includes('reCAPTCHA')
-          ? 'Security check failed. Please refresh the page and try again.'
-        : msg.includes('operation-not-allowed') || msg.includes('not-allowed')
-          ? 'operation-not-allowed'
-        : msg.includes('invalid-phone')
-          ? 'This phone number format is not supported. Please check and try again.'
-        : msg;
+      const { code, message } = getErrorDetails(err);
+      console.error('Firebase error details — code:', code, 'message:', message);
+
+      const fullText = (code + ' ' + message).toLowerCase();
+      let friendlyMsg: string;
+
+      if (fullText.includes('too-many') || fullText.includes('too many')) {
+        friendlyMsg = 'Too many OTP attempts. Please wait a few minutes and try again.';
+      } else if (fullText.includes('recaptcha') || fullText.includes('captcha')) {
+        friendlyMsg = 'Security check (reCAPTCHA) failed. Please refresh the page and try again.';
+      } else if (fullText.includes('operation-not-allowed') || fullText.includes('not-allowed')) {
+        friendlyMsg = 'operation-not-allowed';
+      } else if (fullText.includes('invalid-phone') || fullText.includes('malformed')) {
+        friendlyMsg = 'This phone number format is not supported. Please check and try again.';
+      } else if (fullText.includes('network') || fullText.includes('fetch') || fullText.includes('timeout')) {
+        friendlyMsg = 'Network error. Please check your internet connection and try again.';
+      } else {
+        friendlyMsg = message || 'Failed to send OTP';
+      }
+
       setError(friendlyMsg);
       setCodeSent(false);
       return false;
@@ -151,10 +176,10 @@ export function useFirebasePhoneAuth(): UseFirebasePhoneAuthReturn {
       return { firebaseToken: token };
     } catch (err: any) {
       console.error('Firebase verify OTP error:', err);
-      const msg = err?.message || 'Invalid OTP';
-      setError(msg.includes('invalid-verification-code')
+      const { message } = getErrorDetails(err);
+      setError(message.includes('invalid-verification-code')
         ? 'Invalid OTP. Please check and try again.'
-        : msg);
+        : message);
       return null;
     } finally {
       setVerifying(false);

@@ -291,14 +291,16 @@ function OverviewTab({ user }: { user: User }) {
         toast.success('OTP sent to your phone via SMS!');
       } else {
         const err = firebase.error;
+        console.error('Phone OTP send failed. Firebase error:', err);
         if (err.includes('operation-not-allowed') || err.includes('not-allowed')) {
           setFirebaseError('operation-not-allowed');
         } else {
           setFirebaseError(err || 'Failed to send OTP');
         }
       }
-    } catch {
-      setFirebaseError('Something went wrong. Please try again.');
+    } catch (e: any) {
+      console.error('Phone OTP unexpected error:', e);
+      setFirebaseError(e?.message || 'Something went wrong. Please try again.');
     } finally {
       setPhoneVerifying(false);
     }
