@@ -13,13 +13,11 @@ services:
         value: "8080"
       - key: NODE_ENV
         value: "production"
-    # Secrets — set these in Koyeb dashboard after first deploy:
-    #   DATABASE_URL          → libsql://your-db-name-your-org.turso.io
-    #   DATABASE_AUTH_TOKEN   → Turso auth token
-    #   NEXTAUTH_SECRET       → any random string (openssl rand -base64 32)
-    #   NEXTAUTH_URL          → https://your-koyeb-app.koyeb.app
-    #   FAST2SMS_API_KEY      → your Fast2SMS key
-    #   RAZORPAY_KEY_ID       → your Razorpay key
-    #   RAZORPAY_KEY_SECRET   → your Razorpay secret
+      - key: DATABASE_URL
+        value: "file:/app/data/sevasaathi.db"
+    # Set these secrets in Koyeb dashboard:
+    #   NEXTAUTH_SECRET   → openssl rand -base64 32
+    #   NEXTAUTH_URL      → https://your-app.koyeb.app
+    #   FAST2SMS_API_KEY  → your key
     routes:
       - path: /

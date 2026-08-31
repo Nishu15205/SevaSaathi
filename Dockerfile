@@ -1,10 +1,11 @@
 # ============================================
-# SevaSaathi — Production Docker Image (Koyeb / Render / VPS)
+# SevaSaathi — Docker for Koyeb / Render / VPS
 # ============================================
 # Single container: Next.js + Socket.io + Reverse Proxy
+# SQLite database stored in /app/data/
 # ============================================
 
-# --- Stage 1: Install dependencies ---
+# --- Stage 1: Dependencies ---
 FROM node:20-alpine AS deps
 RUN corepack enable && corepack prepare bun@1 --activate
 WORKDIR /app
@@ -30,44 +31,37 @@ ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
 
-# Copy standalone build output (includes traced node_modules for Next.js)
+# Install http-proxy for reverse proxy
+RUN npm install http-proxy --no-save
+
+# Copy standalone build
 COPY --from=builder /app/.next/standalone ./
 
 # Copy static assets
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma schema + engine (needed for db:push at runtime)
+# Copy Prisma (for db:push at runtime)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy Turso adapter packages (may not be in standalone trace)
-COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql 2>/dev/null || true
-COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3 2>/dev/null || true
-
-# Copy the reverse proxy
+# Copy reverse proxy
 COPY --from=builder /app/server ./server
 
-# Copy realtime-service source + deps
+# Copy realtime-service + its deps
 COPY --from=builder /app/mini-services/realtime-service ./mini-services/realtime-service
 COPY --from=builder /app/mini-services/realtime-service/node_modules ./mini-services/realtime-service/node_modules 2>/dev/null || true
 
-# Install http-proxy for the reverse proxy
-RUN npm install http-proxy --no-save 2>/dev/null
+# Create data + upload directories
+RUN mkdir -p /app/data /app/public/upload/docs
 
 # Make startup script executable
 RUN chmod +x server/start.sh
 
-# Create data directory (for local SQLite fallback)
-RUN mkdir -p /app/data
-
-# Expose port (Koyeb uses PORT env, default 8080)
 EXPOSE 8080
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api || exit 1
 
-# Start all services via the proxy
 CMD ["sh", "server/start.sh"]

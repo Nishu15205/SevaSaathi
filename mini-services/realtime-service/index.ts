@@ -1,36 +1,17 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
-import { createClient } from '@libsql/client';
 
-// Initialize Prisma — supports both local SQLite and Turso cloud
-const dbUrl = process.env.DATABASE_URL || 'file:/app/data/sevasaathi.db';
-
-function createPrismaClient() {
-  if (dbUrl.startsWith('libsql://')) {
-    const authToken = process.env.DATABASE_AUTH_TOKEN;
-    const libsql = createClient({ url: dbUrl, authToken });
-    const adapter = new PrismaLibSql(libsql);
-    return new PrismaClient({ adapter });
-  }
-  return new PrismaClient();
-}
-
-const db = createPrismaClient();
-
+const db = new PrismaClient();
 const PORT = parseInt(process.env.SOCKET_PORT || '3005');
 
 // Track connected users
-const connectedUsers = new Map<string, Set<string>>(); // userId -> Set<socketId>
+const connectedUsers = new Map<string, Set<string>>();
 
 function getConnectedUserCount(): number {
   return connectedUsers.size;
 }
 
-/**
- * Check if a request is a socket.io / engine.io request.
- */
 function isSocketIORequest(req: IncomingMessage): boolean {
   const url = req.url || '/';
   if (url.includes('EIO=')) return true;
@@ -40,7 +21,6 @@ function isSocketIORequest(req: IncomingMessage): boolean {
   return false;
 }
 
-// Helper to parse JSON body from a request
 function parseBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -50,31 +30,26 @@ function parseBody(req: IncomingMessage): Promise<Buffer> {
   });
 }
 
-// CORS headers for REST API responses
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// JSON response helper
 function jsonRes(res: ServerResponse, status: number, data: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json', ...corsHeaders });
   res.end(JSON.stringify(data));
 }
 
-// REST API handler
 async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url = req.url || '/';
   const method = req.method || 'GET';
 
-  // CORS preflight
   if (method === 'OPTIONS') {
     jsonRes(res, 200, {});
     return true;
   }
 
-  // GET /api/health
   if (url === '/api/health' && method === 'GET') {
     jsonRes(res, 200, {
       status: 'ok',
@@ -86,7 +61,6 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
     return true;
   }
 
-  // POST /api/emit - emit to a specific user's room
   if (url === '/api/emit' && method === 'POST') {
     const raw = await parseBody(req);
     let body: Record<string, unknown>;
@@ -109,7 +83,6 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
     return true;
   }
 
-  // POST /api/emit-room - emit to a custom room
   if (url === '/api/emit-room' && method === 'POST') {
     const raw = await parseBody(req);
     let body: Record<string, unknown>;
@@ -132,41 +105,31 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
     return true;
   }
 
-  // Not an API route — return 404
   jsonRes(res, 404, { error: 'Not found' });
   return true;
 }
 
-// Create HTTP server without a request handler
 const httpServer = createServer();
 
-// Initialize Socket.io server
 const io = new Server(httpServer, {
   path: '/',
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
+  cors: { origin: '*', methods: ['GET', 'POST'] },
   pingTimeout: 60000,
   pingInterval: 25000,
 });
 
-// Remove all existing 'request' listeners (including socket.io's)
 const originalListeners = httpServer.listeners('request');
 httpServer.removeAllListeners('request');
 
-// Find the engine.io request handler
 const engineHandler = originalListeners.find(
   (listener) => listener.name !== 'handleRequest' || originalListeners.length === 1
 ) || originalListeners[originalListeners.length - 1];
 
-// Install our unified request handler
 httpServer.on('request', (req: IncomingMessage, res: ServerResponse) => {
   if (isSocketIORequest(req)) {
     (engineHandler as (req: IncomingMessage, res: ServerResponse) => void)(req, res);
     return;
   }
-
   handleRestApi(req, res).catch((err) => {
     console.error('[REST] Error handling request:', err);
     if (!res.headersSent) {
@@ -175,7 +138,6 @@ httpServer.on('request', (req: IncomingMessage, res: ServerResponse) => {
   });
 });
 
-// Socket.io event handlers
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
 
@@ -214,15 +176,12 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start the server
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[SevaSaathi Realtime] Service running on port ${PORT}`);
-  console.log(`[SevaSaathi Realtime] REST endpoints: POST /api/emit, POST /api/emit-room`);
-  console.log(`[SevaSaathi Realtime] Health check: GET /api/health`);
-  console.log(`[SevaSaathi Realtime] Database: ${dbUrl}`);
+  console.log(`[SevaSaathi Realtime] REST: POST /api/emit, POST /api/emit-room`);
+  console.log(`[SevaSaathi Realtime] Health: GET /api/health`);
 });
 
-// Graceful shutdown
 function shutdown(signal: string) {
   console.log(`[SevaSaathi Realtime] Received ${signal}, shutting down...`);
   io.close();
