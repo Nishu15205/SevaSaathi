@@ -27,6 +27,7 @@ import {
   ChevronRight,
   RefreshCw,
   MessageSquare,
+  KeyRound,
   Sparkles,
   Activity,
   XCircle,
@@ -264,7 +265,7 @@ function OverviewTab({ user }: { user: User }) {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
-  const [otpVia, setOtpVia] = useState<'sms' | 'dev' | 'msg91'>('sms');
+  const [smsDelivered, setSmsDelivered] = useState(false);
 
   const maskPhone = (p: string) => {
     const d = p.replace(/\D/g, '');
@@ -294,17 +295,14 @@ function OverviewTab({ user }: { user: User }) {
       }
 
       setOtpSent(true);
-      setOtpVia(data.via || 'sms');
-      const shownOtp = data.devOtp || data.fallbackOtp;
-      if (shownOtp) {
-        setDevOtp(shownOtp);
+      setSmsDelivered(data.via === 'sms');
+      if (data.otp) {
+        setDevOtp(data.otp);
       }
-      if (data.via === 'dev') {
-        toast.success('OTP generated (dev mode)');
-      } else if (data.via === 'msg91') {
-        toast.success('OTP sent! Check SMS for 4-digit code.');
-      } else {
+      if (data.via === 'sms') {
         toast.success('OTP sent to your phone via SMS!');
+      } else {
+        toast.info('MSG91 not configured — using dev mode');
       }
     } catch (e: any) {
       console.error('Phone OTP send error:', e);
@@ -315,8 +313,8 @@ function OverviewTab({ user }: { user: User }) {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 4) {
-      toast.error('Enter the OTP');
+    if (!otpValue || otpValue.length < 6) {
+      toast.error('Enter the 6-digit OTP');
       return;
     }
     try {
@@ -486,15 +484,13 @@ function OverviewTab({ user }: { user: User }) {
 
             {/* Fallback OTP display */}
             {devOtp && (
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <MessageSquare className="h-4 w-4 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-800 font-medium">
-                  {otpVia === 'msg91'
-                    ? 'SMS nahi aaya? Ye 6-digit OTP use karo: '
-                    : otpVia === 'dev'
-                      ? 'Your OTP: '
-                      : 'If SMS didn\'t arrive, use this: '}
-                  <span className="font-mono font-bold tracking-widest text-amber-900">{devOtp}</span>
+              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <KeyRound className="h-4 w-4 text-blue-600 shrink-0" />
+                <p className="text-xs text-blue-800 font-medium">
+                  {smsDelivered
+                    ? 'SMS nahi aaya? Ye OTP use karo: '
+                    : 'Your OTP: '}
+                  <span className="font-mono font-bold tracking-widest text-blue-900">{devOtp}</span>
                 </p>
               </div>
             )}
@@ -503,11 +499,11 @@ function OverviewTab({ user }: { user: User }) {
             {otpSent && !otpError && (
               <>
                 <div>
-                  <Label className="text-sm">{otpVia === 'msg91' ? 'SMS OTP (4-digit) ya fallback OTP (6-digit)' : 'OTP'}</Label>
+                  <Label className="text-sm">Enter 6-digit OTP</Label>
                   <Input
                     value={otpValue}
                     onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder={otpVia === 'msg91' ? 'SMS OTP ya fallback' : '6-digit OTP'}
+                    placeholder="000000"
                     className="mt-1 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
                     maxLength={6}
                     autoFocus
@@ -515,7 +511,7 @@ function OverviewTab({ user }: { user: User }) {
                 </div>
                 <Button
                   onClick={handleVerifyOtp}
-                  disabled={otpValue.length < 4}
+                  disabled={otpValue.length < 6}
                   className="w-full bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shadow-sm"
                 >
                   Verify OTP

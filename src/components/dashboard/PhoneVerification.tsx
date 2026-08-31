@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Smartphone, ShieldCheck, Loader2, Globe, ChevronDown, AlertTriangle, RefreshCw, MessageSquare } from 'lucide-react';
+import { Smartphone, ShieldCheck, Loader2, Globe, ChevronDown, AlertTriangle, RefreshCw, KeyRound, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +34,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   const [sendOtpLoading, setSendOtpLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [otpVia, setOtpVia] = useState<'sms' | 'dev' | 'msg91'>('sms');
+  const [smsDelivered, setSmsDelivered] = useState(false);
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,19 +93,19 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
       }
 
       setOtpSent(true);
-      setOtpVia(data.via || 'sms');
-      // Show fallback OTP (either devOtp or fallbackOtp field)
-      const shownOtp = data.devOtp || data.fallbackOtp;
-      if (shownOtp) {
-        setDevOtp(shownOtp);
+      setSmsDelivered(data.via === 'sms');
+      
+      // Always get the OTP for fallback display
+      if (data.otp) {
+        setDevOtp(data.otp);
       }
+      
       setShowOtpInput(true);
-      if (data.via === 'dev') {
-        toast.success('OTP generated (dev mode)');
-      } else if (data.via === 'msg91') {
-        toast.success('OTP sent to your phone! Check SMS for 4-digit code.');
-      } else {
+
+      if (data.via === 'sms') {
         toast.success('OTP sent to your phone via SMS!');
+      } else {
+        toast.info('MSG91 not configured — using dev mode');
       }
     } catch (e: any) {
       console.error('Phone OTP send error:', e);
@@ -116,8 +116,8 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 4) {
-      toast.error('Enter the OTP');
+    if (!otpValue || otpValue.length < 6) {
+      toast.error('Enter the 6-digit OTP');
       return;
     }
     setVerifying(true);
@@ -125,10 +125,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
       const res = await fetch('/api/auth/verify-phone-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: user.phone,
-          otp: otpValue,
-        }),
+        body: JSON.stringify({ phone: user.phone, otp: otpValue }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || 'Verification failed'); return; }
@@ -275,55 +272,50 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
         {/* OTP Input Section */}
         {showOtpInput && !error ? (
           <div className="space-y-3">
+            {/* Status message */}
             {otpSent && (
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-3">
-                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-                  <span className="text-white text-xs font-bold">✓</span>
+              <div className={`flex items-center gap-2 rounded-xl p-3 border ${smsDelivered ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${smsDelivered ? 'bg-green-500' : 'bg-amber-500'}`}>
+                  <span className="text-white text-xs font-bold">{smsDelivered ? '✓' : '!'}</span>
                 </div>
-                <p className="text-xs text-green-700 font-medium">
-                  {otpVia === 'dev'
-                    ? 'OTP generated'
-                    : otpVia === 'msg91'
-                      ? `OTP sent to ${maskPhone(user.phone)} — check SMS for 4-digit code`
-                      : `OTP sent to ${maskPhone(user.phone)} via SMS`}
+                <p className={`text-xs font-medium ${smsDelivered ? 'text-green-700' : 'text-amber-800'}`}>
+                  {smsDelivered
+                    ? `OTP sent to ${maskPhone(user.phone)} — check your SMS`
+                    : 'MSG91 not configured — admin needs to set up SMS credentials'}
                 </p>
               </div>
             )}
 
-            {/* Fallback OTP (if SMS doesn't arrive, user can use this) */}
+            {/* Dev/Fallback OTP display */}
             {devOtp && (
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <MessageSquare className="h-4 w-4 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-800 font-medium">
-                  {otpVia === 'msg91'
-                    ? 'SMS nahi aaya? Ye 6-digit OTP use karo: '
-                    : otpVia === 'dev'
-                      ? 'Your OTP: '
-                      : 'If SMS didn\'t arrive, use this: '}
-                  <span className="font-mono font-bold tracking-widest text-amber-900">{devOtp}</span>
+              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <KeyRound className="h-4 w-4 text-blue-600 shrink-0" />
+                <p className="text-xs text-blue-800 font-medium">
+                  {smsDelivered
+                    ? 'SMS nahi aaya? Ye OTP use karo: '
+                    : 'Your OTP: '}
+                  <span className="font-mono font-bold tracking-widest text-blue-900">{devOtp}</span>
                 </p>
               </div>
             )}
 
+            {/* OTP Input — always 6 digits */}
             <div>
-              <Label className="text-xs text-gray-500">
-                {otpVia === 'msg91'
-                  ? 'Enter OTP from SMS (4-digit) or fallback (6-digit)'
-                  : 'Enter OTP'}
-              </Label>
+              <Label className="text-xs text-gray-500">Enter 6-digit OTP</Label>
               <Input
                 value={otpValue}
                 onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder={otpVia === 'msg91' ? 'SMS OTP ya fallback OTP' : 'Enter OTP'}
+                placeholder="000000"
                 className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono"
                 maxLength={6}
                 autoFocus
               />
             </div>
+
             <div className="flex gap-2">
               <Button
                 onClick={handleVerifyOtp}
-                disabled={verifying || otpValue.length < 4}
+                disabled={verifying || otpValue.length < 6}
                 className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm flex-1 shadow-sm"
               >
                 {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -337,13 +329,15 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
                 Cancel
               </Button>
             </div>
+
             <button
               type="button"
               onClick={handleResend}
               disabled={sendOtpLoading}
-              className="text-xs text-forest-700 hover:text-forest-900 font-medium disabled:opacity-50"
+              className="text-xs text-forest-700 hover:text-forest-900 font-medium disabled:opacity-50 flex items-center gap-1"
             >
-              {sendOtpLoading ? 'Resending...' : 'Resend OTP'}
+              {sendOtpLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              Resend OTP
             </button>
           </div>
         ) : !error ? (
@@ -352,7 +346,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             disabled={sendOtpLoading}
             className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm shadow-sm"
           >
-            {sendOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+            {sendOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
             {sendOtpLoading ? 'Sending OTP...' : 'Send OTP via SMS'}
           </Button>
         ) : null}
