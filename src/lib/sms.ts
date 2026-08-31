@@ -1,153 +1,104 @@
 /**
- * SMS Service for SevaSaathi — Real OTP Delivery via MSG91
+ * SMS Service for SevaSaathi — Real OTP Delivery via Fast2SMS
  *
- * Simple, single-path approach:
+ * Single clean path:
  * 1. We generate a 6-digit OTP
  * 2. We store its salted hash in DB
- * 3. We pass our OTP to MSG91 API — MSG91 delivers it via their pre-approved DLT template
+ * 3. We send OTP via Fast2SMS (route: "otp") — they use their pre-approved DLT template
  * 4. Verification always happens against the DB hash
  *
- * If MSG91 auth key is not configured → dev mode (OTP logged to console & shown in UI)
+ * If Fast2SMS API key is not configured → dev mode (OTP logged to console & shown in UI)
  */
 
-import { getMsg91AuthKey, getMsg91TemplateId } from './config';
+import { getFast2SmsApiKey } from './config';
 
 export interface SmsResult {
   success: boolean;
-  /** True if SMS was actually sent via MSG91. False = dev mode. */
+  /** True if SMS was actually sent via Fast2SMS. False = dev mode. */
   delivered: boolean;
   messageId?: string;
   error?: string;
 }
 
 /**
- * Clean phone: strip non-digits, prepend 91 if 10-digit Indian number
- * Returns digits only (e.g., "918076998046" for +91-8076998046)
+ * Extract 10-digit Indian number from any format.
+ * Handles: +918076998046, 918076998046, 8076998046
  */
-function cleanPhone(phone: string): string {
+function to10Digit(phone: string): string {
   let p = phone.replace(/[^0-9]/g, '');
-  // If 10-digit Indian number (starts with 6-9), prepend country code
-  if (p.length === 10 && /^[6-9]/.test(p)) {
-    p = '91' + p;
+  // Strip leading 91 if 12 digits
+  if (p.length === 12 && p.startsWith('91')) {
+    p = p.slice(2);
+  }
+  // Strip leading +91 already stripped, handle any remaining
+  if (p.length > 10) {
+    p = p.slice(p.length - 10);
   }
   return p;
 }
 
 /**
- * Send OTP via MSG91 OTP API v5
- * We pass our own OTP so MSG91 delivers it (not generates its own).
- * MSG91 uses their pre-approved DLT OTP template — no custom template needed.
+ * Send OTP via Fast2SMS
+ * Uses route="otp" which uses Fast2SMS's pre-approved DLT template.
+ * No custom template needed — Fast2SMS handles DLT compliance.
+ *
+ * API: POST https://www.fast2sms.com/dev/bulkV2
  */
-async function sendViaMsg91OtpApi(phone: string, otp: string, authKey: string): Promise<SmsResult> {
-  const mobile = cleanPhone(phone);
+async function sendViaFast2Sms(phone: string, otp: string, apiKey: string): Promise<SmsResult> {
+  const numbers = to10Digit(phone);
 
-  console.log(`\n📱 MSG91 OTP API → phone: ${mobile}, otp: ${otp}`);
+  console.log(`\n📱 Fast2SMS → phone: ${numbers}, otp: ${otp}`);
 
-  const body: Record<string, any> = {
-    mobile,
-    otp,
-    otp_length: otp.length,
-  };
-
-  const response = await fetch('https://api.msg91.com/api/v5/otp', {
+  const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
     method: 'POST',
     headers: {
-      'authkey': authKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
-  const data = await response.json();
-  console.log(`📱 MSG91 response:`, JSON.stringify(data));
-
-  if (data.type === 'success') {
-    console.log(`✅ OTP ${otp} sent successfully to ${mobile} via MSG91`);
-    return {
-      success: true,
-      delivered: true,
-      messageId: data.request_id?.toString(),
-    };
-  }
-
-  // Error handling
-  const errorMsg = data.message || 'MSG91 API error';
-  console.error(`❌ MSG91 failed for ${mobile}: ${errorMsg}`);
-  return { success: false, delivered: false, error: errorMsg };
-}
-
-/**
- * Send OTP via MSG91 Flow API (custom DLT template with var1)
- * Only used when template_id is also configured.
- */
-async function sendViaMsg91FlowApi(phone: string, otp: string, authKey: string, templateId: string): Promise<SmsResult> {
-  const mobile = cleanPhone(phone);
-
-  console.log(`\n📱 MSG91 Flow API → phone: ${mobile}, otp: ${otp}, template: ${templateId}`);
-
-  const response = await fetch('https://api.msg91.com/api/v5/flow/', {
-    method: 'POST',
-    headers: {
-      'authkey': authKey,
+      'authorization': apiKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      template_id: templateId,
-      recipients: [{ mobiles: mobile, var1: otp }],
+      route: 'otp',
+      variables_values: otp,
+      numbers,
+      flash: 0,
     }),
   });
 
   const data = await response.json();
-  console.log(`📱 MSG91 Flow response:`, JSON.stringify(data));
+  console.log(`📱 Fast2SMS response:`, JSON.stringify(data));
 
-  if (data.type === 'success') {
-    console.log(`✅ OTP ${otp} sent via MSG91 Flow to ${mobile}`);
-    return {
-      success: true,
-      delivered: true,
-      messageId: data.message_id?.toString(),
-    };
+  if (data.return === true && data.status_code === 200) {
+    const smsId = Array.isArray(data.sms_id) ? data.sms_id[0] : undefined;
+    console.log(`✅ OTP ${otp} sent successfully to ${numbers} via Fast2SMS`);
+    return { success: true, delivered: true, messageId: smsId };
   }
 
-  const errorMsg = data.message || 'MSG91 Flow error';
-  console.error(`❌ MSG91 Flow failed for ${mobile}: ${errorMsg}`);
+  const errorMsg = data.message || 'Fast2SMS API error';
+  console.error(`❌ Fast2SMS failed for ${numbers}: ${errorMsg}`);
   return { success: false, delivered: false, error: errorMsg };
 }
 
 /**
  * Send phone OTP — the main entry point.
  *
- * - If MSG91 auth key + template_id → Flow API
- * - If MSG91 auth key only → OTP API (MSG91's pre-approved DLT template)
+ * - If Fast2SMS API key → send via Fast2SMS OTP route
  * - If nothing → dev mode (console log + UI fallback)
- *
- * CRITICAL: We ALWAYS pass our own OTP to MSG91 so that:
- * 1. The same OTP is in the SMS and in our DB hash
- * 2. Verification always works against the DB
  */
 export async function sendPhoneOtp(phone: string, otp: string): Promise<SmsResult> {
-  const authKey = await getMsg91AuthKey();
-  const templateId = await getMsg91TemplateId();
+  const apiKey = await getFast2SmsApiKey();
 
-  // No MSG91 credentials → dev mode
-  if (!authKey) {
+  // No credentials → dev mode
+  if (!apiKey) {
     console.log(`\n📱 DEV MODE — PHONE: ${phone}, OTP: ${otp}`);
-    console.log(`⚠️  MSG91 auth key not configured. Add it in Admin Settings or .env (MSG91_AUTH_KEY)`);
+    console.log(`⚠️  Fast2SMS API key not configured. Add it in Admin Settings or .env (FAST2SMS_API_KEY)`);
     return { success: true, delivered: false };
   }
 
-  // If template_id is configured → Flow API (custom template)
-  if (templateId) {
-    return await sendViaMsg91FlowApi(phone, otp, authKey, templateId);
-  }
-
-  // Default → OTP API (MSG91's pre-approved OTP template, best delivery rate)
-  return await sendViaMsg91OtpApi(phone, otp, authKey);
+  return await sendViaFast2Sms(phone, otp, apiKey);
 }
 
 /**
- * Check if SMS (MSG91) is configured.
+ * Check if SMS (Fast2SMS) is configured.
  */
 export async function isSmsConfigured(): Promise<boolean> {
-  return !!(await getMsg91AuthKey());
+  return !!(await getFast2SmsApiKey());
 }

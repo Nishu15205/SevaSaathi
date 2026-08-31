@@ -105,7 +105,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
       if (data.via === 'sms') {
         toast.success('OTP sent to your phone via SMS!');
       } else {
-        toast.info('MSG91 not configured — using dev mode');
+        toast.info('Fast2SMS not configured — using dev mode');
       }
     } catch (e: any) {
       console.error('Phone OTP send error:', e);
@@ -281,7 +281,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
                 <p className={`text-xs font-medium ${smsDelivered ? 'text-green-700' : 'text-amber-800'}`}>
                   {smsDelivered
                     ? `OTP sent to ${maskPhone(user.phone)} — check your SMS`
-                    : 'MSG91 not configured — admin needs to set up SMS credentials'}
+                    : 'Fast2SMS not configured — admin needs to set SMS API key in Settings'}
                 </p>
               </div>
             )}

@@ -1039,7 +1039,7 @@ const SECTION_INFO: Record<string, { label: string; color: string; description: 
   BREVO: { label: 'Brevo Email', color: 'bg-teal-50 border-teal-200', description: 'Email delivery via Brevo (free 300/day)' },
   FIREBASE: { label: 'Firebase Phone Auth', color: 'bg-orange-50 border-orange-200', description: 'Phone OTP verification via Firebase' },
   SMTP: { label: 'Email (SMTP Fallback)', color: 'bg-amber-50 border-amber-200', description: 'Gmail SMTP fallback email sending' },
-  SMS: { label: 'SMS (MSG91)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery via MSG91' },
+  SMS: { label: 'SMS (Fast2SMS)', color: 'bg-green-50 border-green-200', description: 'SMS OTP delivery via Fast2SMS' },
   PLATFORM: { label: 'Platform & Bank', color: 'bg-purple-50 border-purple-200', description: 'Platform fee %, UPI, admin bank details for auto-transfer' },
   APP: { label: 'App Config', color: 'bg-gray-50 border-gray-200', description: 'Application settings' },
 };

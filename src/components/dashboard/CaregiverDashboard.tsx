@@ -258,7 +258,7 @@ function OverviewTab({ user }: { user: User }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Phone verification — MSG91 OTP
+  // Phone verification — Fast2SMS OTP
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -302,7 +302,7 @@ function OverviewTab({ user }: { user: User }) {
       if (data.via === 'sms') {
         toast.success('OTP sent to your phone via SMS!');
       } else {
-        toast.info('MSG91 not configured — using dev mode');
+        toast.info('Fast2SMS not configured — using dev mode');
       }
     } catch (e: any) {
       console.error('Phone OTP send error:', e);

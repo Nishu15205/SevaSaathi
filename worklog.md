@@ -1051,3 +1051,22 @@ Stage Summary:
 - SMS may not actually arrive due to MSG91 account/telecom issues (not a code bug)
 - Fallback OTP is always returned in API response so user can verify even if SMS doesn't arrive
 - Files changed: sms.ts, send-phone-otp/route.ts, verify-phone-otp/route.ts, PhoneVerification.tsx, CaregiverDashboard.tsx
+---
+Task ID: 2
+Agent: Main Agent
+Task: Replace MSG91 with Fast2SMS for OTP delivery
+
+Work Log:
+- Replaced MSG91 with Fast2SMS in sms.ts
+- Fast2SMS uses route="otp" which uses their pre-approved DLT template — no custom template needed
+- Updated config.ts: removed getMsg91AuthKey/getMsg91TemplateId, added getFast2SmsApiKey
+- Cleaned old MSG91 config from DB
+- Updated all UI messages from MSG91 to Fast2SMS references
+- Dev mode works (shows OTP in UI when no API key configured)
+
+Stage Summary:
+- Fast2SMS implemented: POST https://www.fast2sms.com/dev/bulkV2 with route=otp
+- Phone format: 10-digit Indian number (strips +91/91 prefix)
+- DB config: section=SMS, key=FAST2SMS_API_KEY
+- Env fallback: FAST2SMS_API_KEY
+- User needs to add their Fast2SMS API key in Admin Settings for real SMS delivery

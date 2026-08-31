@@ -9,8 +9,8 @@ import { createHash } from 'crypto';
  * 1. firebaseToken — Firebase phone auth (legacy)
  * 2. otp — Verify against salted hash in DB (the ONLY verification method)
  *
- * No MSG91 verification — we always verify against our DB since we
- * always pass our OTP to MSG91 for delivery.
+ * No external verification — we always verify against our DB since we
+ * always pass our OTP to Fast2SMS for delivery.
  */
 export async function POST(req: NextRequest) {
   try {

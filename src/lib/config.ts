@@ -93,9 +93,8 @@ export async function seedConfigsFromEnv(): Promise<number> {
     { section: 'SMTP', key: 'PORT', envKey: 'SMTP_PORT', label: 'SMTP Port', isSecret: false },
     { section: 'SMTP', key: 'USER', envKey: 'SMTP_USER', label: 'SMTP User / Email', isSecret: false },
     { section: 'SMTP', key: 'PASS', envKey: 'SMTP_PASS', label: 'SMTP Password (App Password)', isSecret: true },
-    // SMS (MSG91)
-    { section: 'SMS', key: 'MSG91_AUTH_KEY', envKey: 'MSG91_AUTH_KEY', label: 'MSG91 Auth Key', isSecret: true },
-    { section: 'SMS', key: 'MSG91_TEMPLATE_ID', envKey: 'MSG91_TEMPLATE_ID', label: 'MSG91 OTP Template ID', isSecret: false },
+    // SMS (Fast2SMS)
+    { section: 'SMS', key: 'FAST2SMS_API_KEY', envKey: 'FAST2SMS_API_KEY', label: 'Fast2SMS API Key', isSecret: true },
     // Brevo (Email)
     { section: 'BREVO', key: 'API_KEY', envKey: 'BREVO_API_KEY', label: 'Brevo API Key', isSecret: true },
     { section: 'BREVO', key: 'SENDER_EMAIL', envKey: 'BREVO_SENDER_EMAIL', label: 'Brevo Sender Email (must be verified in Brevo)', isSecret: false },
@@ -163,8 +162,7 @@ export async function getSmtpHost() { return getConfigWithFallback('SMTP', 'HOST
 export async function getSmtpPort() { return getConfigWithFallback('SMTP', 'PORT', 'SMTP_PORT'); }
 export async function getSmtpUser() { return getConfigWithFallback('SMTP', 'USER', 'SMTP_USER'); }
 export async function getSmtpPass() { return getConfigWithFallback('SMTP', 'PASS', 'SMTP_PASS'); }
-export async function getMsg91AuthKey() { return getConfigWithFallback('SMS', 'MSG91_AUTH_KEY', 'MSG91_AUTH_KEY'); }
-export async function getMsg91TemplateId() { return getConfigWithFallback('SMS', 'MSG91_TEMPLATE_ID', 'MSG91_TEMPLATE_ID'); }
+export async function getFast2SmsApiKey() { return getConfigWithFallback('SMS', 'FAST2SMS_API_KEY', 'FAST2SMS_API_KEY'); }
 export async function getPlatformUpiId() { return getConfigWithFallback('PLATFORM', 'UPI_ID', 'PLATFORM_UPI_ID'); }
 export async function getPlatformUpiName() { return getConfigWithFallback('PLATFORM', 'UPI_NAME', 'PLATFORM_UPI_NAME'); }
 export async function getPlatformFeePercent(): Promise<number> {

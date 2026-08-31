@@ -13,7 +13,7 @@ const RATE_LIMIT_MS = 60_000;
  * Single clean path:
  * 1. Generate 6-digit OTP
  * 2. Store salted hash in DB (for verification)
- * 3. Send via MSG91 (if configured) or dev mode
+ * 3. Send via Fast2SMS (if configured) or dev mode
  * 4. Return OTP in response so UI can show it as fallback if SMS doesn't arrive
  */
 export async function POST(req: NextRequest) {
@@ -66,14 +66,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Step 3: Send via MSG91 (or dev mode)
+    // Step 3: Send via Fast2SMS (or dev mode)
     const smsConfigured = await isSmsConfigured();
     const smsResult = await sendPhoneOtp(cleanPhone, otp);
 
     // Step 4: Return response
     if (smsResult.delivered) {
-      // SMS sent successfully via MSG91
-      console.log(`✅ Real OTP sent to ${cleanPhone} via MSG91`);
+      // SMS sent successfully via Fast2SMS
+      console.log(`✅ Real OTP sent to ${cleanPhone} via Fast2SMS`);
       return NextResponse.json({
         message: 'OTP sent to your phone via SMS!',
         sent: true,
@@ -83,8 +83,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (smsConfigured && !smsResult.delivered) {
-      // MSG91 is configured but delivery failed
-      console.error(`❌ MSG91 configured but failed: ${smsResult.error}`);
+      // Fast2SMS is configured but delivery failed
+      console.error(`❌ Fast2SMS configured but failed: ${smsResult.error}`);
       return NextResponse.json({
         message: `SMS delivery failed (${smsResult.error}). Use the OTP below.`,
         sent: true,
@@ -93,10 +93,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Dev mode — no MSG91 configured
+    // Dev mode — no SMS configured
     console.log(`📱 DEV MODE — PHONE: ${cleanPhone}, OTP: ${otp}`);
     return NextResponse.json({
-      message: 'OTP generated (configure MSG91 for real SMS delivery)',
+      message: 'OTP generated (configure Fast2SMS API key in Admin Settings for real SMS delivery)',
       sent: true,
       via: 'dev',
       otp,
