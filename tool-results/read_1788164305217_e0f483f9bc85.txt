@@ -1,0 +1,555 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import {
+     5→  X,
+     6→  Eye,
+     7→  EyeOff,
+     8→  Loader2,
+     9→  Mail,
+    10→  Lock,
+    11→  User,
+    12→  Phone,
+    13→  Heart,
+    14→  ShieldCheck,
+    15→  ArrowRight,
+    16→  KeyRound,
+    17→  CheckCircle2,
+    18→} from "lucide-react";
+    19→import { motion, AnimatePresence } from "framer-motion";
+    20→import { signIn } from "next-auth/react";
+    21→import { useToast } from "@/hooks/use-toast";
+    22→import { useAuthStore } from "@/stores/authStore";
+    23→import { api } from "@/lib/api";
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogHeader,
+    28→  DialogTitle,
+    29→  DialogDescription,
+    30→} from "@/components/ui/dialog";
+    31→import { Input } from "@/components/ui/input";
+    32→import { Label } from "@/components/ui/label";
+    33→import { Button } from "@/components/ui/button";
+    34→import { Separator } from "@/components/ui/separator";
+    35→
+    36→/* ------------------------------------------------------------------ */
+    37→/*  Props                                                              */
+    38→/* ------------------------------------------------------------------ */
+    39→interface LoginModalProps {
+    40→  isOpen: boolean;
+    41→  onClose: () => void;
+    42→  defaultTab?: string;
+    43→}
+    44→
+    45→/* ------------------------------------------------------------------ */
+    46→/*  Types                                                              */
+    47→/* ------------------------------------------------------------------ */
+    48→type Tab = "login" | "register";
+    49→type UserRole = "FAMILY" | "CAREGIVER";
+    50→
+    51→/* ------------------------------------------------------------------ */
+    52→/*  Google SVG icon                                                    */
+    53→/* ------------------------------------------------------------------ */
+    54→function GoogleIcon({ className }: { className?: string }) {
+    55→  return (
+    56→    <svg viewBox="0 0 24 24" width="20" height="20" className={className}>
+    57→      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+    58→      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+    59→      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+    60→      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    61→    </svg>
+    62→  );
+    63→}
+    64→
+    65→/* ------------------------------------------------------------------ */
+    66→/*  Animation variants                                                 */
+    67→/* ------------------------------------------------------------------ */
+    68→const overlayVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } };
+    69→const modalVariants = {
+    70→  hidden: { opacity: 0, scale: 0.92, y: 20 },
+    71→  visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 30 } },
+    72→  exit: { opacity: 0, scale: 0.92, y: 20, transition: { duration: 0.2 } },
+    73→};
+    74→const contentVariants = {
+    75→  enter: (tab: string) => ({ x: tab === "register" ? 40 : -40, opacity: 0 }),
+    76→  center: { x: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 300, damping: 28 } },
+    77→  exit: (tab: string) => ({ x: tab === "register" ? -40 : 40, opacity: 0, transition: { duration: 0.15 } }),
+    78→} as const;
+    79→
+    80→/* ================================================================== */
+    81→/*  MAIN COMPONENT                                                     */
+    82→/* ================================================================== */
+    83→export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalProps) {
+    84→  /* ---- state ---- */
+    85→  const [tab, setTab] = useState<Tab>(defaultTab === "register" ? "register" : "login");
+    86→  const [showPassword, setShowPassword] = useState(false);
+    87→  const [loading, setLoading] = useState(false);
+    88→  const [error, setError] = useState("");
+    89→  const [resetOpen, setResetOpen] = useState(false);
+    90→
+    91→  // Login form
+    92→  const [loginEmail, setLoginEmail] = useState("");
+    93→  const [loginPassword, setLoginPassword] = useState("");
+    94→
+    95→  // Register form
+    96→  const [regName, setRegName] = useState("");
+    97→  const [regEmail, setRegEmail] = useState("");
+    98→  const [regPhone, setRegPhone] = useState("");
+    99→  const [regPassword, setRegPassword] = useState("");
+   100→  const [regRole, setRegRole] = useState<UserRole>("FAMILY");
+   101→
+   102→  // Reset form
+   103→  const [resetEmail, setResetEmail] = useState("");
+   104→  const [resetNewPassword, setResetNewPassword] = useState("");
+   105→  const [resetLoading, setResetLoading] = useState(false);
+   106→  const [resetError, setResetError] = useState("");
+   107→  const [resetDone, setResetDone] = useState(false);
+   108→  // 3-step reset flow
+   109→  const [resetStep, setResetStep] = useState<'email' | 'otp' | 'new-password'>('email');
+   110→  const [resetOtp, setResetOtp] = useState("");
+   111→  const [resetOtpSending, setResetOtpSending] = useState(false);
+   112→  const [resetVerifying, setResetVerifying] = useState(false);
+   113→  const [resetCountdown, setResetCountdown] = useState(0);
+   114→  const [resetOtpVerified, setResetOtpVerified] = useState(false);
+   115→  const [resetToken, setResetToken] = useState("");
+   116→
+   117→  const { setAuth } = useAuthStore();
+   118→  const { toast } = useToast();
+   119→
+   120→  // Google popup form
+   121→  const [googleOpen, setGoogleOpen] = useState(false);
+   122→  const [googleEmail, setGoogleEmail] = useState("");
+   123→  const [googleName, setGoogleName] = useState("");
+   124→  const [googleError, setGoogleError] = useState("");
+   125→  // googleSubmitting removed - redirect-based flow doesn't need it
+   126→
+   127→  /* ---- OTP countdown timer ---- */
+   128→  useEffect(() => {
+   129→    if (resetCountdown <= 0) return;
+   130→    const timer = setTimeout(() => setResetCountdown((c) => c - 1), 1000);
+   131→    return () => clearTimeout(timer);
+   132→  }, [resetCountdown]);
+   133→
+   134→  /* ---- reset form fields when switching tabs ---- */
+   135→  useEffect(() => { setError(""); setLoginPassword(""); }, [tab]);
+   136→
+   137→  /* ---- reset entire state when modal closes ---- */
+   138→  const handleClose = useCallback(() => {
+   139→    setTab(defaultTab === "register" ? "register" : "login");
+   140→    setError(""); setShowPassword(false); setLoading(false);
+   141→    setLoginEmail(""); setLoginPassword("");
+   142→    setRegName(""); setRegEmail(""); setRegPhone(""); setRegPassword(""); setRegRole("FAMILY");
+   143→    setResetOpen(false); setResetEmail(""); setResetNewPassword("");
+   144→    setResetLoading(false); setResetError(""); setResetDone(false);
+   145→    setResetStep('email'); setResetOtp(""); setResetOtpSending(false);
+   146→    setResetVerifying(false); setResetCountdown(0); setResetOtpVerified(false);
+   147→    setResetToken("");
+   148→    setGoogleOpen(false); setGoogleEmail(""); setGoogleName(""); setGoogleError("");
+   149→    onClose();
+   150→  }, [onClose, defaultTab]);
+   151→
+   152→  /* ================================================================ */
+   153→  /*  HANDLERS                                                         */
+   154→/* ================================================================ */
+   155→
+   156→  const handleGoogleSignIn = async () => {
+   157→    setGoogleError("");
+   158→    try {
+   159→      const checkRes = await fetch("/api/auth/google-configured");
+   160→      const { configured } = await checkRes.json();
+   161→      if (configured) {
+   162→        const origin = window.location.origin;
+   163→        const role = tab === "register" ? regRole : "";
+   164→        window.location.href = `/api/auth/google-go?origin=${encodeURIComponent(origin)}&role=${encodeURIComponent(role)}`;
+   165→        return;
+   166→      }
+   167→    } catch { /* fall through */ }
+   168→    setGoogleOpen(true);
+   169→  };
+   170→
+   171→  const handleGoogleSubmit = (e: React.FormEvent) => {
+   172→    e.preventDefault();
+   173→    if (!googleEmail.trim() || !googleName.trim()) { setGoogleError("Please enter your name and email."); return; }
+   174→    if (!googleEmail.trim().includes("@")) { setGoogleError("Please enter a valid email address."); return; }
+   175→    setGoogleError("");
+   176→    // Use redirect-based flow so cookies survive the proxy chain
+   177→    const origin = window.location.origin;
+   178→    const role = tab === "register" ? regRole : "";
+   179→    const params = new URLSearchParams({
+   180→      email: googleEmail.trim(),
+   181→      name: googleName.trim(),
+   182→      origin,
+   183→    });
+   184→    if (role) params.set("role", role);
+   185→    window.location.href = `/api/auth/google-simulate?${params.toString()}`;
+   186→  };
+   187→
+   188→  const handleLogin = async (e: React.FormEvent) => {
+   189→    e.preventDefault();
+   190→    if (!loginEmail.trim() || !loginPassword.trim()) { setError("Please enter your email and password."); return; }
+   191→    setLoading(true); setError("");
+   192→    try {
+   193→      const result = await signIn("credentials", { email: loginEmail.trim(), password: loginPassword, redirect: false });
+   194→      if (result?.error) { setError("Invalid email or password. Please try again."); return; }
+   195→      try {
+   196→        const sessionRes = await fetch("/api/auth/session");
+   197→        const sessionData = await sessionRes.json();
+   198→        if (sessionData?.user) {
+   199→          const u = sessionData.user as any;
+   200→          setAuth({ id: u.id || "", email: u.email || "", name: u.name || "", phone: "", role: u.role || "FAMILY", avatarUrl: u.image || null, subscription: "NONE", patientProfiles: [], caregiverProfile: undefined });
+   201→        }
+   202→      } catch { /* AuthSync will pick it up */ }
+   203→      toast({ title: "Welcome back! \ud83c\udf89", description: "You have successfully logged in." });
+   204→      handleClose();
+   205→    } catch { setError("Something went wrong. Please try again."); } finally { setLoading(false); }
+   206→  };
+   207→
+   208→  const handleRegister = async (e: React.FormEvent) => {
+   209→    e.preventDefault();
+   210→    if (!regName.trim() || !regEmail.trim() || !regPhone.trim() || !regPassword.trim()) { setError("Please fill in all fields."); return; }
+   211→    if (regPassword.length < 6) { setError("Password must be at least 6 characters."); return; }
+   212→    setLoading(true); setError("");
+   213→    try {
+   214→      await api.auth.register({ name: regName.trim(), email: regEmail.trim(), phone: regPhone.trim(), password: regPassword, role: regRole });
+   215→      const loginResult = await signIn("credentials", { email: regEmail.trim(), password: regPassword, redirect: false });
+   216→      if (loginResult?.error) {
+   217→        toast({ title: "Account created!", description: "Please log in with your credentials." });
+   218→        setTab("login"); setLoginEmail(regEmail.trim()); return;
+   219→      }
+   220→      try {
+   221→        const sessionRes = await fetch("/api/auth/session");
+   222→        const sessionData = await sessionRes.json();
+   223→        if (sessionData?.user) {
+   224→          const u = sessionData.user as any;
+   225→          setAuth({ id: u.id || "", email: u.email || "", name: u.name || "", phone: regPhone.trim(), role: u.role || regRole, avatarUrl: u.image || null, subscription: "NONE", patientProfiles: [], caregiverProfile: undefined });
+   226→        }
+   227→      } catch { /* AuthSync will pick it up */ }
+   228→      toast({ title: "Welcome to SevaSaathi! \ud83c\udf89", description: "Your account has been created." });
+   229→      handleClose();
+   230→    } catch (err: any) { setError(err?.message || "Registration failed. Please try again."); } finally { setLoading(false); }
+   231→  };
+   232→
+   233→  const handleResetSendOtp = async () => {
+   234→    if (!resetEmail.trim() || !resetEmail.trim().includes("@")) { setResetError("Please enter a valid email address."); return; }
+   235→    setResetOtpSending(true); setResetError("");
+   236→    try {
+   237→      const res = await fetch("/api/auth/send-otp", {
+   238→        method: "POST",
+   239→        headers: { "Content-Type": "application/json" },
+   240→        body: JSON.stringify({ email: resetEmail.trim(), purpose: "RESET_PASSWORD" }),
+   241→      });
+   242→      const data = await res.json();
+   243→      if (!res.ok) { setResetError(data.error || "Failed to send OTP."); return; }
+   244→      setResetStep("otp");
+   245→      setResetCountdown(60);
+   246→      toast({ title: "OTP Sent", description: "Check your email for the 6-digit code." });
+   247→    } catch { setResetError("Something went wrong. Please try again."); } finally { setResetOtpSending(false); }
+   248→  };
+   249→
+   250→  const handleResetVerifyOtp = async () => {
+   251→    if (!resetOtp.trim() || resetOtp.trim().length !== 6) { setResetError("Please enter the 6-digit OTP."); return; }
+   252→    setResetVerifying(true); setResetError("");
+   253→    try {
+   254→      const res = await fetch("/api/auth/verify-otp", {
+   255→        method: "POST",
+   256→        headers: { "Content-Type": "application/json" },
+   257→        body: JSON.stringify({ email: resetEmail.trim(), otp: resetOtp.trim(), purpose: "RESET_PASSWORD" }),
+   258→      });
+   259→      const data = await res.json();
+   260→      if (!res.ok) { setResetError(data.error || "Invalid OTP. Please try again."); return; }
+   261→      setResetOtpVerified(true);
+   262→      setResetToken(data.resetToken || "");
+   263→      setResetStep("new-password");
+   264→    } catch { setResetError("Something went wrong. Please try again."); } finally { setResetVerifying(false); }
+   265→  };
+   266→
+   267→  const handleReset = async (e: React.FormEvent) => {
+   268→    e.preventDefault();
+   269→    if (!resetNewPassword.trim()) { setResetError("Please enter your new password."); return; }
+   270→    if (resetNewPassword.length < 6) { setResetError("Password must be at least 6 characters."); return; }
+   271→    if (!resetToken) { setResetError("Reset session expired. Please start over."); setResetStep('email'); return; }
+   272→    setResetLoading(true); setResetError("");
+   273→    try {
+   274→      const res = await fetch("/api/auth/reset-password", {
+   275→        method: "POST",
+   276→        headers: { "Content-Type": "application/json" },
+   277→        body: JSON.stringify({ email: resetEmail.trim(), newPassword: resetNewPassword, resetToken }),
+   278→      });
+   279→      const data = await res.json();
+   280→      if (!res.ok) { setResetError(data.error || "Failed to reset password."); return; }
+   281→      setResetDone(true);
+   282→      toast({ title: "Password reset successfully!", description: "You can now log in with your new password." });
+   283→    } catch { setResetError("Something went wrong. Please try again."); } finally { setResetLoading(false); }
+   284→  };
+   285→
+   286→  /* ================================================================ */
+   287→  /*  RENDER                                                           */
+   288→/* ================================================================ */
+   289→  return (
+   290→    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+   291→      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-forest-200/40 max-h-[92vh] flex flex-col">
+   292→        <button onClick={handleClose} className="absolute top-3 right-3 z-50 rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Close">
+   293→          <X className="w-5 h-5" />
+   294→        </button>
+   295→
+   296→        <div className="px-6 pt-6 pb-2">
+   297→          <DialogHeader className="space-y-1 mb-1">
+   298→            <div className="flex items-center gap-2 justify-center">
+   299→              <div className="w-9 h-9 rounded-xl bg-forest-900 flex items-center justify-center">
+   300→                <Heart className="w-5 h-5 text-lime-400" />
+   301→              </div>
+   302→              <DialogTitle className="text-xl font-bold text-forest-900">SevaSaathi</DialogTitle>
+   303→            </div>
+   304→            <DialogDescription className="text-sm text-gray-500 mt-1">
+   305→              {tab === "login" ? "Sign in to your account" : "Create your account to get started"}
+   306→            </DialogDescription>
+   307→          </DialogHeader>
+   308→        </div>
+   309→
+   310→        <AnimatePresence>
+   311→          {error && (
+   312→            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+   313→              <div className="mx-6 mt-1 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+   314→                <X className="w-4 h-4 flex-shrink-0" />{error}
+   315→              </div>
+   316→            </motion.div>
+   317→          )}
+   318→        </AnimatePresence>
+   319→
+   320→        <div className="px-6 pt-3">
+   321→          <div className="flex bg-gray-100 rounded-lg p-1">
+   322→            <button onClick={() => setTab("login")} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${tab === "login" ? "bg-white text-forest-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>Sign In</button>
+   323→            <button onClick={() => setTab("register")} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${tab === "register" ? "bg-white text-forest-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>Create Account</button>
+   324→          </div>
+   325→        </div>
+   326→
+   327→        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">
+   328→          <AnimatePresence mode="wait" custom={tab}>
+   329→            {tab === "login" && (
+   330→              <motion.div key="login" custom={tab} variants={contentVariants} initial="enter" animate="center" exit="exit" className="space-y-4">
+   331→                <button type="button" onClick={handleGoogleSignIn} className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-all text-sm font-medium text-gray-700 shadow-sm">
+   332→                  <GoogleIcon /> Continue with Google
+   333→                </button>
+   334→                <div className="flex items-center gap-3">
+   335→                  <div className="flex-1 h-px bg-gray-200" />
+   336→                  <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">or continue with email</span>
+   337→                  <div className="flex-1 h-px bg-gray-200" />
+   338→                </div>
+   339→                <form onSubmit={handleLogin} className="space-y-3">
+   340→                  <div className="space-y-1.5">
+   341→                    <Label htmlFor="login-email" className="text-sm font-medium text-gray-700">Email</Label>
+   342→                    <div className="relative">
+   343→                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   344→                      <Input id="login-email" type="email" placeholder="you@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="pl-10 h-11 border-gray-300" autoComplete="email" disabled={loading} />
+   345→                    </div>
+   346→                  </div>
+   347→                  <div className="space-y-1.5">
+   348→                    <div className="flex items-center justify-between">
+   349→                      <Label htmlFor="login-password" className="text-sm font-medium text-gray-700">Password</Label>
+   350→                      <button type="button" onClick={() => setResetOpen(true)} className="text-xs font-medium text-forest-700 hover:text-forest-900">Forgot password?</button>
+   351→                    </div>
+   352→                    <div className="relative">
+   353→                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   354→                      <Input id="login-password" type={showPassword ? "text" : "password"} placeholder="Enter your password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pl-10 pr-10 h-11 border-gray-300" autoComplete="current-password" disabled={loading} />
+   355→                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" tabIndex={-1}>
+   356→                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   357→                      </button>
+   358→                    </div>
+   359→                  </div>
+   360→                  <Button type="submit" disabled={loading} className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white font-semibold rounded-lg shadow-sm hover:shadow-md">
+   361→                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Signing in...</> : <>Sign In <ArrowRight className="w-4 h-4 ml-2" /></>}
+   362→                  </Button>
+   363→                </form>
+   364→                <p className="text-center text-sm text-gray-500 pt-1">Don&apos;t have an account? <button onClick={() => setTab("register")} className="font-semibold text-forest-700 hover:text-forest-900">Create one</button></p>
+   365→              </motion.div>
+   366→            )}
+   367→
+   368→            {tab === "register" && (
+   369→              <motion.div key="register" custom={tab} variants={contentVariants} initial="enter" animate="center" exit="exit" className="space-y-4">
+   370→                {/* Role selector */}
+   371→                <div className="space-y-2">
+   372→                  <Label className="text-sm font-semibold text-gray-800">How would you like to use SevaSaathi?</Label>
+   373→                  <div className="grid grid-cols-1 gap-2">
+   374→                    <button type="button" onClick={() => setRegRole("FAMILY")} className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${regRole === "FAMILY" ? "border-forest-500 bg-forest-50" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+   375→                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${regRole === "FAMILY" ? "bg-forest-100" : "bg-gray-100"}`}>
+   376→                        <Heart className={`w-4.5 h-4.5 ${regRole === "FAMILY" ? "text-forest-700" : "text-gray-400"}`} />
+   377→                      </div>
+   378→                      <div className="min-w-0">
+   379→                        <p className={`text-sm font-semibold ${regRole === "FAMILY" ? "text-forest-900" : "text-gray-700"}`}>I need care for my family</p>
+   380→                        <p className={`text-xs mt-0.5 ${regRole === "FAMILY" ? "text-forest-600/80" : "text-gray-400"}`}>Find trusted caregivers for parents, elders, or family members at home</p>
+   381→                      </div>
+   382→                    </button>
+   383→                    <button type="button" onClick={() => setRegRole("CAREGIVER")} className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${regRole === "CAREGIVER" ? "border-forest-500 bg-forest-50" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+   384→                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${regRole === "CAREGIVER" ? "bg-forest-100" : "bg-gray-100"}`}>
+   385→                        <ShieldCheck className={`w-4.5 h-4.5 ${regRole === "CAREGIVER" ? "text-forest-700" : "text-gray-400"}`} />
+   386→                      </div>
+   387→                      <div className="min-w-0">
+   388→                        <p className={`text-sm font-semibold ${regRole === "CAREGIVER" ? "text-forest-900" : "text-gray-700"}`}>I want to provide care services</p>
+   389→                        <p className={`text-xs mt-0.5 ${regRole === "CAREGIVER" ? "text-forest-600/80" : "text-gray-400"}`}>Join as a caregiver, get bookings, and earn money</p>
+   390→                      </div>
+   391→                    </button>
+   392→                  </div>
+   393→                </div>
+   394→
+   395→                <button type="button" onClick={handleGoogleSignIn} className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-all text-sm font-medium text-gray-700 shadow-sm">
+   396→                  <GoogleIcon /> Sign up with Google as {regRole === "CAREGIVER" ? "Caregiver" : "Family Member"}
+   397→                </button>
+   398→                <div className="flex items-center gap-3">
+   399→                  <div className="flex-1 h-px bg-gray-200" />
+   400→                  <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">or register with email</span>
+   401→                  <div className="flex-1 h-px bg-gray-200" />
+   402→                </div>
+   403→
+   404→                <form onSubmit={handleRegister} className="space-y-3">
+   405→                  <div className="space-y-1.5">
+   406→                    <Label htmlFor="reg-name" className="text-sm font-medium text-gray-700">Full Name</Label>
+   407→                    <div className="relative">
+   408→                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   409→                      <Input id="reg-name" type="text" placeholder="Your full name" value={regName} onChange={(e) => setRegName(e.target.value)} className="pl-10 h-11 border-gray-300" autoComplete="name" disabled={loading} />
+   410→                    </div>
+   411→                  </div>
+   412→                  <div className="space-y-1.5">
+   413→                    <Label htmlFor="reg-email" className="text-sm font-medium text-gray-700">Email</Label>
+   414→                    <div className="relative">
+   415→                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   416→                      <Input id="reg-email" type="email" placeholder="you@example.com" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="pl-10 h-11 border-gray-300" autoComplete="email" disabled={loading} />
+   417→                    </div>
+   418→                  </div>
+   419→                  <div className="space-y-1.5">
+   420→                    <Label htmlFor="reg-phone" className="text-sm font-medium text-gray-700">Phone Number</Label>
+   421→                    <div className="relative">
+   422→                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   423→                      <Input id="reg-phone" type="tel" placeholder="10-digit mobile number" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} className="pl-10 h-11 border-gray-300" autoComplete="tel" disabled={loading} />
+   424→                    </div>
+   425→                  </div>
+   426→                  <div className="space-y-1.5">
+   427→                    <Label htmlFor="reg-password" className="text-sm font-medium text-gray-700">Password</Label>
+   428→                    <div className="relative">
+   429→                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+   430→                      <Input id="reg-password" type={showPassword ? "text" : "password"} placeholder="Min 6 characters" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className="pl-10 pr-10 h-11 border-gray-300" autoComplete="new-password" disabled={loading} />
+   431→                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" tabIndex={-1}>
+   432→                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   433→                      </button>
+   434→                    </div>
+   435→                  </div>
+   436→                  <Button type="submit" disabled={loading} className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white font-semibold rounded-lg shadow-sm hover:shadow-md">
+   437→                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating account...</> : <>Create Account <ArrowRight className="w-4 h-4 ml-2" /></>}
+   438→                  </Button>
+   439→                </form>
+   440→                <p className="text-center text-sm text-gray-500 pt-1">Already have an account? <button onClick={() => setTab("login")} className="font-semibold text-forest-700 hover:text-forest-900">Sign in</button></p>
+   441→              </motion.div>
+   442→            )}
+   443→          </AnimatePresence>
+   444→        </div>
+   445→
+   446→        {/* Reset Password View */}
+   447→        <AnimatePresence>
+   448→          {resetOpen && (
+   449→            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+   450→              <div className="px-6 pb-6 pt-2 border-t border-gray-100 mt-2">
+   451→                <div className="flex items-center justify-between mb-3">
+   452→                  <div className="flex items-center gap-2">
+   453→                    <KeyRound className="w-4 h-4 text-forest-700" />
+   454→                    <h4 className="text-sm font-semibold text-gray-800">Reset Password</h4>
+   455→                  </div>
+   456→                  {/* Step indicators */
+   457→                  !resetDone && (
+   458→                    <div className="flex items-center gap-1">
+   459→                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${resetStep === 'email' ? 'bg-forest-100 text-forest-800' : 'bg-gray-100 text-gray-400'}`}>1</span>
+   460→                      <span className="text-xs text-gray-300">/</span>
+   461→                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${resetStep === 'otp' ? 'bg-forest-100 text-forest-800' : 'bg-gray-100 text-gray-400'}`}>2</span>
+   462→                      <span className="text-xs text-gray-300">/</span>
+   463→                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${resetStep === 'new-password' ? 'bg-forest-100 text-forest-800' : 'bg-gray-100 text-gray-400'}`}>3</span>
+   464→                    </div>
+   465→                  )}
+   466→                </div>
+   467→                {resetDone ? (
+   468→                  <div className="space-y-3">
+   469→                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-xl">
+   470→                      <CheckCircle2 className="w-4 h-4" /> Password has been reset successfully!
+   471→                    </div>
+   472→                    <button
+   473→                      type="button"
+   474→                      onClick={() => { setResetOpen(false); setResetStep('email'); setResetOtpVerified(false); setResetDone(false); }}
+   475→                      className="w-full text-center text-sm font-semibold text-forest-700 hover:text-forest-900 py-1"
+   476→                    >
+   477→                      Back to Sign In
+   478→                    </button>
+   479→                  </div>
+   480→                ) : resetStep === 'email' ? (
+   481→                  <div className="space-y-2.5">
+   482→                    {resetError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{resetError}</p>}
+   483→                    <p className="text-xs text-gray-500">Enter your email address to receive a verification code.</p>
+   484→                    <Input type="email" placeholder="Your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="rounded-lg" />
+   485→                    <Button type="button" onClick={handleResetSendOtp} disabled={resetOtpSending} size="sm" className="w-full rounded-lg">
+   486→                      {resetOtpSending ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Sending...</> : <>Send OTP</>}
+   487→                    </Button>
+   488→                  </div>
+   489→                ) : resetStep === 'otp' ? (
+   490→                  <div className="space-y-2.5">
+   491→                    {resetError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{resetError}</p>}
+   492→                    <p className="text-xs text-gray-500">Enter the 6-digit code sent to <span className="font-medium text-gray-700">{resetEmail}</span></p>
+   493→                    <Input
+   494→                      type="text"
+   495→                      inputMode="numeric"
+   496→                      maxLength={6}
+   497→                      placeholder="6-digit OTP"
+   498→                      value={resetOtp}
+   499→                      onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 6) setResetOtp(v); }}
+   500→                      className="rounded-lg text-center text-lg tracking-widest font-mono"
+   501→                    />
+   502→                    <Button type="button" onClick={handleResetVerifyOtp} disabled={resetVerifying || resetOtp.length !== 6} size="sm" className="w-full rounded-lg">
+   503→                      {resetVerifying ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Verifying...</> : <>Verify OTP</>}
+   504→                    </Button>
+   505→                    <div className="text-center">
+   506→                      {resetCountdown > 0 ? (
+   507→                        <span className="text-xs text-gray-400">Resend in {resetCountdown}s</span>
+   508→                      ) : (
+   509→                        <button type="button" onClick={handleResetSendOtp} disabled={resetOtpSending} className="text-xs font-medium text-forest-700 hover:text-forest-900">
+   510→                          {resetOtpSending ? "Sending..." : "Resend OTP"}
+   511→                        </button>
+   512→                      )}
+   513→                    </div>
+   514→                  </div>
+   515→                ) : (
+   516→                  <form onSubmit={handleReset} className="space-y-2.5">
+   517→                    {resetError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{resetError}</p>}
+   518→                    <p className="text-xs text-gray-500">OTP verified. Enter your new password below.</p>
+   519→                    <Input type="password" placeholder="New password (min 6 chars)" value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="rounded-lg" required />
+   520→                    <Button type="submit" disabled={resetLoading} size="sm" className="w-full rounded-lg">
+   521→                      {resetLoading ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Resetting...</> : <>Reset Password</>}
+   522→                    </Button>
+   523→                  </form>
+   524→                )}
+   525→              </div>
+   526→            </motion.div>
+   527→          )}
+   528→        </AnimatePresence>
+   529→
+   530→        {/* Google Simulate Dialog */}
+   531→        <AnimatePresence>
+   532→          {googleOpen && (
+   533→            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+   534→              <div className="px-6 pb-6 pt-2 border-t border-gray-100 mt-2">
+   535→                <div className="flex items-center gap-2 mb-3">
+   536→                  <GoogleIcon className="w-4 h-4" />
+   537→                  <h4 className="text-sm font-semibold text-gray-800">Google Sign-In (Simulated)</h4>
+   538→                </div>
+   539→                {googleError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg mb-2">{googleError}</p>}
+   540→                <form onSubmit={handleGoogleSubmit} className="space-y-2.5">
+   541→                  <Input type="text" placeholder="Full Name" value={googleName} onChange={(e) => setGoogleName(e.target.value)} className="rounded-lg" required />
+   542→                  <Input type="email" placeholder="Email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} className="rounded-lg" required />
+   543→                  <Button type="submit" size="sm" className="w-full rounded-lg">
+   544→                    Continue
+   545→                  </Button>
+   546→                </form>
+   547→              </div>
+   548→            </motion.div>
+   549→          )}
+   550→        </AnimatePresence>
+   551→      </DialogContent>
+   552→    </Dialog>
+   553→  );
+   554→}
+   555→

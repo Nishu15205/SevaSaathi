@@ -288,7 +288,7 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
 /* ================================================================ */
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-forest-200/40 max-h-[92vh] flex flex-col">
+      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 border-forest-200/40 max-h-[92vh] flex flex-col relative">
         <button onClick={handleClose} className="absolute top-3 right-3 z-50 rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Close">
           <X className="w-5 h-5" />
         </button>
