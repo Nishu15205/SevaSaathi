@@ -1,17 +1,25 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { Server } from 'socket.io';
-import { PrismaClient } from '/home/z/my-project/node_modules/@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 
-// Initialize Prisma with the shared SQLite database
-const db = new PrismaClient({
-  datasources: {
-    db: {
-      url: 'file:/home/z/my-project/db/custom.db',
-    },
-  },
-});
+// Initialize Prisma — supports both local SQLite and Turso cloud
+const dbUrl = process.env.DATABASE_URL || 'file:/app/data/sevasaathi.db';
 
-const PORT = 3005;
+function createPrismaClient() {
+  if (dbUrl.startsWith('libsql://')) {
+    const authToken = process.env.DATABASE_AUTH_TOKEN;
+    const libsql = createClient({ url: dbUrl, authToken });
+    const adapter = new PrismaLibSql(libsql);
+    return new PrismaClient({ adapter });
+  }
+  return new PrismaClient();
+}
+
+const db = createPrismaClient();
+
+const PORT = parseInt(process.env.SOCKET_PORT || '3005');
 
 // Track connected users
 const connectedUsers = new Map<string, Set<string>>(); // userId -> Set<socketId>
@@ -22,15 +30,11 @@ function getConnectedUserCount(): number {
 
 /**
  * Check if a request is a socket.io / engine.io request.
- * Engine.io requests always contain 'EIO=' or 'transport=' query params,
- * or are WebSocket upgrade requests.
  */
 function isSocketIORequest(req: IncomingMessage): boolean {
   const url = req.url || '/';
-  // Engine.io requests have EIO= and transport= query params
   if (url.includes('EIO=')) return true;
   if (url.includes('transport=')) return true;
-  // WebSocket upgrade requests
   const upgrade = req.headers.upgrade;
   if (upgrade && upgrade.toLowerCase() === 'websocket') return true;
   return false;
@@ -151,21 +155,18 @@ const io = new Server(httpServer, {
 const originalListeners = httpServer.listeners('request');
 httpServer.removeAllListeners('request');
 
-// Find the engine.io request handler (the one socket.io added)
-// It's typically the last listener that was added
+// Find the engine.io request handler
 const engineHandler = originalListeners.find(
   (listener) => listener.name !== 'handleRequest' || originalListeners.length === 1
 ) || originalListeners[originalListeners.length - 1];
 
-// Install our unified request handler that routes between REST API and socket.io
+// Install our unified request handler
 httpServer.on('request', (req: IncomingMessage, res: ServerResponse) => {
   if (isSocketIORequest(req)) {
-    // Let engine.io handle socket.io requests
     (engineHandler as (req: IncomingMessage, res: ServerResponse) => void)(req, res);
     return;
   }
 
-  // Handle REST API (async)
   handleRestApi(req, res).catch((err) => {
     console.error('[REST] Error handling request:', err);
     if (!res.headersSent) {
@@ -178,63 +179,47 @@ httpServer.on('request', (req: IncomingMessage, res: ServerResponse) => {
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
 
-  // Join a user's personal room based on userId
   socket.on('join', (userId: string) => {
     if (!userId || typeof userId !== 'string') return;
-
     socket.join(userId);
     console.log(`[Socket] ${socket.id} joined room "${userId}"`);
-
-    // Track the connection
     if (!connectedUsers.has(userId)) {
       connectedUsers.set(userId, new Set());
     }
     connectedUsers.get(userId)!.add(socket.id);
-
-    // Send confirmation
     socket.emit('joined', { userId, message: `Joined room ${userId}` });
   });
 
-  // Leave a room
   socket.on('leave', (userId: string) => {
     if (!userId || typeof userId !== 'string') return;
     socket.leave(userId);
     console.log(`[Socket] ${socket.id} left room "${userId}"`);
-
     const userSockets = connectedUsers.get(userId);
     if (userSockets) {
       userSockets.delete(socket.id);
-      if (userSockets.size === 0) {
-        connectedUsers.delete(userId);
-      }
+      if (userSockets.size === 0) connectedUsers.delete(userId);
     }
   });
 
-  // Disconnect handler
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
-
-    // Clean up all rooms this socket was in
     for (const [userId, socketIds] of connectedUsers.entries()) {
       socketIds.delete(socket.id);
-      if (socketIds.size === 0) {
-        connectedUsers.delete(userId);
-      }
+      if (socketIds.size === 0) connectedUsers.delete(userId);
     }
   });
 
-  // Error handler
   socket.on('error', (error) => {
     console.error(`[Socket] Error on ${socket.id}:`, error);
   });
 });
 
 // Start the server
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[SevaSaathi Realtime] Service running on port ${PORT}`);
   console.log(`[SevaSaathi Realtime] REST endpoints: POST /api/emit, POST /api/emit-room`);
   console.log(`[SevaSaathi Realtime] Health check: GET /api/health`);
-  console.log(`[SevaSaathi Realtime] Database: /home/z/my-project/db/custom.db`);
+  console.log(`[SevaSaathi Realtime] Database: ${dbUrl}`);
 });
 
 // Graceful shutdown

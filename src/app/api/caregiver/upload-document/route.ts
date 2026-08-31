@@ -7,6 +7,11 @@ import path from 'path';
  * POST /api/caregiver/upload-document
  * Upload Aadhaar card / ID card image for verification.
  * Accepts multipart/form-data with: caregiverId, docType (AADHAAR | ID_CARD), file
+ *
+ * Storage strategy:
+ * - Local dev / VPS with persistent disk → file system (public/upload/docs/)
+ * - Cloud (Koyeb, Render free) → base64 data URI stored in DB docUrl field
+ *   Auto-detected via TURSO_STORAGE env var or libsql:// DATABASE_URL
  */
 export async function POST(req: NextRequest) {
   try {
@@ -44,15 +49,26 @@ export async function POST(req: NextRequest) {
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filename = `${caregiverId}-${docType}-${Date.now()}.${ext}`;
 
-      const uploadDir = path.join(process.cwd(), 'public', 'upload', 'docs');
-      await mkdir(uploadDir, { recursive: true });
-      const filePath = path.join(uploadDir, filename);
-      await writeFile(filePath, buffer);
+      // Detect if running in cloud (Turso/ephemeral) or local (persistent disk)
+      const dbUrl = process.env.DATABASE_URL || '';
+      const isCloud = dbUrl.startsWith('libsql://') || process.env.STORAGE_MODE === 'db';
 
-      docUrl = `/upload/docs/${filename}`;
+      if (isCloud) {
+        // Cloud: store as base64 data URI in DB (works in <img src> directly)
+        const base64 = buffer.toString('base64');
+        const mime = file.type || 'image/jpeg';
+        docUrl = `data:${mime};base64,${base64}`;
+      } else {
+        // Local / VPS: store as file on disk
+        const ext = file.name.split('.').pop() || 'jpg';
+        const filename = `${caregiverId}-${docType}-${Date.now()}.${ext}`;
+        const uploadDir = path.join(process.cwd(), 'public', 'upload', 'docs');
+        await mkdir(uploadDir, { recursive: true });
+        const filePath = path.join(uploadDir, filename);
+        await writeFile(filePath, buffer);
+        docUrl = `/upload/docs/${filename}`;
+      }
     }
 
     // Upsert verification record

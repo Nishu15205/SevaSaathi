@@ -1,8 +1,7 @@
 # ============================================
-# SevaSaathi — Production Docker Image
+# SevaSaathi — Production Docker Image (Koyeb / Render / VPS)
 # ============================================
-# Multi-stage build for minimal image size
-# Works on: VPS, Railway, Render, Fly.io, any Docker host
+# Single container: Next.js + Socket.io + Reverse Proxy
 # ============================================
 
 # --- Stage 1: Install dependencies ---
@@ -26,34 +25,49 @@ FROM node:20-alpine AS runner
 RUN corepack enable && corepack prepare bun@1 --activate
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Copy standalone build output (includes traced node_modules for Next.js)
+COPY --from=builder /app/.next/standalone ./
 
-# Create data directory for SQLite (persistent volume)
-RUN mkdir -p /app/data /app/upload && \
-    chown -R nextjs:nodejs /app/data /app/upload
+# Copy static assets
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Copy standalone build output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# Copy Prisma schema + engine (needed for db:push at runtime)
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy Prisma schema (needed for db:push at runtime)
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+# Copy Turso adapter packages (may not be in standalone trace)
+COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql 2>/dev/null || true
+COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3 2>/dev/null || true
 
-# Expose port
-EXPOSE 3000
+# Copy the reverse proxy
+COPY --from=builder /app/server ./server
+
+# Copy realtime-service source + deps
+COPY --from=builder /app/mini-services/realtime-service ./mini-services/realtime-service
+COPY --from=builder /app/mini-services/realtime-service/node_modules ./mini-services/realtime-service/node_modules 2>/dev/null || true
+
+# Install http-proxy for the reverse proxy
+RUN npm install http-proxy --no-save 2>/dev/null
+
+# Make startup script executable
+RUN chmod +x server/start.sh
+
+# Create data directory (for local SQLite fallback)
+RUN mkdir -p /app/data
+
+# Expose port (Koyeb uses PORT env, default 8080)
+EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api || exit 1
 
-USER nextjs
-
-CMD ["bun", "server.js"]
+# Start all services via the proxy
+CMD ["sh", "server/start.sh"]

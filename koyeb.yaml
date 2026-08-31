@@ -1,0 +1,25 @@
+name: sevasaathi
+services:
+  - name: sevasaathi-app
+    instance_type: nano
+    docker:
+      dockerfile: Dockerfile
+      build_context: .
+    ports:
+      - port: 8080
+        protocol: http
+    env:
+      - key: PORT
+        value: "8080"
+      - key: NODE_ENV
+        value: "production"
+    # Secrets — set these in Koyeb dashboard after first deploy:
+    #   DATABASE_URL          → libsql://your-db-name-your-org.turso.io
+    #   DATABASE_AUTH_TOKEN   → Turso auth token
+    #   NEXTAUTH_SECRET       → any random string (openssl rand -base64 32)
+    #   NEXTAUTH_URL          → https://your-koyeb-app.koyeb.app
+    #   FAST2SMS_API_KEY      → your Fast2SMS key
+    #   RAZORPAY_KEY_ID       → your Razorpay key
+    #   RAZORPAY_KEY_SECRET   → your Razorpay secret
+    routes:
+      - path: /

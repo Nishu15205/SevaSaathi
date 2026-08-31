@@ -4,9 +4,9 @@
 # Usage:
 #   1. Copy .env.production.example to .env and fill values
 #   2. docker compose up -d --build
-#   3. docker compose exec app bun run db:push
-#   4. docker compose exec app bun run seed
-#   5. Visit http://your-server-ip:3000
+#   3. docker compose exec app sh -c 'cd /app && bun run db:push -- --accept-data-loss'
+#   4. docker compose exec app sh -c 'cd /app && bun run seed'
+#   5. Visit http://your-server-ip:8080
 #
 # For custom domain + HTTPS, use Caddy/Nginx reverse proxy
 # ============================================
@@ -19,19 +19,20 @@ services:
     container_name: sevasaathi-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8080:8080"
     env_file:
       - .env.production
     volumes:
-      # Persistent SQLite database — survives container restarts
+      # Persistent SQLite database (only used with local file: DB)
       - sevasaathi-data:/app/data
-      # Persistent uploads
-      - sevasaathi-uploads:/app/upload
+      # Persistent uploads (only used with local file: DB)
+      - sevasaathi-uploads:/app/public/upload
     environment:
-      # Docker overrides DATABASE_URL to use volume path
+      # Use local SQLite with volume for VPS deployment
       - DATABASE_URL=file:/app/data/sevasaathi.db
+      - PORT=8080
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api"]
       interval: 30s
       timeout: 5s
       retries: 3
