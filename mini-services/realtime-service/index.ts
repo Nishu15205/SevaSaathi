@@ -1,24 +1,31 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 
-const db = new PrismaClient();
+const dbUrl = process.env.DATABASE_URL || 'file:/app/data/sevasaathi.db';
+
+function createDb() {
+  if (dbUrl.startsWith('libsql://')) {
+    const libsql = createClient({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN });
+    const adapter = new PrismaLibSql(libsql);
+    return new PrismaClient({ adapter });
+  }
+  return new PrismaClient();
+}
+
+const db = createDb();
 const PORT = parseInt(process.env.SOCKET_PORT || '3005');
 
-// Track connected users
 const connectedUsers = new Map<string, Set<string>>();
-
-function getConnectedUserCount(): number {
-  return connectedUsers.size;
-}
 
 function isSocketIORequest(req: IncomingMessage): boolean {
   const url = req.url || '/';
   if (url.includes('EIO=')) return true;
   if (url.includes('transport=')) return true;
   const upgrade = req.headers.upgrade;
-  if (upgrade && upgrade.toLowerCase() === 'websocket') return true;
-  return false;
+  return upgrade?.toLowerCase() === 'websocket';
 }
 
 function parseBody(req: IncomingMessage): Promise<Buffer> {
@@ -45,63 +52,32 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
   const url = req.url || '/';
   const method = req.method || 'GET';
 
-  if (method === 'OPTIONS') {
-    jsonRes(res, 200, {});
-    return true;
-  }
+  if (method === 'OPTIONS') { jsonRes(res, 200, {}); return true; }
 
   if (url === '/api/health' && method === 'GET') {
-    jsonRes(res, 200, {
-      status: 'ok',
-      service: 'sevasaathi-realtime',
-      port: PORT,
-      connectedUsers: getConnectedUserCount(),
-      uptime: process.uptime(),
-    });
+    jsonRes(res, 200, { status: 'ok', service: 'sevasaathi-realtime', port: PORT, connectedUsers: connectedUsers.size, uptime: process.uptime() });
     return true;
   }
 
   if (url === '/api/emit' && method === 'POST') {
     const raw = await parseBody(req);
     let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(raw.toString());
-    } catch {
-      jsonRes(res, 400, { error: 'Invalid JSON body' });
-      return true;
-    }
-
+    try { body = JSON.parse(raw.toString()); } catch { jsonRes(res, 400, { error: 'Invalid JSON' }); return true; }
     const { event, userId, data } = body;
-    if (!event || typeof event !== 'string' || !userId || typeof userId !== 'string') {
-      jsonRes(res, 400, { error: 'Missing or invalid event or userId' });
-      return true;
-    }
-
+    if (!event || typeof event !== 'string' || !userId || typeof userId !== 'string') { jsonRes(res, 400, { error: 'Missing event/userId' }); return true; }
     io.to(userId).emit(event, data ?? {});
-    console.log(`[REST] Emitted "${event}" to room "${userId}"`);
-    jsonRes(res, 200, { success: true, event, userId });
+    jsonRes(res, 200, { success: true });
     return true;
   }
 
   if (url === '/api/emit-room' && method === 'POST') {
     const raw = await parseBody(req);
     let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(raw.toString());
-    } catch {
-      jsonRes(res, 400, { error: 'Invalid JSON body' });
-      return true;
-    }
-
+    try { body = JSON.parse(raw.toString()); } catch { jsonRes(res, 400, { error: 'Invalid JSON' }); return true; }
     const { event, room, data } = body;
-    if (!event || typeof event !== 'string' || !room || typeof room !== 'string') {
-      jsonRes(res, 400, { error: 'Missing or invalid event or room' });
-      return true;
-    }
-
+    if (!event || typeof event !== 'string' || !room || typeof room !== 'string') { jsonRes(res, 400, { error: 'Missing event/room' }); return true; }
     io.to(room).emit(event, data ?? {});
-    console.log(`[REST] Emitted "${event}" to room "${room}"`);
-    jsonRes(res, 200, { success: true, event, room });
+    jsonRes(res, 200, { success: true });
     return true;
   }
 
@@ -110,87 +86,37 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
 }
 
 const httpServer = createServer();
-
-const io = new Server(httpServer, {
-  path: '/',
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-});
+const io = new Server(httpServer, { path: '/', cors: { origin: '*' }, pingTimeout: 60000, pingInterval: 25000 });
 
 const originalListeners = httpServer.listeners('request');
 httpServer.removeAllListeners('request');
-
-const engineHandler = originalListeners.find(
-  (listener) => listener.name !== 'handleRequest' || originalListeners.length === 1
-) || originalListeners[originalListeners.length - 1];
+const engineHandler = originalListeners[originalListeners.length - 1];
 
 httpServer.on('request', (req: IncomingMessage, res: ServerResponse) => {
-  if (isSocketIORequest(req)) {
-    (engineHandler as (req: IncomingMessage, res: ServerResponse) => void)(req, res);
-    return;
-  }
-  handleRestApi(req, res).catch((err) => {
-    console.error('[REST] Error handling request:', err);
-    if (!res.headersSent) {
-      jsonRes(res, 500, { error: 'Internal server error' });
-    }
-  });
+  if (isSocketIORequest(req)) { (engineHandler as any)(req, res); return; }
+  handleRestApi(req, res).catch(() => { if (!res.headersSent) jsonRes(res, 500, { error: 'Internal error' }); });
 });
 
 io.on('connection', (socket) => {
-  console.log(`[Socket] Client connected: ${socket.id}`);
-
   socket.on('join', (userId: string) => {
-    if (!userId || typeof userId !== 'string') return;
+    if (!userId) return;
     socket.join(userId);
-    console.log(`[Socket] ${socket.id} joined room "${userId}"`);
-    if (!connectedUsers.has(userId)) {
-      connectedUsers.set(userId, new Set());
-    }
+    if (!connectedUsers.has(userId)) connectedUsers.set(userId, new Set());
     connectedUsers.get(userId)!.add(socket.id);
-    socket.emit('joined', { userId, message: `Joined room ${userId}` });
   });
-
   socket.on('leave', (userId: string) => {
-    if (!userId || typeof userId !== 'string') return;
+    if (!userId) return;
     socket.leave(userId);
-    console.log(`[Socket] ${socket.id} left room "${userId}"`);
-    const userSockets = connectedUsers.get(userId);
-    if (userSockets) {
-      userSockets.delete(socket.id);
-      if (userSockets.size === 0) connectedUsers.delete(userId);
-    }
+    const s = connectedUsers.get(userId);
+    if (s) { s.delete(socket.id); if (s.size === 0) connectedUsers.delete(userId); }
   });
-
   socket.on('disconnect', () => {
-    console.log(`[Socket] Client disconnected: ${socket.id}`);
-    for (const [userId, socketIds] of connectedUsers.entries()) {
-      socketIds.delete(socket.id);
-      if (socketIds.size === 0) connectedUsers.delete(userId);
-    }
-  });
-
-  socket.on('error', (error) => {
-    console.error(`[Socket] Error on ${socket.id}:`, error);
+    for (const [uid, ids] of connectedUsers.entries()) { ids.delete(socket.id); if (ids.size === 0) connectedUsers.delete(uid); }
   });
 });
 
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`[SevaSaathi Realtime] Service running on port ${PORT}`);
-  console.log(`[SevaSaathi Realtime] REST: POST /api/emit, POST /api/emit-room`);
-  console.log(`[SevaSaathi Realtime] Health: GET /api/health`);
-});
+httpServer.listen(PORT, '0.0.0.0', () => console.log(`[Realtime] port ${PORT} | DB: ${dbUrl}`));
 
-function shutdown(signal: string) {
-  console.log(`[SevaSaathi Realtime] Received ${signal}, shutting down...`);
-  io.close();
-  db.$disconnect();
-  httpServer.close(() => {
-    console.log('[SevaSaathi Realtime] Server closed');
-    process.exit(0);
-  });
-}
-
+function shutdown(sig: string) { io.close(); db.$disconnect(); httpServer.close(() => process.exit(0)); }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

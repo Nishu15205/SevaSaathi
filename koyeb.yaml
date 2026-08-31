@@ -13,11 +13,11 @@ services:
         value: "8080"
       - key: NODE_ENV
         value: "production"
-      - key: DATABASE_URL
-        value: "file:/app/data/sevasaathi.db"
-    # Set these secrets in Koyeb dashboard:
-    #   NEXTAUTH_SECRET   → openssl rand -base64 32
-    #   NEXTAUTH_URL      → https://your-app.koyeb.app
-    #   FAST2SMS_API_KEY  → your key
+    # Dashboard > Environment > Add these:
+    #   DATABASE_URL          → libsql://sevasaathi-abc.turso.io
+    #   DATABASE_AUTH_TOKEN   → (turso token)
+    #   NEXTAUTH_SECRET       → (random string)
+    #   NEXTAUTH_URL          → https://your-app.koyeb.app
+    #   FAST2SMS_API_KEY      → (your key)
     routes:
       - path: /
