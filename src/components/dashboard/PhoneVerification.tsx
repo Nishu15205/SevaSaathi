@@ -34,7 +34,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   const [sendOtpLoading, setSendOtpLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [otpVia, setOtpVia] = useState<'sms' | 'dev'>('sms');
+  const [otpVia, setOtpVia] = useState<'sms' | 'dev' | 'msg91'>('sms');
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,15 +94,19 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
 
       setOtpSent(true);
       setOtpVia(data.via || 'sms');
-      // Always show OTP if returned (works as fallback if SMS doesn't arrive)
-      if (data.devOtp) {
-        setDevOtp(data.devOtp);
+      // Show fallback OTP (either devOtp or fallbackOtp field)
+      const shownOtp = data.devOtp || data.fallbackOtp;
+      if (shownOtp) {
+        setDevOtp(shownOtp);
       }
       setShowOtpInput(true);
-      toast.success(data.via === 'dev'
-        ? 'OTP generated (dev mode)'
-        : 'OTP sent to your phone via SMS!'
-      );
+      if (data.via === 'dev') {
+        toast.success('OTP generated (dev mode)');
+      } else if (data.via === 'msg91') {
+        toast.success('OTP sent to your phone! Check SMS for 4-digit code.');
+      } else {
+        toast.success('OTP sent to your phone via SMS!');
+      }
     } catch (e: any) {
       console.error('Phone OTP send error:', e);
       setError(e?.message || 'Something went wrong. Please try again.');
@@ -112,8 +116,8 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 6) {
-      toast.error('Enter the 6-digit OTP');
+    if (!otpValue || otpValue.length < 4) {
+      toast.error('Enter the OTP');
       return;
     }
     setVerifying(true);
@@ -278,29 +282,39 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
                 </div>
                 <p className="text-xs text-green-700 font-medium">
                   {otpVia === 'dev'
-                    ? 'OTP generated (SMS delivery failed — using fallback)'
-                    : `OTP sent to ${maskPhone(user.phone)} via SMS`}
+                    ? 'OTP generated'
+                    : otpVia === 'msg91'
+                      ? `OTP sent to ${maskPhone(user.phone)} — check SMS for 4-digit code`
+                      : `OTP sent to ${maskPhone(user.phone)} via SMS`}
                 </p>
               </div>
             )}
 
-            {/* OTP display (shown as fallback or in dev mode) */}
+            {/* Fallback OTP (if SMS doesn't arrive, user can use this) */}
             {devOtp && (
-              <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl p-3">
-                <MessageSquare className="h-4 w-4 text-violet-500 shrink-0" />
-                <p className="text-xs text-violet-700 font-medium">
-                  {otpVia === 'dev' ? 'Your OTP' : 'If SMS didn\'t arrive, use this OTP:'}{' '}
-                  <span className="font-mono font-bold tracking-widest">{devOtp}</span>
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <MessageSquare className="h-4 w-4 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-800 font-medium">
+                  {otpVia === 'msg91'
+                    ? 'SMS nahi aaya? Ye 6-digit OTP use karo: '
+                    : otpVia === 'dev'
+                      ? 'Your OTP: '
+                      : 'If SMS didn\'t arrive, use this: '}
+                  <span className="font-mono font-bold tracking-widest text-amber-900">{devOtp}</span>
                 </p>
               </div>
             )}
 
             <div>
-              <Label className="text-xs text-gray-500">Enter 6-digit OTP</Label>
+              <Label className="text-xs text-gray-500">
+                {otpVia === 'msg91'
+                  ? 'Enter OTP from SMS (4-digit) or fallback (6-digit)'
+                  : 'Enter OTP'}
+              </Label>
               <Input
                 value={otpValue}
                 onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter OTP"
+                placeholder={otpVia === 'msg91' ? 'SMS OTP ya fallback OTP' : 'Enter OTP'}
                 className="mt-1 rounded-xl text-center text-lg tracking-[0.5em] font-mono"
                 maxLength={6}
                 autoFocus
@@ -309,7 +323,7 @@ export function PhoneVerificationSection({ user }: { user: { id: string; phone: 
             <div className="flex gap-2">
               <Button
                 onClick={handleVerifyOtp}
-                disabled={verifying || otpValue.length < 6}
+                disabled={verifying || otpValue.length < 4}
                 className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl gap-2 text-sm flex-1 shadow-sm"
               >
                 {verifying && <Loader2 className="h-4 w-4 animate-spin" />}

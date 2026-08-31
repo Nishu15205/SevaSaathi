@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createHash } from 'crypto';
+import { verifyViaMsg91Otp, getVerificationMode } from '@/lib/sms';
 
 /**
  * POST /api/auth/verify-phone-otp
  * 
- * Two paths:
+ * Three paths:
  * 1. firebaseToken — Firebase phone auth (legacy)
- * 2. otp — Verify against hashed OTP in DB (always used now)
+ * 2. otp + msg91 mode — Verify via MSG91's verify endpoint (MSG91 generated OTP)
+ * 3. otp + db/dev mode — Verify against hashed OTP in DB (our generated OTP)
+ * 
+ * Also: if MSG91 verify fails, fall back to DB hash (in case SMS didn't arrive
+ * and user used the fallback OTP shown in UI)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -20,11 +25,20 @@ export async function POST(req: NextRequest) {
       return await verifyViaFirebase(firebaseToken, cleanPhone);
     }
 
-    // --- Path 2: OTP verification via DB hash ---
+    // --- Path 2 & 3: OTP verification ---
     if (otp) {
       if (!cleanPhone) {
         return NextResponse.json({ error: 'Phone number required' }, { status: 400 });
       }
+
+      const mode = await getVerificationMode();
+
+      // MSG91 mode: try MSG91 verify first, fallback to DB hash
+      if (mode === 'msg91') {
+        return await verifyViaMsg91WithFallback(cleanPhone, otp);
+      }
+
+      // DB/Dev mode: verify against hash in DB
       return await verifyViaDb(cleanPhone, otp);
     }
 
@@ -33,6 +47,32 @@ export async function POST(req: NextRequest) {
     console.error('Verify phone OTP error:', err);
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
+}
+
+// --- MSG91 Verification with DB fallback ---
+async function verifyViaMsg91WithFallback(phone: string, otp: string) {
+  const { getMsg91AuthKey } = await import('@/lib/config');
+  const authKey = await getMsg91AuthKey();
+
+  // Try MSG91 verify first (4-digit OTP from SMS)
+  if (authKey) {
+    const isValid = await verifyViaMsg91Otp(phone, otp, authKey);
+    if (isValid) {
+      await markPhoneVerified(phone);
+      return NextResponse.json({ verified: true, message: 'Phone number verified successfully!' });
+    }
+  }
+
+  // Fallback: try DB hash (6-digit fallback OTP shown in UI)
+  const dbResult = await verifyViaDb(phone, otp);
+  // If DB verify succeeds, great. If not, return generic error
+  // (don't reveal that we tried two methods)
+  if (dbResult.status === 200) return dbResult;
+
+  return NextResponse.json(
+    { error: 'Invalid OTP. Check your SMS or use the OTP shown on screen.' },
+    { status: 400 }
+  );
 }
 
 // --- DB Hash Verification ---
@@ -70,7 +110,7 @@ async function verifyViaDb(phone: string, otp: string) {
   });
 
   await autoGrantVerifiedBadge(user.id);
-  return NextResponse.json({ verified: true, message: 'Phone number verified successfully' });
+  return NextResponse.json({ verified: true, message: 'Phone number verified successfully!' });
 }
 
 // --- Firebase (Legacy) ---
@@ -105,7 +145,7 @@ async function verifyViaFirebase(firebaseToken: string, cleanPhone: string) {
   }
 
   await markPhoneVerified(cleanPhone || normalizedFbPhone);
-  return NextResponse.json({ verified: true, message: 'Phone number verified successfully' });
+  return NextResponse.json({ verified: true, message: 'Phone number verified successfully!' });
 }
 
 // --- Shared ---

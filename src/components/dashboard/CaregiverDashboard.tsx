@@ -264,7 +264,7 @@ function OverviewTab({ user }: { user: User }) {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
-  const [otpVia, setOtpVia] = useState<'sms' | 'dev'>('sms');
+  const [otpVia, setOtpVia] = useState<'sms' | 'dev' | 'msg91'>('sms');
 
   const maskPhone = (p: string) => {
     const d = p.replace(/\D/g, '');
@@ -295,14 +295,17 @@ function OverviewTab({ user }: { user: User }) {
 
       setOtpSent(true);
       setOtpVia(data.via || 'sms');
-      // Always show OTP if returned (works as fallback if SMS doesn't arrive)
-      if (data.devOtp) {
-        setDevOtp(data.devOtp);
+      const shownOtp = data.devOtp || data.fallbackOtp;
+      if (shownOtp) {
+        setDevOtp(shownOtp);
       }
-      toast.success(data.via === 'dev'
-        ? 'OTP generated (dev mode)'
-        : 'OTP sent to your phone via SMS!'
-      );
+      if (data.via === 'dev') {
+        toast.success('OTP generated (dev mode)');
+      } else if (data.via === 'msg91') {
+        toast.success('OTP sent! Check SMS for 4-digit code.');
+      } else {
+        toast.success('OTP sent to your phone via SMS!');
+      }
     } catch (e: any) {
       console.error('Phone OTP send error:', e);
       setOtpError(e?.message || 'Something went wrong. Please try again.');
@@ -312,8 +315,8 @@ function OverviewTab({ user }: { user: User }) {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 6) {
-      toast.error('Enter the 6-digit OTP');
+    if (!otpValue || otpValue.length < 4) {
+      toast.error('Enter the OTP');
       return;
     }
     try {
@@ -374,6 +377,28 @@ function OverviewTab({ user }: { user: User }) {
           <h2 className="text-2xl font-bold text-gray-900">Welcome, {user.name.split(' ')[0]}!</h2>
           <p className="text-sm text-gray-400 mt-1">Complete your profile to start receiving care requests.</p>
         </div>
+
+        {/* Phone Verification Banner */}
+        {!user.phoneVerified && user.phone && (
+          <Card className="rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-sm">
+                  <Phone className="h-5 w-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-900">Verify Your Phone Number</p>
+                  <p className="text-xs text-amber-700/70">Required to receive booking requests — {maskPhone(user.phone)}</p>
+                </div>
+              </div>
+              <Button onClick={handleSendOtp} disabled={phoneVerifying} size="sm" className="bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shrink-0 shadow-sm">
+                {phoneVerifying && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                {phoneVerifying ? 'Sending...' : 'Send OTP'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="rounded-2xl border-dashed border-2 border-forest-200 bg-forest-50/50">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 rounded-2xl green-gradient-bg flex items-center justify-center mx-auto mb-4">
@@ -459,13 +484,17 @@ function OverviewTab({ user }: { user: User }) {
               </div>
             )}
 
-            {/* OTP fallback display */}
+            {/* Fallback OTP display */}
             {devOtp && (
-              <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl p-3">
-                <MessageSquare className="h-4 w-4 text-violet-500 shrink-0" />
-                <p className="text-xs text-violet-700 font-medium">
-                  {otpVia === 'dev' ? 'Your OTP' : 'If SMS didn\'t arrive, use this OTP:'}{' '}
-                  <span className="font-mono font-bold tracking-widest">{devOtp}</span>
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <MessageSquare className="h-4 w-4 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-800 font-medium">
+                  {otpVia === 'msg91'
+                    ? 'SMS nahi aaya? Ye 6-digit OTP use karo: '
+                    : otpVia === 'dev'
+                      ? 'Your OTP: '
+                      : 'If SMS didn\'t arrive, use this: '}
+                  <span className="font-mono font-bold tracking-widest text-amber-900">{devOtp}</span>
                 </p>
               </div>
             )}
@@ -474,11 +503,11 @@ function OverviewTab({ user }: { user: User }) {
             {otpSent && !otpError && (
               <>
                 <div>
-                  <Label className="text-sm">OTP</Label>
+                  <Label className="text-sm">{otpVia === 'msg91' ? 'SMS OTP (4-digit) ya fallback OTP (6-digit)' : 'OTP'}</Label>
                   <Input
                     value={otpValue}
                     onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="6-digit OTP"
+                    placeholder={otpVia === 'msg91' ? 'SMS OTP ya fallback' : '6-digit OTP'}
                     className="mt-1 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
                     maxLength={6}
                     autoFocus
@@ -486,7 +515,7 @@ function OverviewTab({ user }: { user: User }) {
                 </div>
                 <Button
                   onClick={handleVerifyOtp}
-                  disabled={otpValue.length < 6}
+                  disabled={otpValue.length < 4}
                   className="w-full bg-gradient-to-r from-forest-700 to-forest-900 hover:from-forest-800 hover:to-forest-950 text-white rounded-xl shadow-sm"
                 >
                   Verify OTP

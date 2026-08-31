@@ -1,9 +1,12 @@
 /**
  * SMS Service for SevaSaathi
  * 
- * Uses MSG91 OTP API v5 — we generate OTP, pass it to MSG91 for delivery,
- * and verify against our DB hash. MSG91 is just the delivery channel.
- * Falls back to dev mode when MSG91 is not configured.
+ * MSG91 OTP API v5 — let MSG91 generate & send OTP using their pre-approved
+ * DLT template (best delivery rate). Verification happens via MSG91's endpoint.
+ * 
+ * If template_id is configured → Flow API (our custom template with var1)
+ * If only authKey → OTP API (MSG91 generates & sends its own OTP)
+ * If nothing → dev mode (OTP shown in UI)
  */
 
 import { getMsg91AuthKey, getMsg91TemplateId } from './config';
@@ -34,6 +37,7 @@ function cleanPhone(phone: string): string {
 
 /**
  * Send OTP via MSG91 Flow API (custom DLT template with var1)
+ * We generate OTP, MSG91 delivers it via our approved template.
  */
 async function sendViaMsg91Flow(phone: string, otp: string, authKey: string, templateId: string): Promise<SmsResult> {
   const mobile = cleanPhone(phone);
@@ -56,18 +60,18 @@ async function sendViaMsg91Flow(phone: string, otp: string, authKey: string, tem
 }
 
 /**
- * Send OTP via MSG91 OTP API — we pass our own OTP so MSG91 just delivers it.
- * This avoids MSG91 generating a different OTP than what we store in DB.
+ * Send OTP via MSG91 OTP API — MSG91 generates its own OTP using their
+ * pre-approved DLT template. This has the highest delivery success rate.
+ * Verification must happen via MSG91's verify endpoint.
  */
-async function sendViaMsg91Otp(phone: string, otp: string, authKey: string): Promise<SmsResult> {
+async function sendViaMsg91Otp(phone: string, authKey: string): Promise<SmsResult> {
   const mobile = cleanPhone(phone);
   const response = await fetch('https://api.msg91.com/api/v5/otp', {
     method: 'POST',
     headers: { 'authkey': authKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       mobile,
-      otp,                // Pass our OTP — MSG91 delivers it, doesn't generate its own
-      otp_length: otp.length,
+      otp_length: 4,
     }),
   });
   const data = await response.json();
@@ -81,41 +85,61 @@ async function sendViaMsg91Otp(phone: string, otp: string, authKey: string): Pro
 }
 
 /**
- * Send phone OTP.
- * - If authKey + template_id → Flow API (custom DLT template)
- * - If only authKey → OTP API (pass our OTP for delivery)
- * - If nothing → dev mode (OTP shown in UI)
- * 
- * Always returns the same OTP that was passed in (for dev mode UI display).
+ * Verify OTP via MSG91's verify endpoint.
+ * Used when MSG91 generated the OTP (OTP API mode without template).
  */
-export async function sendPhoneOtp(phone: string, otp: string): Promise<SmsResult> {
+export async function verifyViaMsg91Otp(phone: string, otp: string, authKey: string): Promise<boolean> {
+  const mobile = cleanPhone(phone);
+  const response = await fetch('https://api.msg91.com/api/v5/otp/verify', {
+    method: 'POST',
+    headers: { 'authkey': authKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mobile, otp }),
+  });
+  const data = await response.json();
+  console.log(`📱 MSG91 Verify response for ${mobile}:`, JSON.stringify(data));
+  return data.type === 'success';
+}
+
+/**
+ * Send phone OTP.
+ * - If authKey + template_id → Flow API (we generate OTP, verify via DB)
+ * - If only authKey → OTP API (MSG91 generates OTP, verify via MSG91)
+ * - If nothing → dev mode (OTP shown in UI)
+ */
+export async function sendPhoneOtp(phone: string, ourOtp: string): Promise<SmsResult> {
   const authKey = await getMsg91AuthKey();
   const templateId = await getMsg91TemplateId();
 
   if (authKey) {
     try {
       if (templateId) {
-        return await sendViaMsg91Flow(phone, otp, authKey, templateId);
+        // Flow API: we generate OTP, MSG91 just delivers it
+        return await sendViaMsg91Flow(phone, ourOtp, authKey, templateId);
       }
-      // OTP API: pass our own OTP for delivery
-      return await sendViaMsg91Otp(phone, otp, authKey);
+      // OTP API: MSG91 generates & sends its own 4-digit OTP
+      return await sendViaMsg91Otp(phone, authKey);
     } catch (err: any) {
       throw err;
     }
   }
 
   // No credentials → dev mode
-  console.log(`\n📱 DEV MODE — PHONE: ${phone}, OTP: ${otp}`);
+  console.log(`\n📱 DEV MODE — PHONE: ${phone}, OTP: ${ourOtp}`);
   return { success: true, actuallyDelivered: false };
 }
 
 /**
- * Always verify via DB hash now.
- * We always generate & store our own OTP.
+ * Get the verification mode based on config.
+ * - 'msg91': MSG91 generated OTP, verify via MSG91's endpoint
+ * - 'db': We generated OTP (Flow API), verify against DB hash
+ * - 'dev': No SMS configured, verify against DB hash
  */
-export function getVerificationMode(): 'db' | 'dev' {
-  // Both MSG91 modes now store hash in DB, so always 'db'
-  return 'db';
+export async function getVerificationMode(): Promise<'msg91' | 'db' | 'dev'> {
+  const authKey = await getMsg91AuthKey();
+  const templateId = await getMsg91TemplateId();
+  if (!authKey) return 'dev';
+  if (templateId) return 'db';
+  return 'msg91';
 }
 
 export async function isSmsConfigured(): Promise<boolean> {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createHash, randomBytes } from 'crypto';
-import { sendPhoneOtp, isSmsConfigured } from '@/lib/sms';
+import { sendPhoneOtp, getVerificationMode, isSmsConfigured } from '@/lib/sms';
 
 /** Rate-limit map: phone → last sent timestamp */
 const rateLimitMap = new Map<string, number>();
@@ -10,10 +10,11 @@ const RATE_LIMIT_MS = 60_000;
 /**
  * POST /api/auth/send-phone-otp
  * 
- * Flow:
- * 1. Generate 6-digit OTP, hash with salt, store in DB
- * 2. Send via MSG91 (our OTP passed to them for delivery)
- * 3. If MSG91 not configured → dev mode (OTP shown in UI)
+ * Smart dual approach:
+ * 1. Always generate a 6-digit fallback OTP (stored in DB hash)
+ * 2. If MSG91 configured: let MSG91 send its own OTP via their DLT template
+ * 3. Return both modes' info so frontend can show fallback if SMS doesn't arrive
+ * 4. Verification route auto-detects which mode to use
  */
 export async function POST(req: NextRequest) {
   try {
@@ -45,13 +46,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Phone number is already verified' }, { status: 400 });
     }
 
-    // Generate 6-digit OTP
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const mode = await getVerificationMode();
 
-    // Always store hash in DB
+    // Always generate our own 6-digit OTP (used as fallback & for db/dev verification)
+    const fallbackOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+    // Always store our fallback OTP hash in DB (used for dev/db mode verification)
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     const salt = randomBytes(16).toString('hex');
-    const hash = createHash('sha256').update(salt + otp).digest('hex');
+    const hash = createHash('sha256').update(salt + fallbackOtp).digest('hex');
     await db.user.update({
       where: { id: user.id },
       data: { otpSecret: `${salt}:${hash}:${otpExpiry.getTime()}` },
@@ -65,37 +68,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check if SMS is actually configured
-    const smsConfigured = await isSmsConfigured();
-
-    if (!smsConfigured) {
-      // Dev mode — OTP shown in UI
-      console.log(`\n📱 DEV MODE — PHONE: ${cleanPhone}, OTP: ${otp}`);
+    // Dev mode — no MSG91 configured
+    if (mode === 'dev') {
+      console.log(`\n📱 DEV MODE — PHONE: ${cleanPhone}, OTP: ${fallbackOtp}`);
       return NextResponse.json({
         message: 'OTP generated (dev mode)',
-        sent: true, via: 'dev', devOtp: otp,
+        sent: true, via: 'dev', devOtp: fallbackOtp,
       });
     }
 
-    // Send via MSG91
-    const smsResult = await sendPhoneOtp(cleanPhone, otp);
+    // Try MSG91 delivery
+    try {
+      const smsResult = await sendPhoneOtp(cleanPhone, fallbackOtp);
 
-    if (smsResult.success) {
-      console.log(`📱 OTP sent via MSG91 to ${cleanPhone} (OTP: ${otp})`);
-      // Always include devOtp so user can verify even if SMS doesn't arrive
+      if (smsResult.success) {
+        if (mode === 'msg91') {
+          // MSG91 generated its own 4-digit OTP
+          console.log(`📱 MSG91 sent OTP to ${cleanPhone} (check phone for 4-digit OTP)`);
+          // Always return fallback OTP too in case SMS doesn't arrive
+          return NextResponse.json({
+            message: 'OTP sent to your phone via SMS!',
+            sent: true, via: 'msg91',
+            fallbackOtp,  // 6-digit fallback visible in UI
+          });
+        }
+
+        // Flow API: our OTP was sent via MSG91
+        console.log(`📱 OTP sent via MSG91 Flow to ${cleanPhone}`);
+        return NextResponse.json({
+          message: 'OTP sent to your phone via SMS!',
+          sent: true, via: 'sms', devOtp: fallbackOtp,
+        });
+      }
+
+      // MSG91 failed — show fallback OTP
+      const errMsg = smsResult.error || 'SMS delivery failed';
+      console.error(`📱 SMS failed for ${cleanPhone}: ${errMsg}`);
       return NextResponse.json({
-        message: 'OTP sent to your phone via SMS',
-        sent: true, via: 'sms', devOtp: otp,
+        message: `SMS failed. Use the OTP shown below.`,
+        sent: true, via: 'dev', devOtp: fallbackOtp,
+      });
+    } catch (err: any) {
+      // MSG91 threw error — show fallback OTP
+      console.error(`📱 SMS error for ${cleanPhone}: ${err.message}`);
+      return NextResponse.json({
+        message: `SMS error. Use the OTP shown below.`,
+        sent: true, via: 'dev', devOtp: fallbackOtp,
       });
     }
-
-    // SMS failed — still show OTP in UI as fallback
-    const errMsg = smsResult.error || 'SMS delivery failed';
-    console.error(`📱 SMS failed for ${cleanPhone}: ${errMsg}`);
-    return NextResponse.json({
-      message: `SMS failed (${errMsg}). Showing OTP below for testing.`,
-      sent: true, via: 'dev', devOtp: otp,
-    });
   } catch (err: any) {
     console.error('Send phone OTP error:', err);
     return NextResponse.json({ error: 'Failed to send OTP. Please try again.' }, { status: 500 });
