@@ -1,15 +1,12 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
-import { createClient } from '@libsql/client';
-
-const dbUrl = process.env.DATABASE_URL || 'file:/app/data/sevasaathi.db';
+import { PrismaLibSQL } from '@prisma/adapter-libsql';
 
 function createDb() {
-  if (dbUrl.startsWith('libsql://')) {
-    const libsql = createClient({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN });
-    const adapter = new PrismaLibSql(libsql);
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  if (tursoUrl) {
+    const adapter = new PrismaLibSQL({ url: tursoUrl, authToken: process.env.TURSO_AUTH_TOKEN || '' });
     return new PrismaClient({ adapter });
   }
   return new PrismaClient();
@@ -53,12 +50,10 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
   const method = req.method || 'GET';
 
   if (method === 'OPTIONS') { jsonRes(res, 200, {}); return true; }
-
   if (url === '/api/health' && method === 'GET') {
-    jsonRes(res, 200, { status: 'ok', service: 'sevasaathi-realtime', port: PORT, connectedUsers: connectedUsers.size, uptime: process.uptime() });
+    jsonRes(res, 200, { status: 'ok', service: 'sevasaathi-realtime', port: PORT, connectedUsers: connectedUsers.size });
     return true;
   }
-
   if (url === '/api/emit' && method === 'POST') {
     const raw = await parseBody(req);
     let body: Record<string, unknown>;
@@ -69,7 +64,6 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
     jsonRes(res, 200, { success: true });
     return true;
   }
-
   if (url === '/api/emit-room' && method === 'POST') {
     const raw = await parseBody(req);
     let body: Record<string, unknown>;
@@ -80,7 +74,6 @@ async function handleRestApi(req: IncomingMessage, res: ServerResponse): Promise
     jsonRes(res, 200, { success: true });
     return true;
   }
-
   jsonRes(res, 404, { error: 'Not found' });
   return true;
 }
@@ -115,7 +108,7 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(PORT, '0.0.0.0', () => console.log(`[Realtime] port ${PORT} | DB: ${dbUrl}`));
+httpServer.listen(PORT, '0.0.0.0', () => console.log(`[Realtime] port ${PORT}`));
 
 function shutdown(sig: string) { io.close(); db.$disconnect(); httpServer.close(() => process.exit(0)); }
 process.on('SIGTERM', () => shutdown('SIGTERM'));

@@ -14,10 +14,10 @@ services:
       - key: NODE_ENV
         value: "production"
     # Dashboard > Environment > Add these:
-    #   DATABASE_URL          → libsql://sevasaathi-abc.turso.io
-    #   DATABASE_AUTH_TOKEN   → (turso token)
-    #   NEXTAUTH_SECRET       → (random string)
-    #   NEXTAUTH_URL          → https://your-app.koyeb.app
-    #   FAST2SMS_API_KEY      → (your key)
+    #   TURSO_DATABASE_URL  → libsql://sevasaathi-nishu15205.aws-ap-south-1.turso.io
+    #   TURSO_AUTH_TOKEN    → (your database auth token)
+    #   NEXTAUTH_SECRET     → (random string)
+    #   NEXTAUTH_URL        → https://your-app.koyeb.app
+    #   FAST2SMS_API_KEY   → (your key)
     routes:
       - path: /
