@@ -22,7 +22,7 @@ echo "[Start] Waiting for services to initialize..."
 sleep 3
 
 echo "[Start] Starting reverse proxy on port ${PROXY_PORT}..."
-node /app/server/proxy.mjs &
+node /app/server/proxy.cjs &
 PROXY_PID=$!
 
 echo "[Start] === All services started ==="

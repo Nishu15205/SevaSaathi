@@ -3,14 +3,26 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 
 const require = createRequire(import.meta.url);
+let PrismaLibSQL = null;
+try {
+  const mod = require('@prisma/adapter-libsql');
+  PrismaLibSQL = mod.PrismaLibSQL || (typeof mod.default === 'function' ? mod.default : null);
+  if (PrismaLibSQL && typeof PrismaLibSQL !== 'function') PrismaLibSQL = null;
+} catch (e) {
+  console.warn('[Realtime] @prisma/adapter-libsql not available');
+}
+
 const { PrismaClient } = require('@prisma/client');
-const { PrismaLibSQL } = require('@prisma/adapter-libsql');
 
 function createDb() {
-  const dbUrl = process.env.DATABASE_URL;
-  if (dbUrl && dbUrl.startsWith('libsql://')) {
-    const adapter = new PrismaLibSQL({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN || '' });
-    return new PrismaClient({ adapter });
+  try {
+    const dbUrl = process.env.DATABASE_URL;
+    if (dbUrl && dbUrl.startsWith('libsql://') && PrismaLibSQL) {
+      const adapter = new PrismaLibSQL({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN || '' });
+      return new PrismaClient({ adapter });
+    }
+  } catch (e) {
+    console.warn('[Realtime] Turso adapter failed, using default DB:', e.message);
   }
   return new PrismaClient();
 }

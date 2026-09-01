@@ -57,10 +57,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
-# Install http-proxy directly in /app (needed by proxy.mjs ESM import)
-RUN npm install --no-audit --no-fund --legacy-peer-deps http-proxy --no-save
-
-# Copy server files
+# Copy server files (pure CJS proxy, no http-proxy dependency)
 COPY --from=builder /app/server ./server
 
 # Copy realtime service (plain ESM JS + its node_modules)
