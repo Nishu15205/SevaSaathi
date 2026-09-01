@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { AnimatePresence, motion } from "framer-motion";
@@ -95,7 +95,7 @@ export default function Home() {
 
   return (
     <>
-      <AuthCallbackHandler />
+      <Suspense><AuthCallbackHandler /></Suspense>
       <AnimatePresence mode="wait">
         {showDashboard ? (
           <motion.div

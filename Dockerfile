@@ -18,6 +18,10 @@ RUN npm install --no-audit --no-fund --legacy-peer-deps --production
 # --- Stage 2: Builder ---
 FROM node:20-slim AS builder
 
+# Install OpenSSL (required by Prisma)
+RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl > /dev/null 2>&1 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/mini-services/realtime-service/node_modules ./mini-services/realtime-service/node_modules
@@ -41,18 +45,20 @@ RUN npx esbuild mini-services/realtime-service/index.ts \
 # --- Stage 3: Runner (minimal) ---
 FROM node:20-slim AS runner
 
+# Install OpenSSL (Prisma) + wget (healthcheck) + http-proxy
+RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl wget > /dev/null 2>&1 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
 
-# Install http-proxy + wget (for healthcheck) in isolated dir
+# Install http-proxy in isolated dir
 RUN mkdir -p /proxy-deps && cd /proxy-deps && \
     echo '{"name":"proxy","type":"module"}' > package.json && \
-    npm install --no-audit --no-fund http-proxy && \
-    apt-get update -qq && apt-get install -qq -y --no-install-recommends wget > /dev/null 2>&1 && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    npm install --no-audit --no-fund http-proxy
 ENV NODE_PATH="/proxy-deps/node_modules"
 
 # Copy Next.js standalone output
