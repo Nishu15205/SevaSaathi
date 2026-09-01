@@ -57,11 +57,18 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
-# Copy server files (pure CJS proxy, no http-proxy dependency)
-COPY --from=builder /app/server ./server
+# Also copy http-proxy from builder (used by proxy.cjs)
+COPY --from=builder /app/node_modules/http-proxy ./node_modules/http-proxy
+COPY --from=builder /app/node_modules/requires-port ./node_modules/requires-port
+COPY --from=builder /app/node_modules/follow-redirects ./node_modules/follow-redirects
+COPY --from=builder /app/node_modules/eventemitter3 ./node_modules/eventemitter3
 
-# Copy realtime service (plain ESM JS + its node_modules)
-COPY --from=builder /app/mini-services/realtime-service/index.mjs ./mini-services/realtime-service/index.mjs
+# Copy server files (pure CJS proxy)
+COPY --from=builder /app/server/proxy.cjs ./server/proxy.cjs
+COPY --from=builder /app/server/start.sh ./server/start.sh
+
+# Copy realtime service (plain CJS + its node_modules)
+COPY --from=builder /app/mini-services/realtime-service/index.cjs ./mini-services/realtime-service/index.cjs
 COPY --from=builder /app/mini-services/realtime-service/node_modules ./mini-services/realtime-service/node_modules
 COPY --from=builder /app/mini-services/realtime-service/package.json ./mini-services/realtime-service/package.json
 
