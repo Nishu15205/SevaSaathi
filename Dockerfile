@@ -3,13 +3,13 @@
 # ============================================
 
 FROM node:20-alpine AS deps
-RUN corepack enable && corepack prepare bun@1 --activate
+RUN corepack enable && corepack prepare bun@1.3.14 --activate
 WORKDIR /app
 COPY package.json bun.lock* package-lock.json* ./
 RUN bun install --frozen-lockfile --production=false 2>/dev/null || npm install
 
 FROM node:20-alpine AS builder
-RUN corepack enable && corepack prepare bun@1 --activate
+RUN corepack enable && corepack prepare bun@1.3.14 --activate
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -17,7 +17,7 @@ RUN bun run db:generate
 RUN bun run build
 
 FROM node:20-alpine AS runner
-RUN corepack enable && corepack prepare bun@1 --activate
+RUN corepack enable && corepack prepare bun@1.3.14 --activate
 
 ENV NODE_ENV=production
 ENV PORT=8080
