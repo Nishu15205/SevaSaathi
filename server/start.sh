@@ -10,7 +10,7 @@ SOCKET_PORT="${SOCKET_PORT:-3005}"
 
 echo "[Start] Starting Socket.io realtime service on port ${SOCKET_PORT}..."
 cd /app/mini-services/realtime-service
-SOCKET_PORT=$SOCKET_PORT node index.cjs &
+SOCKET_PORT=$SOCKET_PORT node /app/mini-services/realtime-service/index.mjs &
 SOCKET_PID=$!
 cd /app
 

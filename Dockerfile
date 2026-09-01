@@ -33,19 +33,10 @@ RUN npx prisma generate
 # Build Next.js standalone
 RUN NODE_OPTIONS="--max-old-space-size=384" npx next build
 
-# Bundle realtime-service TypeScript → CJS
-RUN npx esbuild mini-services/realtime-service/index.ts \
-    --bundle --platform=node --format=cjs \
-    --outfile=mini-services/realtime-service/index.cjs \
-    --external:@prisma/client \
-    --external:@prisma/adapter-libsql \
-    --external:@libsql/client \
-    --external:socket.io
-
 # --- Stage 3: Runner (minimal) ---
 FROM node:20-slim AS runner
 
-# Install OpenSSL (Prisma) + wget (healthcheck) + http-proxy
+# Install OpenSSL (Prisma) + wget (healthcheck)
 RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl wget > /dev/null 2>&1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -54,12 +45,6 @@ ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
-
-# Install http-proxy in isolated dir
-RUN mkdir -p /proxy-deps && cd /proxy-deps && \
-    echo '{"name":"proxy","type":"module"}' > package.json && \
-    npm install --no-audit --no-fund http-proxy
-ENV NODE_PATH="/proxy-deps/node_modules"
 
 # Copy Next.js standalone output
 COPY --from=builder /app/.next/standalone ./
@@ -72,11 +57,14 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
+# Install http-proxy directly in /app (needed by proxy.mjs ESM import)
+RUN npm install --no-audit --no-fund --legacy-peer-deps http-proxy --no-save
+
 # Copy server files
 COPY --from=builder /app/server ./server
 
-# Copy realtime service (compiled JS + its node_modules)
-COPY --from=builder /app/mini-services/realtime-service/index.cjs ./mini-services/realtime-service/index.cjs
+# Copy realtime service (plain ESM JS + its node_modules)
+COPY --from=builder /app/mini-services/realtime-service/index.mjs ./mini-services/realtime-service/index.mjs
 COPY --from=builder /app/mini-services/realtime-service/node_modules ./mini-services/realtime-service/node_modules
 COPY --from=builder /app/mini-services/realtime-service/package.json ./mini-services/realtime-service/package.json
 
