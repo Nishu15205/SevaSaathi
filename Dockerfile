@@ -1,10 +1,10 @@
 # ============================================
 # SevaSaathi — Production Docker (Render.com)
-# Pure Node.js (no bun dependency)
+# Pure Node.js, Debian-based (for @libsql compatibility)
 # ============================================
 
 # --- Stage 1: Dependencies ---
-FROM node:20-alpine AS deps
+FROM node:20-slim AS deps
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -16,7 +16,7 @@ COPY mini-services/realtime-service/package.json ./
 RUN npm install --no-audit --no-fund --legacy-peer-deps --production
 
 # --- Stage 2: Builder ---
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -29,7 +29,7 @@ RUN npx prisma generate
 # Build Next.js standalone
 RUN NODE_OPTIONS="--max-old-space-size=384" npx next build
 
-# Bundle realtime-service TypeScript → CJS (no bun needed at runtime)
+# Bundle realtime-service TypeScript → CJS
 RUN npx esbuild mini-services/realtime-service/index.ts \
     --bundle --platform=node --format=cjs \
     --outfile=mini-services/realtime-service/index.cjs \
@@ -39,7 +39,7 @@ RUN npx esbuild mini-services/realtime-service/index.ts \
     --external:socket.io
 
 # --- Stage 3: Runner (minimal) ---
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 ENV NODE_ENV=production
 ENV PORT=8080
@@ -47,10 +47,12 @@ ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
 
-# Install http-proxy in isolated dir (avoids npm conflicts)
+# Install http-proxy + wget (for healthcheck) in isolated dir
 RUN mkdir -p /proxy-deps && cd /proxy-deps && \
     echo '{"name":"proxy","type":"module"}' > package.json && \
-    npm install --no-audit --no-fund http-proxy
+    npm install --no-audit --no-fund http-proxy && \
+    apt-get update -qq && apt-get install -qq -y --no-install-recommends wget > /dev/null 2>&1 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 ENV NODE_PATH="/proxy-deps/node_modules"
 
 # Copy Next.js standalone output
