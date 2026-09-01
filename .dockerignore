@@ -13,3 +13,11 @@ agent-ctx/
 tool-results/
 .DS_Store
 *.tsbuildinfo
+.github/
+skills/
+examples/
+*.html
+worklog.md
+.vscode/
+*.log
+src/app/debug*/**

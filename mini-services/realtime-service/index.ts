@@ -4,9 +4,9 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaLibSQL } from '@prisma/adapter-libsql';
 
 function createDb() {
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
-  if (tursoUrl) {
-    const adapter = new PrismaLibSQL({ url: tursoUrl, authToken: process.env.TURSO_AUTH_TOKEN || '' });
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl && dbUrl.startsWith('libsql://')) {
+    const adapter = new PrismaLibSQL({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN || '' });
     return new PrismaClient({ adapter });
   }
   return new PrismaClient();

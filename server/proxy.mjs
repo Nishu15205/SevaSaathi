@@ -4,7 +4,8 @@
  * Handles HTTP + WebSocket upgrade
  */
 import http from 'http';
-import { createProxyServer } from 'http-proxy';
+import hp from 'http-proxy';
+const createProxyServer = typeof hp === 'function' ? hp : hp.createProxyServer || hp.default;
 
 const NEXT_PORT = 3000;
 const SOCKET_PORT = 3005;
