@@ -5,7 +5,8 @@
 # --- Stage 1: Dependencies ---
 FROM node:20-alpine AS deps
 
-# Install bun via official installer
+# Alpine needs curl+bash for bun installer
+RUN apk add --no-cache curl bash
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.1.0"
 ENV PATH="/root/.bun/bin:$PATH"
 
@@ -21,6 +22,7 @@ RUN bun install --no-cache --production 2>/dev/null || npm install --production
 # --- Stage 2: Builder ---
 FROM node:20-alpine AS builder
 
+RUN apk add --no-cache curl bash
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.1.0"
 ENV PATH="/root/.bun/bin:$PATH"
 
@@ -38,7 +40,8 @@ RUN NODE_OPTIONS="--max-old-space-size=384" bun run build
 # --- Stage 3: Runner ---
 FROM node:20-alpine AS runner
 
-# Install bun for runtime
+# Only install bun + curl+bash (no build tools needed)
+RUN apk add --no-cache curl bash
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.1.0"
 ENV PATH="/root/.bun/bin:$PATH"
 
