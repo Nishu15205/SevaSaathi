@@ -1,30 +1,22 @@
 # ============================================
 # SevaSaathi — Production Docker (Render.com)
+# Pure Node.js (no bun dependency)
 # ============================================
 
 # --- Stage 1: Dependencies ---
 FROM node:20-alpine AS deps
 
-# Alpine needs curl+bash for bun installer
-RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
-
 WORKDIR /app
-COPY package.json bun.lock* package-lock.json* ./
-RUN bun install --no-cache --production=false 2>/dev/null || npm install
+COPY package.json package-lock.json* ./
+RUN npm install --no-audit --no-fund
 
 # Install realtime-service deps
 WORKDIR /app/mini-services/realtime-service
 COPY mini-services/realtime-service/package.json ./
-RUN bun install --no-cache --production 2>/dev/null || npm install --production
+RUN npm install --no-audit --no-fund --production
 
 # --- Stage 2: Builder ---
 FROM node:20-alpine AS builder
-
-RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -32,21 +24,22 @@ COPY --from=deps /app/mini-services/realtime-service/node_modules ./mini-service
 COPY . .
 
 # Generate Prisma client
-RUN bunx prisma generate
+RUN npx prisma generate
 
-# Build Next.js standalone (limited memory for 512MB free tier)
-RUN NODE_OPTIONS="--max-old-space-size=384" bun run build
+# Build Next.js standalone
+RUN NODE_OPTIONS="--max-old-space-size=384" npx next build
 
-# --- Stage 3: Runner ---
+# Bundle realtime-service TypeScript → CJS (no bun needed at runtime)
+RUN npx esbuild mini-services/realtime-service/index.ts \
+    --bundle --platform=node --format=cjs \
+    --outfile=mini-services/realtime-service/index.cjs \
+    --external:@prisma/client \
+    --external:@prisma/adapter-libsql \
+    --external:@libsql/client \
+    --external:socket.io
+
+# --- Stage 3: Runner (minimal) ---
 FROM node:20-alpine AS runner
-
-# Only install bun + curl+bash (no build tools needed)
-RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
-
-# Install http-proxy for the reverse proxy
-RUN npm install http-proxy --no-save
 
 ENV NODE_ENV=production
 ENV PORT=8080
@@ -54,12 +47,18 @@ ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
 
+# Install http-proxy in isolated dir (avoids npm conflicts)
+RUN mkdir -p /proxy-deps && cd /proxy-deps && \
+    echo '{"name":"proxy","type":"module"}' > package.json && \
+    npm install --no-audit --no-fund http-proxy
+ENV NODE_PATH="/proxy-deps/node_modules"
+
 # Copy Next.js standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma client + adapter
+# Copy Prisma client + adapter (needed for Turso)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
@@ -68,8 +67,10 @@ COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 # Copy server files
 COPY --from=builder /app/server ./server
 
-# Copy realtime service with its deps
-COPY --from=builder /app/mini-services/realtime-service ./mini-services/realtime-service
+# Copy realtime service (compiled JS + its node_modules)
+COPY --from=builder /app/mini-services/realtime-service/index.cjs ./mini-services/realtime-service/index.cjs
+COPY --from=builder /app/mini-services/realtime-service/node_modules ./mini-services/realtime-service/node_modules
+COPY --from=builder /app/mini-services/realtime-service/package.json ./mini-services/realtime-service/package.json
 
 # Create required directories
 RUN mkdir -p /app/data /app/public/upload/docs && chmod +x server/start.sh
