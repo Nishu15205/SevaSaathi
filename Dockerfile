@@ -7,7 +7,7 @@ FROM node:20-alpine AS deps
 
 # Alpine needs curl+bash for bun installer
 RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.1.0"
+RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
 
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN bun install --no-cache --production 2>/dev/null || npm install --production
 FROM node:20-alpine AS builder
 
 RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.1.0"
+RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
 
 WORKDIR /app
@@ -42,7 +42,7 @@ FROM node:20-alpine AS runner
 
 # Only install bun + curl+bash (no build tools needed)
 RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.1.0"
+RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
 
 # Install http-proxy for the reverse proxy
