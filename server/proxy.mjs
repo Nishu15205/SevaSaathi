@@ -4,8 +4,11 @@
  * Handles HTTP + WebSocket upgrade
  */
 import http from 'http';
-import hp from 'http-proxy';
-const createProxyServer = typeof hp === 'function' ? hp : hp.createProxyServer || hp.default;
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const httpProxy = require('http-proxy');
+const createProxyServer = typeof httpProxy === 'function' ? httpProxy : (httpProxy.createProxyServer || httpProxy.default);
 
 const NEXT_PORT = 3000;
 const SOCKET_PORT = 3005;
@@ -50,7 +53,6 @@ server.on('upgrade', (req, socket, head) => {
     req.url = cleanUrl;
     proxy.ws(req, socket, head, { target: `http://127.0.0.1:${SOCKET_PORT}` });
   } else {
-    // WebSocket upgrades for Next.js (if any)
     proxy.ws(req, socket, head, { target: `http://127.0.0.1:${NEXT_PORT}` });
   }
 });

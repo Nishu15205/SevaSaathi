@@ -1,9 +1,10 @@
+import { createRequire } from 'node:module';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
-import libsqlModule from '@prisma/adapter-libsql';
 
-const PrismaLibSQL = libsqlModule.PrismaLibSQL || libsqlModule.default?.PrismaLibSQL;
+const require = createRequire(import.meta.url);
+const { PrismaClient } = require('@prisma/client');
+const { PrismaLibSQL } = require('@prisma/adapter-libsql');
 
 function createDb() {
   const dbUrl = process.env.DATABASE_URL;

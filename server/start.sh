@@ -15,7 +15,7 @@ SOCKET_PID=$!
 cd /app
 
 echo "[Start] Starting Next.js on port ${NEXT_PORT}..."
-PORT=$NEXT_PORT HOSTNAME=0.0.0.0 NODE_OPTIONS="--max-old-space-size=256" node .next/standalone/server.js &
+PORT=$NEXT_PORT HOSTNAME=0.0.0.0 NODE_OPTIONS="--max-old-space-size=256" node /app/server.js &
 NEXT_PID=$!
 
 echo "[Start] Waiting for services to initialize..."
