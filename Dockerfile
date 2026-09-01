@@ -8,12 +8,12 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --no-audit --no-fund
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 
 # Install realtime-service deps
 WORKDIR /app/mini-services/realtime-service
 COPY mini-services/realtime-service/package.json ./
-RUN npm install --no-audit --no-fund --production
+RUN npm install --no-audit --no-fund --legacy-peer-deps --production
 
 # --- Stage 2: Builder ---
 FROM node:20-alpine AS builder
