@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -11,7 +11,7 @@ function createPrismaClient(): PrismaClient {
   const authToken = process.env.DATABASE_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN || ''
 
   if (dbUrl && dbUrl.startsWith('libsql://')) {
-    const adapter = new PrismaLibSql({ url: dbUrl, authToken })
+    const adapter = new PrismaLibSQL({ url: dbUrl, authToken })
     return new PrismaClient({ adapter })
   }
 
