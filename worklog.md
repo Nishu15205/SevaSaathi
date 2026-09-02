@@ -1094,3 +1094,29 @@ Stage Summary:
 - All API endpoints healthy
 - Database consistent
 - Only pending: Fast2SMS website verification (user's account setup)
+
+---
+Task ID: render-verify-1
+Agent: main
+Task: Fix PrismaLibSQL casing error, verify Render deployment end-to-end
+
+Work Log:
+- Fixed `PrismaLibSql` → `PrismaLibSQL` casing in src/lib/db.ts (Turbopack build was failing)
+- Pushed fix to GitHub, Render auto-deployed
+- Verified healthz endpoint returns {"status":"ok","service":"sevasaathi"}
+- Verified homepage loads with all sections (Hero, HowItWorks, Features, SmartMatching, ForUsers, TrustSafety, Pricing, Testimonials, CompetitivePositioning, CTA, Footer)
+- Tested registration: created Test User account, confirmed DB write to Turso
+- Verified NextAuth credentials auth works, session established
+- Verified Family Dashboard renders with sidebar navigation
+- Tested all dashboard pages: Overview, Members, Find Caregivers, My Bookings, Payments, Care Reports, Reviews, Complaints
+- Verified all API endpoints return 200 (session, register, providers, csrf, callback, me, patients, bookings, search, payments, signout)
+- Tested logout and re-login with existing account
+- Verified mobile responsive layout (375x812) with hamburger menu
+- Confirmed notifications system works
+
+Stage Summary:
+- **App is fully functional on Render** at https://sevasaathi-byon.onrender.com/
+- Core build error fixed: PrismaLibSQL export name casing
+- All features verified working: auth, DB, dashboard, API, responsive design
+- Socket.io real-time not confirmed (non-critical)
+- Middleware deprecation warning (non-blocking)
