@@ -119,13 +119,18 @@ export async function seedConfigsFromEnv(): Promise<number> {
 
   let seeded = 0;
   for (const c of envConfigs) {
-    const envVal = process.env[c.envKey];
-    if (!envVal) continue;
-    // Only insert if DB doesn't already have a value
+    const envVal = process.env[c.envKey] || '';
     const existing = await db.systemConfig.findUnique({ where: { section_key: { section: c.section, key: c.key } } });
     if (!existing) {
       await db.systemConfig.create({
         data: { section: c.section, key: c.key, value: envVal, label: c.label, isSecret: c.isSecret },
+      });
+      seeded++;
+    } else if (envVal && existing.value !== envVal) {
+      // Update if env has a newer value than DB
+      await db.systemConfig.update({
+        where: { section_key: { section: c.section, key: c.key } },
+        data: { value: envVal },
       });
       seeded++;
     }
