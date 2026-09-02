@@ -76,11 +76,7 @@ function LandingPage({ onGoDashboard }: { onGoDashboard: () => void }) {
         <CTASection onOpenLogin={openLogin} />
       </main>
       <Footer onOpenLogin={openLogin} />
-      <AnimatePresence>
-        {loginOpen && (
-          <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} defaultTab={loginTab} />
-        )}
-      </AnimatePresence>
+      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} defaultTab={loginTab} />
     </div>
   );
 }
