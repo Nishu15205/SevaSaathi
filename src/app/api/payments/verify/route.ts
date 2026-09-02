@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { emitToUser } from '@/lib/socket';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import crypto from 'crypto';
-import { getRazorpayKeySecret, getPlatformFeePercent, getAdminBankName, getAdminAccountNumber, getAdminIfscCode, getAdminAccountHolder } from '@/lib/config';
+import { getRazorpayKeySecret } from '@/lib/config';
 
 export async function POST(req: NextRequest) {
   try {
@@ -115,6 +115,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: 'Payment verified', paymentId: payment.id, payment: updated });
   } catch (err: any) {
     console.error('Payment verify error:', err);
-    return NextResponse.json({ error: err.message || 'Verification failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Payment verification failed' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { emitToUser } from '@/lib/socket';
 import { sendBookingConfirmationEmail } from '@/lib/email';
+import { getRazorpayKeySecret } from '@/lib/config';
 import crypto from 'crypto';
 
 /**
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify webhook signature
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keySecret = await getRazorpayKeySecret();
     if (!keySecret) {
       return NextResponse.json({ error: 'Razorpay not configured' }, { status: 500 });
     }

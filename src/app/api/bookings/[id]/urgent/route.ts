@@ -6,7 +6,7 @@ import { ShiftType } from '@prisma/client'
 const urgentSchema = z.object({
   patientId: z.string().min(1),
   familyId: z.string().min(1),
-  caregiverId: z.string().optional(),
+  caregiverId: z.string().min(1, 'Caregiver ID is required'),
   shiftType: z.nativeEnum(ShiftType),
   careRequirements: z.any(),
   familyNotes: z.string().optional(),
@@ -50,14 +50,14 @@ export async function POST(
     const booking = await db.booking.create({
       data: {
         patientId: data.patientId,
-        caregiverId: data.caregiverId || '',
+        caregiverId: data.caregiverId,
         familyId: data.familyId,
         shiftType: data.shiftType,
         startDate: new Date(today),
         endDate: null,
         startTime: data.startTime,
         endTime: data.endTime,
-        careRequirements: typeof data.careRequirements === 'string' ? data.careRequirements : JSON.stringify(data.careRequirements),
+        careRequirements: typeof data.careRequirements === 'string' ? data.careRequirements : data.careRequirements ? JSON.stringify(data.careRequirements) : '',
         familyNotes: data.familyNotes ? `[URGENT] ${data.familyNotes}` : '[URGENT] Urgent care request',
         totalAmount,
         platformFee,

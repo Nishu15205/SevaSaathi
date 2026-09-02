@@ -13,7 +13,7 @@ const createBookingSchema = z.object({
   endDate: z.string().nullable().optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
-  careRequirements: z.any(),
+  careRequirements: z.any().transform(v => typeof v === 'string' ? v : v ? JSON.stringify(v) : ''),
   familyNotes: z.string().optional(),
 })
 
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         endDate: data.endDate ? new Date(data.endDate) : null,
         startTime: data.startTime,
         endTime: data.endTime,
-        careRequirements: typeof data.careRequirements === 'string' ? data.careRequirements : JSON.stringify(data.careRequirements),
+        careRequirements: data.careRequirements,
         familyNotes: data.familyNotes,
         totalAmount,
         platformFee,

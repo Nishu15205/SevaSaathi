@@ -8,11 +8,11 @@ const createReportSchema = z.object({
   bookingId: z.string().min(1),
   caregiverId: z.string().min(1),
   reportDate: z.string().min(1),
-  activities: z.any(),
+  activities: z.any().transform(v => typeof v === 'string' ? v : v ? JSON.stringify(v) : '[]'),
   summary: z.string().optional(),
   mood: z.string().default('normal'),
   foodIntake: z.string().default('normal'),
-  medicinesGiven: z.any().optional(),
+  medicinesGiven: z.any().optional().transform(v => v ? (typeof v === 'string' ? v : JSON.stringify(v)) : null),
   concerns: z.string().optional(),
 })
 
@@ -35,13 +35,11 @@ export async function POST(request: NextRequest) {
         bookingId: data.bookingId,
         caregiverId: data.caregiverId,
         reportDate: data.reportDate,
-        activities: typeof data.activities === 'string' ? data.activities : JSON.stringify(data.activities),
+        activities: data.activities,
         summary: data.summary,
         mood: data.mood,
         foodIntake: data.foodIntake,
-        medicinesGiven: data.medicinesGiven
-          ? typeof data.medicinesGiven === 'string' ? data.medicinesGiven : JSON.stringify(data.medicinesGiven)
-          : null,
+        medicinesGiven: data.medicinesGiven,
         concerns: data.concerns,
       },
       include: {

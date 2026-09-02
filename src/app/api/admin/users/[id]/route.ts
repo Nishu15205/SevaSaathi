@@ -10,7 +10,11 @@ export async function GET(
 
     const user = await db.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true, email: true, name: true, phone: true, role: true,
+        avatarUrl: true, subscription: true, isActive: true,
+        isPhoneVerified: true, isEmailVerified: true,
+        createdAt: true, updatedAt: true,
         caregiverProfile: true,
         patientProfiles: true,
         _count: {

@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { z } from 'zod'
 
 const availabilitySchema = z.object({
-  availabilityJson: z.any(),
+  availabilityJson: z.any().transform(v => typeof v === 'string' ? v : v ? JSON.stringify(v) : '[]'),
 })
 
 export async function PUT(
@@ -27,19 +27,20 @@ export async function PUT(
       return NextResponse.json({ error: 'Caregiver not found' }, { status: 404 })
     }
 
-    const availabilityStr = typeof parsed.data.availabilityJson === 'string'
-      ? parsed.data.availabilityJson
-      : JSON.stringify(parsed.data.availabilityJson)
-
     const updated = await db.caregiver.update({
       where: { id },
-      data: { availabilityJson: availabilityStr },
+      data: { availabilityJson: parsed.data.availabilityJson },
     })
+
+    let parsedAvailability: any = [];
+    try {
+      parsedAvailability = JSON.parse(updated.availabilityJson);
+    } catch { /* keep default [] */ }
 
     return NextResponse.json({
       caregiver: {
         ...updated,
-        availabilityJson: JSON.parse(updated.availabilityJson),
+        availabilityJson: parsedAvailability,
       },
     })
   } catch (error) {

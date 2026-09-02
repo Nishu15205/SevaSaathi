@@ -45,12 +45,12 @@ const createPatientSchema = z.object({
   address: z.string().min(5),
   city: z.string().min(2),
   pincode: z.string().optional(),
-  medicalHistory: z.any(),
+  medicalHistory: z.any().transform(v => typeof v === 'string' ? v : v ? JSON.stringify(v) : ''),
   dietaryNeeds: z.string().optional(),
   mobilityStatus: z.string().default('mobile'),
-  careRequirements: z.any(),
+  careRequirements: z.any().transform(v => typeof v === 'string' ? v : v ? JSON.stringify(v) : ''),
   preferredLanguage: z.string().optional(),
-  emergencyContact: z.any(),
+  emergencyContact: z.any().transform(v => typeof v === 'string' ? v : v ? JSON.stringify(v) : '{}'),
 })
 
 export async function POST(request: NextRequest) {
@@ -77,12 +77,12 @@ export async function POST(request: NextRequest) {
         address: data.address,
         city: data.city,
         pincode: data.pincode,
-        medicalHistory: typeof data.medicalHistory === 'string' ? data.medicalHistory : JSON.stringify(data.medicalHistory),
+        medicalHistory: data.medicalHistory,
         dietaryNeeds: data.dietaryNeeds,
         mobilityStatus: data.mobilityStatus,
-        careRequirements: typeof data.careRequirements === 'string' ? data.careRequirements : JSON.stringify(data.careRequirements),
+        careRequirements: data.careRequirements,
         preferredLanguage: data.preferredLanguage,
-        emergencyContact: typeof data.emergencyContact === 'string' ? data.emergencyContact : JSON.stringify(data.emergencyContact),
+        emergencyContact: data.emergencyContact,
       },
     })
 

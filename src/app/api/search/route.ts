@@ -65,8 +65,10 @@ export async function GET(request: NextRequest) {
     const scored: ScoredCaregiver[] = []
 
     for (const c of caregivers) {
-      const caregiverSkills: string[] = (safeJsonParse(c.skills) || []) as string[]
-      const availability: Record<string, { day: boolean; night: boolean }> = (safeJsonParse(c.availabilityJson, {})) as Record<string, { day: boolean; night: boolean }>
+      const rawSkills = safeJsonParse(c.skills)
+      const caregiverSkills: string[] = Array.isArray(rawSkills) ? rawSkills : []
+      const rawAvail = safeJsonParse(c.availabilityJson, {})
+      const availability: Record<string, { day: boolean; night: boolean }> = (typeof rawAvail === 'object' && !Array.isArray(rawAvail) ? rawAvail : {}) as Record<string, { day: boolean; night: boolean }>
 
       // Skill Match: 30%
       let skillScore = 0
