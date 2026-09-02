@@ -1181,3 +1181,24 @@ Stage Summary:
 - Critical UX bug fixed: Login/Signup form was invisible due to CSS class override
 - 'relative' class was overriding 'fixed' positioning in Tailwind CSS v4
 - Removed the conflicting class, form now centers properly on screen
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Login/Get Started modal not showing content - only backdrop blur visible on Render
+
+Work Log:
+- Investigated LoginModal.tsx - Radix Dialog with tw-animate-css animation classes
+- Found root cause: tw-animate-css animate-in/fade-in-0/zoom-in-95 CSS animations on DialogContent failed when component was conditionally mounted with open=true
+- The conditional rendering `{loginOpen && <LoginModal .../>}` caused the Dialog to mount while already open, preventing CSS animation from triggering properly
+- The `enter` keyframe in tw-animate-css only defines `from` state (opacity: 0, scale: 0.95) with fill-mode: none, so if animation didn't trigger, content stayed invisible
+- Fixed dialog.tsx: Removed all animate-in/out/fade-in-0/zoom-in-95 classes from DialogContent and DialogOverlay
+- Fixed page.tsx: Removed conditional rendering of LoginModal - now always rendered, Dialog handles visibility via open prop
+- Verified fix on Render: Login button opens Sign In form with all fields visible
+- Verified Get Started button also works
+- Verified Create Account tab shows all registration fields
+
+Stage Summary:
+- Dialog component (src/components/ui/dialog.tsx) simplified - no animation dependency for visibility
+- Page (src/app/page.tsx) always renders LoginModal, relies on Dialog's open prop
+- Both Login and Get Started buttons now correctly show modal content on Render deployment
+- Pushed to GitHub: commit af150da
