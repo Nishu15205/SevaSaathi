@@ -1159,3 +1159,25 @@ Stage Summary:
 - 10 API bugs fixed (4 critical, 6 medium)
 - 2 debug routes removed
 - App fully functional at https://sevasaathi-byon.onrender.com/
+
+---
+Task ID: render-fix-dialog
+Agent: main
+Task: Fix Login/Get Started dialog not showing form on Render
+
+Work Log:
+- User reported: clicking Login/Get Started blurs page but form doesn't open
+- Analyzed screenshot with VLM: dark overlay visible but no form content
+- Opened site with agent-browser and inspected DOM
+- Found dialog content at y=9337px (way off screen!)
+- Root cause: computed style showed position:relative instead of position:fixed
+- LoginModal DialogContent had 'relative' class which OVERRIDES the 'fixed' class from base DialogContent
+- In Tailwind CSS v4, 'relative' comes after 'fixed' in CSS order, so it wins
+- Fix: removed 'relative' from LoginModal's DialogContent className
+- Verified on Render: dialog now at y=23px, position:fixed, fully visible
+- Both Login and Get Started buttons work correctly
+
+Stage Summary:
+- Critical UX bug fixed: Login/Signup form was invisible due to CSS class override
+- 'relative' class was overriding 'fixed' positioning in Tailwind CSS v4
+- Removed the conflicting class, form now centers properly on screen
