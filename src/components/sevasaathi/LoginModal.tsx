@@ -156,7 +156,10 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
   const handleGoogleSignIn = async () => {
     setGoogleError("");
     try {
-      const checkRes = await fetch("/api/auth/google-configured");
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const checkRes = await fetch("/api/auth/google-configured", { signal: controller.signal });
+      clearTimeout(timeout);
       const { configured } = await checkRes.json();
       if (configured) {
         const origin = window.location.origin;
@@ -164,7 +167,8 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
         window.location.href = `/api/auth/google-go?origin=${encodeURIComponent(origin)}&role=${encodeURIComponent(role)}`;
         return;
       }
-    } catch { /* fall through */ }
+    } catch { /* fall through to quick sign-up form */ }
+    // Google OAuth not configured — show quick sign-up form directly
     setGoogleOpen(true);
   };
 
@@ -527,20 +531,29 @@ export default function LoginModal({ isOpen, onClose, defaultTab }: LoginModalPr
           )}
         </AnimatePresence>
 
-        {/* Google Simulate Dialog */}
+        {/* Quick Sign-Up (Google OAuth fallback) */}
         <AnimatePresence>
           {googleOpen && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <div className="px-6 pb-6 pt-2 border-t border-gray-100 mt-2">
-                <div className="flex items-center gap-2 mb-3">
-                  <GoogleIcon className="w-4 h-4" />
-                  <h4 className="text-sm font-semibold text-gray-800">Google Sign-In (Simulated)</h4>
-                </div>
+                <p className="text-xs text-gray-500 mb-3">Enter your details to continue</p>
                 {googleError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg mb-2">{googleError}</p>}
                 <form onSubmit={handleGoogleSubmit} className="space-y-2.5">
-                  <Input type="text" placeholder="Full Name" value={googleName} onChange={(e) => setGoogleName(e.target.value)} className="rounded-lg" required />
-                  <Input type="email" placeholder="Email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} className="rounded-lg" required />
-                  <Button type="submit" size="sm" className="w-full rounded-lg">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-gray-700">Full Name</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input type="text" placeholder="Your full name" value={googleName} onChange={(e) => setGoogleName(e.target.value)} className="pl-10 h-11 rounded-lg border-gray-300" required />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-gray-700">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input type="email" placeholder="you@example.com" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} className="pl-10 h-11 rounded-lg border-gray-300" required />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full h-11 bg-forest-900 hover:bg-forest-800 text-white font-semibold rounded-lg">
                     Continue
                   </Button>
                 </form>
