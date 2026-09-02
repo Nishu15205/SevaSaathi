@@ -21,12 +21,13 @@ export async function GET() {
 
     for (const u of users) {
       const existing = await db.user.findUnique({ where: { email: u.email } });
+      const hash = await bcrypt.hash(u.password, SALT);
       if (existing) {
+        await db.user.update({ where: { id: existing.id }, data: { passwordHash: hash, isActive: true } });
         userIds[u.email] = existing.id;
-        log.push(`✅ ${u.email} — already exists`);
+        log.push(`✅ ${u.email} — updated password`);
         continue;
       }
-      const hash = await bcrypt.hash(u.password, SALT);
       const user = await db.user.create({
         data: { email: u.email, name: u.name, phone: u.phone, passwordHash: hash, role: u.role, subscription: "NONE", isActive: true },
       });
