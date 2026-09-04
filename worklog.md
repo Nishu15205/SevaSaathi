@@ -157,3 +157,28 @@ Stage Summary:
 - All API endpoints verified working with MongoDB
 - For production: use MongoDB Atlas (free tier) or self-hosted MongoDB with replica set
 - Local dev: MongoDB running on localhost:27017 as replica set
+
+---
+Task ID: 7
+Agent: main
+Task: Fix Render deployment - Prisma 7 auto-download and Docker cache issues
+
+Work Log:
+- Diagnosed: `npx prisma` in start.sh auto-downloads Prisma 7.10.0 (breaking changes: removes `url` from datasource)
+- Fix: Replaced all `npx prisma` with `./node_modules/.bin/prisma` to use local v6.x
+- Diagnosed: Docker image CACHED on Render, still using old MySQL schema
+- Fix: Added BUILD_DATE ARG to Dockerfile to bust cache
+- Diagnosed: Runner Docker stage missing prisma CLI binary, tsx, esbuild, mongodb
+- Fix: Added COPY lines for prisma, tsx, esbuild, mongodb packages in runner stage
+- Added `tsx` dependency for running TypeScript seed in Node.js production
+- Updated `prisma.seed` command in package.json to use `tsx prisma/seed.ts`
+- Updated .env.example to reflect MongoDB setup (local + Atlas)
+- Committed and pushed to GitHub (2 commits: 06c2325, cce23bc)
+- Verified local dev server still works with all changes
+
+Stage Summary:
+- Fixed: Prisma CLI version pinned to v6.x (no more auto-download of v7)
+- Fixed: Docker cache will be busted on next Render build
+- Fixed: All runtime dependencies (prisma, tsx, esbuild, mongodb) copied to runner stage
+- Pending: User must set DATABASE_URL on Render to MongoDB Atlas connection string
+- Render will auto-rebuild from GitHub push
