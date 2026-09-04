@@ -1,7 +1,6 @@
 # ============================================
 # SevaSaathi — Production Docker (Render.com)
-# Step 1: Next.js only (direct on PORT)
-# Step 2: Will add proxy+socket later
+# MySQL + ENV-FIRST config
 # ============================================
 
 # --- Stage 1: Dependencies ---
@@ -14,15 +13,15 @@ RUN npm install --no-audit --no-fund --legacy-peer-deps
 # --- Stage 2: Builder ---
 FROM node:20-slim AS builder
 
-# Install OpenSSL (required by Prisma)
-RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl > /dev/null 2>&1 && \
+# Install OpenSSL (required by Prisma) + default-mysql-client (for MySQL)
+RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl default-mysql-client > /dev/null 2>&1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client (MySQL)
 RUN npx prisma generate
 
 # Build Next.js standalone
@@ -45,11 +44,10 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma client + adapter + all nested deps (needed for Turso)
+# Copy Prisma client + deps
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
 # Create required directories
 RUN mkdir -p /app/data /app/public/upload/docs

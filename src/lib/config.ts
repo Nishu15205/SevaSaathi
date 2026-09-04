@@ -1,9 +1,11 @@
 /**
- * System Config Service
- * 
- * Reads credentials/settings from DB (system_configs table) first,
- * falls back to env vars. This allows credentials to be updated
- * from the admin UI without code changes.
+ * System Config Service — ENV-FIRST
+ *
+ * Reads credentials/settings from ENV VARS first,
+ * falls back to DB (system_configs table) only if env is not set.
+ *
+ * This means: set it in Render Environment → it works immediately.
+ * Admin UI "Sync from .env" just mirrors env vars to DB for display.
  */
 
 import { db } from './db';
@@ -12,8 +14,7 @@ import { db } from './db';
 let configCache: Record<string, Record<string, string>> | null = null;
 
 /**
- * Get a config value by section and key.
- * DB first, then env fallback.
+ * Get a config value by section and key (DB only).
  */
 export async function getConfig(section: string, key: string): Promise<string | null> {
   const cache = await loadConfig();
@@ -22,12 +23,18 @@ export async function getConfig(section: string, key: string): Promise<string | 
 }
 
 /**
- * Get a config value, with env var as fallback.
+ * ENV-FIRST config read.
+ * Checks process.env FIRST, then falls back to DB.
+ * If env var is set (even to empty string), env wins.
  */
 export async function getConfigWithFallback(section: string, key: string, envKey: string): Promise<string | null> {
+  // ENV FIRST — if the env var exists and is non-empty, use it
+  const envVal = process.env[envKey];
+  if (envVal) return envVal;
+  // Fall back to DB
   const dbVal = await getConfig(section, key);
   if (dbVal) return dbVal;
-  return process.env[envKey] || null;
+  return null;
 }
 
 /**
@@ -51,7 +58,8 @@ export async function deleteConfig(section: string, key: string): Promise<void> 
 }
 
 /**
- * Get all configs grouped by section.
+ * Get all configs grouped by section — MERGED with env vars.
+ * Env vars override DB values for display in admin UI.
  */
 export async function getAllConfigs(): Promise<Record<string, Record<string, { value: string; label: string; isSecret: boolean }>>> {
   const rows = await db.systemConfig.findMany({ orderBy: [{ section: 'asc' }, { key: 'asc' }] });
@@ -59,6 +67,18 @@ export async function getAllConfigs(): Promise<Record<string, Record<string, { v
   for (const row of rows) {
     if (!result[row.section]) result[row.section] = {};
     result[row.section][row.key] = { value: row.value, label: row.label, isSecret: row.isSecret };
+  }
+  // Overlay env vars on top — env wins for display
+  for (const c of ENV_CONFIG_MAP) {
+    const envVal = process.env[c.envKey];
+    if (envVal) {
+      if (!result[c.section]) result[c.section] = {};
+      result[c.section][c.key] = {
+        value: envVal,
+        label: result[c.section]?.[c.key]?.label || c.label,
+        isSecret: result[c.section]?.[c.key]?.isSecret ?? c.isSecret,
+      };
+    }
   }
   return result;
 }
@@ -77,63 +97,60 @@ export async function bulkUpsert(configs: { section: string; key: string; value:
   invalidateCache();
 }
 
+/* ------------------------------------------------------------------ */
+/*  ENV CONFIG MAP — single source of truth for all env vars          */
+/* ------------------------------------------------------------------ */
+
+const ENV_CONFIG_MAP: { section: string; key: string; envKey: string; label: string; isSecret: boolean }[] = [
+  // Google OAuth
+  { section: 'GOOGLE_OAUTH', key: 'CLIENT_ID', envKey: 'GOOGLE_CLIENT_ID', label: 'Google Client ID', isSecret: false },
+  { section: 'GOOGLE_OAUTH', key: 'CLIENT_SECRET', envKey: 'GOOGLE_CLIENT_SECRET', label: 'Google Client Secret', isSecret: true },
+  // Razorpay
+  { section: 'RAZORPAY', key: 'KEY_ID', envKey: 'RAZORPAY_KEY_ID', label: 'Razorpay Key ID', isSecret: false },
+  { section: 'RAZORPAY', key: 'KEY_SECRET', envKey: 'RAZORPAY_KEY_SECRET', label: 'Razorpay Key Secret', isSecret: true },
+  // SMTP
+  { section: 'SMTP', key: 'HOST', envKey: 'SMTP_HOST', label: 'SMTP Host', isSecret: false },
+  { section: 'SMTP', key: 'PORT', envKey: 'SMTP_PORT', label: 'SMTP Port', isSecret: false },
+  { section: 'SMTP', key: 'USER', envKey: 'SMTP_USER', label: 'SMTP User / Email', isSecret: false },
+  { section: 'SMTP', key: 'PASS', envKey: 'SMTP_PASS', label: 'SMTP Password (App Password)', isSecret: true },
+  // SMS (Fast2SMS)
+  { section: 'SMS', key: 'FAST2SMS_API_KEY', envKey: 'FAST2SMS_API_KEY', label: 'Fast2SMS API Key', isSecret: true },
+  // Brevo (Email)
+  { section: 'BREVO', key: 'API_KEY', envKey: 'BREVO_API_KEY', label: 'Brevo API Key', isSecret: true },
+  { section: 'BREVO', key: 'SENDER_EMAIL', envKey: 'BREVO_SENDER_EMAIL', label: 'Brevo Sender Email', isSecret: false },
+  // Firebase (Phone Auth)
+  { section: 'FIREBASE', key: 'API_KEY', envKey: 'FIREBASE_API_KEY', label: 'Firebase API Key', isSecret: false },
+  { section: 'FIREBASE', key: 'AUTH_DOMAIN', envKey: 'FIREBASE_AUTH_DOMAIN', label: 'Firebase Auth Domain', isSecret: false },
+  { section: 'FIREBASE', key: 'PROJECT_ID', envKey: 'FIREBASE_PROJECT_ID', label: 'Firebase Project ID', isSecret: false },
+  { section: 'FIREBASE', key: 'CLIENT_EMAIL', envKey: 'FIREBASE_CLIENT_EMAIL', label: 'Firebase Admin Client Email', isSecret: true },
+  { section: 'FIREBASE', key: 'PRIVATE_KEY', envKey: 'FIREBASE_PRIVATE_KEY', label: 'Firebase Admin Private Key', isSecret: true },
+  // Platform
+  { section: 'PLATFORM', key: 'UPI_ID', envKey: 'PLATFORM_UPI_ID', label: 'Platform UPI ID', isSecret: false },
+  { section: 'PLATFORM', key: 'UPI_NAME', envKey: 'PLATFORM_UPI_NAME', label: 'Platform UPI Display Name', isSecret: false },
+  { section: 'PLATFORM', key: 'FEE_PERCENT', envKey: 'PLATFORM_FEE_PERCENT', label: 'Platform Fee %', isSecret: false },
+  { section: 'PLATFORM', key: 'ADMIN_BANK_NAME', envKey: 'ADMIN_BANK_NAME', label: 'Admin Bank Name', isSecret: false },
+  { section: 'PLATFORM', key: 'ADMIN_ACCOUNT_NUMBER', envKey: 'ADMIN_ACCOUNT_NUMBER', label: 'Admin Account Number', isSecret: true },
+  { section: 'PLATFORM', key: 'ADMIN_IFSC_CODE', envKey: 'ADMIN_IFSC_CODE', label: 'Admin IFSC Code', isSecret: false },
+  { section: 'PLATFORM', key: 'ADMIN_ACCOUNT_HOLDER', envKey: 'ADMIN_ACCOUNT_HOLDER', label: 'Admin Account Holder Name', isSecret: false },
+  // App
+  { section: 'APP', key: 'NEXTAUTH_SECRET', envKey: 'NEXTAUTH_SECRET', label: 'NextAuth Secret', isSecret: true },
+  { section: 'APP', key: 'NEXTAUTH_URL', envKey: 'NEXTAUTH_URL', label: 'App URL', isSecret: false },
+];
+
 /**
- * Seed configs from current .env values.
+ * Seed configs from current .env values — always upserts env values into DB.
+ * This makes the admin UI display match what env provides.
  */
 export async function seedConfigsFromEnv(): Promise<number> {
-  const envConfigs: { section: string; key: string; envKey: string; label: string; isSecret: boolean }[] = [
-    // Google OAuth
-    { section: 'GOOGLE_OAUTH', key: 'CLIENT_ID', envKey: 'GOOGLE_CLIENT_ID', label: 'Google Client ID', isSecret: false },
-    { section: 'GOOGLE_OAUTH', key: 'CLIENT_SECRET', envKey: 'GOOGLE_CLIENT_SECRET', label: 'Google Client Secret', isSecret: true },
-    // Razorpay
-    { section: 'RAZORPAY', key: 'KEY_ID', envKey: 'RAZORPAY_KEY_ID', label: 'Razorpay Key ID', isSecret: false },
-    { section: 'RAZORPAY', key: 'KEY_SECRET', envKey: 'RAZORPAY_KEY_SECRET', label: 'Razorpay Key Secret', isSecret: true },
-    // SMTP
-    { section: 'SMTP', key: 'HOST', envKey: 'SMTP_HOST', label: 'SMTP Host', isSecret: false },
-    { section: 'SMTP', key: 'PORT', envKey: 'SMTP_PORT', label: 'SMTP Port', isSecret: false },
-    { section: 'SMTP', key: 'USER', envKey: 'SMTP_USER', label: 'SMTP User / Email', isSecret: false },
-    { section: 'SMTP', key: 'PASS', envKey: 'SMTP_PASS', label: 'SMTP Password (App Password)', isSecret: true },
-    // SMS (Fast2SMS)
-    { section: 'SMS', key: 'FAST2SMS_API_KEY', envKey: 'FAST2SMS_API_KEY', label: 'Fast2SMS API Key', isSecret: true },
-    // Brevo (Email)
-    { section: 'BREVO', key: 'API_KEY', envKey: 'BREVO_API_KEY', label: 'Brevo API Key', isSecret: true },
-    { section: 'BREVO', key: 'SENDER_EMAIL', envKey: 'BREVO_SENDER_EMAIL', label: 'Brevo Sender Email (must be verified in Brevo)', isSecret: false },
-    // Firebase (Phone Auth)
-    { section: 'FIREBASE', key: 'API_KEY', envKey: 'FIREBASE_API_KEY', label: 'Firebase API Key', isSecret: false },
-    { section: 'FIREBASE', key: 'AUTH_DOMAIN', envKey: 'FIREBASE_AUTH_DOMAIN', label: 'Firebase Auth Domain', isSecret: false },
-    { section: 'FIREBASE', key: 'PROJECT_ID', envKey: 'FIREBASE_PROJECT_ID', label: 'Firebase Project ID', isSecret: false },
-    { section: 'FIREBASE', key: 'CLIENT_EMAIL', envKey: 'FIREBASE_CLIENT_EMAIL', label: 'Firebase Admin Client Email', isSecret: true },
-    { section: 'FIREBASE', key: 'PRIVATE_KEY', envKey: 'FIREBASE_PRIVATE_KEY', label: 'Firebase Admin Private Key', isSecret: true },
-    // Platform
-    { section: 'PLATFORM', key: 'UPI_ID', envKey: 'PLATFORM_UPI_ID', label: 'Platform UPI ID', isSecret: false },
-    { section: 'PLATFORM', key: 'UPI_NAME', envKey: 'PLATFORM_UPI_NAME', label: 'Platform UPI Display Name', isSecret: false },
-    { section: 'PLATFORM', key: 'FEE_PERCENT', envKey: 'PLATFORM_FEE_PERCENT', label: 'Platform Fee %', isSecret: false },
-    { section: 'PLATFORM', key: 'ADMIN_BANK_NAME', envKey: 'ADMIN_BANK_NAME', label: 'Admin Bank Name', isSecret: false },
-    { section: 'PLATFORM', key: 'ADMIN_ACCOUNT_NUMBER', envKey: 'ADMIN_ACCOUNT_NUMBER', label: 'Admin Account Number', isSecret: true },
-    { section: 'PLATFORM', key: 'ADMIN_IFSC_CODE', envKey: 'ADMIN_IFSC_CODE', label: 'Admin IFSC Code', isSecret: false },
-    { section: 'PLATFORM', key: 'ADMIN_ACCOUNT_HOLDER', envKey: 'ADMIN_ACCOUNT_HOLDER', label: 'Admin Account Holder Name', isSecret: false },
-    // App
-    { section: 'APP', key: 'NEXTAUTH_SECRET', envKey: 'NEXTAUTH_SECRET', label: 'NextAuth Secret', isSecret: true },
-    { section: 'APP', key: 'NEXTAUTH_URL', envKey: 'NEXTAUTH_URL', label: 'App URL', isSecret: false },
-  ];
-
   let seeded = 0;
-  for (const c of envConfigs) {
+  for (const c of ENV_CONFIG_MAP) {
     const envVal = process.env[c.envKey] || '';
-    const existing = await db.systemConfig.findUnique({ where: { section_key: { section: c.section, key: c.key } } });
-    if (!existing) {
-      await db.systemConfig.create({
-        data: { section: c.section, key: c.key, value: envVal, label: c.label, isSecret: c.isSecret },
-      });
-      seeded++;
-    } else if (envVal && existing.value !== envVal) {
-      // Update if env has a newer value than DB
-      await db.systemConfig.update({
-        where: { section_key: { section: c.section, key: c.key } },
-        data: { value: envVal },
-      });
-      seeded++;
-    }
+    await db.systemConfig.upsert({
+      where: { section_key: { section: c.section, key: c.key } },
+      update: { value: envVal || undefined, label: c.label, isSecret: c.isSecret },
+      create: { section: c.section, key: c.key, value: envVal, label: c.label, isSecret: c.isSecret },
+    });
+    seeded++;
   }
   invalidateCache();
   return seeded;
@@ -157,7 +174,7 @@ function invalidateCache() {
   configCache = null;
 }
 
-// --- Convenience getters ---
+// --- Convenience getters (all ENV-FIRST) ---
 
 export async function getGoogleClientId() { return getConfigWithFallback('GOOGLE_OAUTH', 'CLIENT_ID', 'GOOGLE_CLIENT_ID'); }
 export async function getGoogleClientSecret() { return getConfigWithFallback('GOOGLE_OAUTH', 'CLIENT_SECRET', 'GOOGLE_CLIENT_SECRET'); }

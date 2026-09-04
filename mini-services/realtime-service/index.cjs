@@ -14,19 +14,11 @@ try {
   process.exit(1);
 }
 
-// Prisma with Turso adapter
-let PrismaClient, PrismaLibSQL;
+// Prisma (MySQL)
+let PrismaClient;
 try {
   const prismaPkg = require('@prisma/client');
   PrismaClient = prismaPkg.PrismaClient || prismaPkg.default?.PrismaClient;
-  
-  try {
-    const adapterPkg = require('@prisma/adapter-libsql');
-    PrismaLibSQL = adapterPkg.PrismaLibSQL || adapterPkg.default?.PrismaLibSQL;
-  } catch (e) {
-    // adapter not available, use direct PrismaClient
-    console.log('[Realtime] @prisma/adapter-libsql not available, using direct PrismaClient');
-  }
 } catch (e) {
   console.error('[Realtime] Failed to load Prisma:', e.message);
   PrismaClient = null;
@@ -34,12 +26,6 @@ try {
 
 function createDb() {
   if (!PrismaClient) return null;
-  
-  const dbUrl = process.env.DATABASE_URL;
-  if (dbUrl && dbUrl.startsWith('libsql://') && PrismaLibSQL) {
-    const adapter = new PrismaLibSQL({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN || '' });
-    return new PrismaClient({ adapter });
-  }
   return new PrismaClient();
 }
 

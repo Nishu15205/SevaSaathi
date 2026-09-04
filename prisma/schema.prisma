@@ -1,13 +1,12 @@
 // SevaSaathi - Verified Home Care & Elder Support Platform
-// Database Schema (MySQL-designed, SQLite runtime for sandbox)
-// For production MySQL: change provider to "mysql" and update DATABASE_URL
+// Database Schema — MySQL (Production)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
