@@ -115,3 +115,45 @@ Stage Summary:
 - render.yaml blueprint created for one-click deploy with DB
 - After setting DATABASE_URL, the app will auto-migrate and seed on startup
 - Landing page works, but all DB-dependent features (login, dashboard) fail
+
+---
+Task ID: 6
+Agent: main
+Task: Migrate database from MySQL to MongoDB
+
+Work Log:
+- Changed Prisma schema provider from `mysql` to `mongodb`
+- Updated all model IDs from `@default(cuid())` to `@default(auto()) @map("_id") @db.ObjectId` for MongoDB ObjectId support
+- Added `@db.ObjectId` type annotation to all relation fields (foreign keys)
+- Removed all `@map()` field mappings and `@@map()` table mappings (MongoDB uses field/collection names directly)
+- Removed `@@index` directives (MongoDB handles indexing differently, Prisma creates indexes from schema)
+- Kept `@@unique` composite constraints (supported by MongoDB)
+- Removed `mysql2` dependency from package.json
+- Updated package.json scripts: removed db:use-mysql/db:use-sqlite, added db:use-mongodb
+- Updated .env to use MongoDB URL: `mongodb://localhost:27017/sevasaathi`
+- Downloaded and started MongoDB 7.0.15 binary locally (no system install needed)
+- Configured MongoDB as single-node replica set (required for Prisma transactions)
+- Successfully pushed Prisma schema to MongoDB with all collections and indexes
+- Successfully seeded database: 3 admins, 5 families, 8 caregivers, 10 bookings, 5 patients
+- Updated deployment configs:
+  - render.yaml: Removed MySQL database, added MongoDB connection string placeholder
+  - Dockerfile: Removed MySQL client, kept Prisma + OpenSSL
+  - docker-compose.yml: Added MongoDB 7 container + app with MongoDB connection
+  - start.sh: Updated for MongoDB (same prisma db push + seed logic)
+- Verified all APIs work with MongoDB:
+  - GET / → 200 (landing page)
+  - POST /api/auth/login → 200 (returns user with MongoDB ObjectId)
+  - GET /api/admin/dashboard → 200 (returns real data: 13 users, 8 caregivers, 10 bookings, 4.6 avg rating)
+  - GET /api/caregivers → 8 caregivers
+  - GET /api/search?city=Delhi → 8 results
+  - GET /healthz → ok
+- Installed mongodb driver as direct dependency (for replica set initialization)
+
+Stage Summary:
+- Database fully migrated from MySQL to MongoDB
+- Prisma ORM continues to work seamlessly with MongoDB provider
+- IDs now use MongoDB ObjectIds instead of CUIDs
+- All 12 models, 11 enums preserved and working
+- All API endpoints verified working with MongoDB
+- For production: use MongoDB Atlas (free tier) or self-hosted MongoDB with replica set
+- Local dev: MongoDB running on localhost:27017 as replica set

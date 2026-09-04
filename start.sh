@@ -1,7 +1,8 @@
 #!/bin/sh
 # ============================================
 # SevaSaathi — Render Startup Script
-# Runs Prisma migrations then starts Next.js
+# Runs Prisma db push then starts Next.js
+# Works with MongoDB
 # ============================================
 
 echo "🚀 SevaSaathi starting..."

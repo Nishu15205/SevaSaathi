@@ -1,6 +1,6 @@
 # ============================================
 # SevaSaathi — Production Docker (Render.com)
-# MySQL + ENV-FIRST config
+# MongoDB + ENV-FIRST config
 # ============================================
 
 # --- Stage 1: Dependencies ---
@@ -13,15 +13,15 @@ RUN npm install --no-audit --no-fund --legacy-peer-deps
 # --- Stage 2: Builder ---
 FROM node:20-slim AS builder
 
-# Install OpenSSL (required by Prisma) + default-mysql-client (for MySQL)
-RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl default-mysql-client > /dev/null 2>&1 && \
+# Install OpenSSL (required by Prisma)
+RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends openssl > /dev/null 2>&1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client (MySQL)
+# Generate Prisma client (MongoDB)
 RUN npx prisma generate
 
 # Build Next.js standalone

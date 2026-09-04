@@ -12,6 +12,17 @@
 # ============================================
 
 services:
+  mongo:
+    image: mongo:7
+    container_name: sevasaathi-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - sevasaathi-mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=sevasaathi
+
   app:
     build:
       context: .
@@ -23,14 +34,14 @@ services:
     env_file:
       - .env.production
     volumes:
-      # Persistent SQLite database (only used with local file: DB)
-      - sevasaathi-data:/app/data
-      # Persistent uploads (only used with local file: DB)
+      # Persistent uploads
       - sevasaathi-uploads:/app/public/upload
     environment:
-      # Use local SQLite with volume for VPS deployment
-      - DATABASE_URL=file:/app/data/sevasaathi.db
+      # Connect to the MongoDB container
+      - DATABASE_URL=mongodb://mongo:27017/sevasaathi
       - PORT=8080
+    depends_on:
+      - mongo
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api"]
       interval: 30s
@@ -39,7 +50,7 @@ services:
       start_period: 15s
 
 volumes:
-  sevasaathi-data:
+  sevasaathi-mongo-data:
     driver: local
   sevasaathi-uploads:
     driver: local

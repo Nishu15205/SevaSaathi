@@ -1,17 +1,17 @@
 // SevaSaathi - Verified Home Care & Elder Support Platform
-// Database Schema — SQLite (Dev) / MySQL (Production)
+// Database Schema — MongoDB
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 // ============================================================
-// ENUMS (stored as String in SQLite, native ENUM in MySQL)
+// ENUMS (stored as strings in MongoDB)
 // ============================================================
 
 // User roles
@@ -112,25 +112,34 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// Withdrawal status
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
 // ============================================================
 // USER & AUTH
 // ============================================================
 
 model User {
-  id             String           @id @default(cuid())
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
   email          String           @unique
-  passwordHash   String?          @map("password_hash")
+  passwordHash   String?
   phone          String
   name           String
   role           UserRole
-  avatarUrl      String?          @map("avatar_url")
+  avatarUrl      String?
   subscription   SubscriptionPlan @default(NONE)
-  isActive       Boolean          @default(true) @map("is_active")
-  phoneVerified  Boolean          @default(false) @map("phone_verified")
-  otpSecret      String?          @map("otp_secret")
-  lastLoginAt    DateTime?        @map("last_login_at")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
+  isActive       Boolean          @default(true)
+  phoneVerified  Boolean          @default(false)
+  otpSecret      String?
+  lastLoginAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   // Relations
   patientProfiles  Patient[]
@@ -143,8 +152,6 @@ model User {
   reviewedVerifications Verification[] @relation("VerificationReviewer")
   assignedComplaints    Complaint[] @relation("ComplaintAssignee")
   withdrawals           Withdrawal[]
-
-  @@map("users")
 }
 
 // ============================================================
@@ -152,8 +159,8 @@ model User {
 // ============================================================
 
 model Patient {
-  id              String   @id @default(cuid())
-  familyId        String   @map("family_id")
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  familyId        String   @db.ObjectId
   name            String
   age             Int
   gender          String
@@ -161,23 +168,19 @@ model Patient {
   address         String
   city            String
   pincode         String?
-  medicalHistory  String   @map("medical_history") // JSON string for SQLite
-  dietaryNeeds    String?  @map("dietary_needs")
-  mobilityStatus  String   @default("mobile") @map("mobility_status") // mobile, bedridden, limited, wheelchair
-  careRequirements String  @map("care_requirements") // JSON string
-  preferredLanguage String? @map("preferred_language")
-  emergencyContact String   @map("emergency_contact") // JSON: {name, phone, relation}
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  medicalHistory  String   // JSON string
+  dietaryNeeds    String?
+  mobilityStatus  String   @default("mobile") // mobile, bedridden, limited, wheelchair
+  careRequirements String  // JSON string
+  preferredLanguage String?
+  emergencyContact String  // JSON: {name, phone, relation}
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   family    User      @relation(fields: [familyId], references: [id])
   bookings  Booking[]
-
-  @@index([familyId])
-  @@index([city])
-  @@map("patients")
 }
 
 // ============================================================
@@ -185,29 +188,29 @@ model Patient {
 // ============================================================
 
 model Caregiver {
-  id              String          @id @default(cuid())
-  userId          String          @unique @map("user_id")
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String          @unique @db.ObjectId
   gender          String?
-  dateOfBirth     DateTime?       @map("date_of_birth")
+  dateOfBirth     DateTime?
   address         String
   city            String
   pincode         String?
   latitude        Float?          // For geo-matching
   longitude       Float?
-  yearsExperience Int             @default(0) @map("years_experience")
+  yearsExperience Int             @default(0)
   qualifications  String          // JSON array: ["BSc Nursing", "GNM", etc.]
   skills          String          // JSON array: ["bedridden-care", "feeding", "wound-care", etc.]
   languages       String?         // JSON array: ["Hindi", "English", "Punjabi"]
   bio             String?
-  hourlyRate      Int             @map("hourly_rate") // in INR
-  availabilityJson String          @map("availability_json") // JSON: {mon: {day: true, night: false}, ...}
-  overallRating   Float           @default(0) @map("overall_rating")
-  totalReviews    Int             @default(0) @map("total_reviews")
-  completedJobs   Int             @default(0) @map("completed_jobs")
-  isVerified      Boolean         @default(false) @map("is_verified")
-  isActive        Boolean         @default(true) @map("is_active")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  hourlyRate      Int             // in INR
+  availabilityJson String         // JSON: {mon: {day: true, night: false}, ...}
+  overallRating   Float           @default(0)
+  totalReviews    Int             @default(0)
+  completedJobs   Int             @default(0)
+  isVerified      Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   // Relations
   user          User           @relation(fields: [userId], references: [id])
@@ -218,11 +221,6 @@ model Caregiver {
   payments      Payment[]
   complaints    Complaint[]
   withdrawals   Withdrawal[]
-
-  @@index([city])
-  @@index([isVerified])
-  @@index([isActive])
-  @@map("caregivers")
 }
 
 // ============================================================
@@ -230,26 +228,22 @@ model Caregiver {
 // ============================================================
 
 model Verification {
-  id           String            @id @default(cuid())
-  caregiverId  String            @map("caregiver_id")
-  docType      VerificationType  @map("doc_type")
-  docNumber    String            @map("doc_number")
-  docUrl       String            @map("doc_url") // stored file path or URL
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  caregiverId  String            @db.ObjectId
+  docType      VerificationType
+  docNumber    String
+  docUrl       String            // stored file path or URL
   status       VerificationStatus @default(PENDING)
-  reviewedBy   String?           @map("reviewed_by") // admin user ID
-  reviewedAt   DateTime?         @map("reviewed_at")
-  rejectionReason String?        @map("rejection_reason")
-  expiresAt    DateTime?         @map("expires_at")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  reviewedBy   String?           @db.ObjectId // admin user ID
+  reviewedAt   DateTime?
+  rejectionReason String?
+  expiresAt    DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   // Relations
   caregiver Caregiver @relation(fields: [caregiverId], references: [id])
   reviewer  User?    @relation("VerificationReviewer", fields: [reviewedBy], references: [id])
-
-  @@index([caregiverId])
-  @@index([status])
-  @@map("verifications")
 }
 
 // ============================================================
@@ -257,24 +251,24 @@ model Verification {
 // ============================================================
 
 model Booking {
-  id             String        @id @default(cuid())
-  patientId      String        @map("patient_id")
-  caregiverId    String        @map("caregiver_id")
-  familyId       String        @map("family_id")
-  shiftType      ShiftType     @map("shift_type")
-  startDate      DateTime      @map("start_date")
-  endDate        DateTime?     @map("end_date")
-  startTime      String        @map("start_time") // "20:00"
-  endTime        String        @map("end_time")   // "08:00"
-  careRequirements String       @map("care_requirements") // JSON: specific needs for this booking
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  patientId      String        @db.ObjectId
+  caregiverId    String        @db.ObjectId
+  familyId       String        @db.ObjectId
+  shiftType      ShiftType
+  startDate      DateTime
+  endDate        DateTime?
+  startTime      String        // "20:00"
+  endTime        String        // "08:00"
+  careRequirements String       // JSON: specific needs for this booking
   status         BookingStatus @default(PENDING)
-  familyNotes    String?       @map("family_notes")
-  caregiverNotes String?       @map("caregiver_notes")
-  cancellationReason String?    @map("cancellation_reason")
-  totalAmount    Int           @default(0) @map("total_amount") // in INR
-  platformFee    Int           @default(0) @map("platform_fee") // 10% commission
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  familyNotes    String?
+  caregiverNotes String?
+  cancellationReason String?
+  totalAmount    Int           @default(0) // in INR
+  platformFee    Int           @default(0) // 10% commission
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
   patient    Patient    @relation(fields: [patientId], references: [id])
@@ -284,13 +278,6 @@ model Booking {
   careReports CareReport[]
   reviews    Review[]
   complaints Complaint[]
-
-  @@index([patientId])
-  @@index([caregiverId])
-  @@index([familyId])
-  @@index([status])
-  @@index([startDate])
-  @@map("bookings")
 }
 
 // ============================================================
@@ -298,31 +285,26 @@ model Booking {
 // ============================================================
 
 model Payment {
-  id              String        @id @default(cuid())
-  bookingId       String        @unique @map("booking_id")
-  familyId        String        @map("family_id")
-  caregiverId     String        @map("caregiver_id")
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId       String        @unique @db.ObjectId
+  familyId        String        @db.ObjectId
+  caregiverId     String        @db.ObjectId
   amount          Int           // total amount in paise
-  platformFee     Int           @default(0) @map("platform_fee")
-  caregiverPayout Int           @default(0) @map("caregiver_payout") // amount - platformFee
+  platformFee     Int           @default(0)
+  caregiverPayout Int           @default(0) // amount - platformFee
   status          PaymentStatus @default(PENDING)
-  paymentMethod   String?       @map("payment_method") // "stripe", "upi", "bank_transfer", "cash"
-  transactionId   String?       @map("transaction_id")
-  upiId           String?       @map("upi_id")
-  paidAt          DateTime?     @map("paid_at")
-  refundedAt      DateTime?     @map("refunded_at")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  paymentMethod   String?       // "stripe", "upi", "bank_transfer", "cash"
+  transactionId   String?
+  upiId           String?
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   // Relations
   booking   Booking   @relation(fields: [bookingId], references: [id])
   family    User      @relation(fields: [familyId], references: [id])
   caregiver Caregiver @relation(fields: [caregiverId], references: [id])
-
-  @@index([familyId])
-  @@index([caregiverId])
-  @@index([status])
-  @@map("payments")
 }
 
 // ============================================================
@@ -330,27 +312,22 @@ model Payment {
 // ============================================================
 
 model CareReport {
-  id         String   @id @default(cuid())
-  bookingId  String   @map("booking_id")
-  caregiverId String  @map("caregiver_id")
-  reportDate String   @map("report_date") // "2025-01-15"
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId  String   @db.ObjectId
+  caregiverId String  @db.ObjectId
+  reportDate String   // "2025-01-15"
   activities  String   // JSON array of care activities
   summary    String?
   mood       String?  @default("normal") // good, normal, upset, unwell
-  foodIntake String?  @default("normal") @map("food_intake") // good, normal, poor, refused
-  medicinesGiven String? @map("medicines_given") // JSON: [{"name": "Metformin", "time": "08:00", "given": true}]
+  foodIntake String?  @default("normal") // good, normal, poor, refused
+  medicinesGiven String? // JSON: [{"name": "Metformin", "time": "08:00", "given": true}]
   concerns   String?
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relations
   booking   Booking   @relation(fields: [bookingId], references: [id])
   caregiver Caregiver @relation(fields: [caregiverId], references: [id])
-
-  @@index([bookingId])
-  @@index([caregiverId])
-  @@index([reportDate])
-  @@map("care_reports")
 }
 
 // ============================================================
@@ -358,27 +335,23 @@ model CareReport {
 // ============================================================
 
 model Review {
-  id          String   @id @default(cuid())
-  bookingId   String   @unique @map("booking_id")
-  familyId    String   @map("family_id")
-  caregiverId String   @map("caregiver_id")
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId   String   @unique @db.ObjectId
+  familyId    String   @db.ObjectId
+  caregiverId String   @db.ObjectId
   rating      Int      // 1-5
-  communicationRating Int @default(0) @map("communication_rating")
-  punctualityRating   Int @default(0) @map("punctuality_rating")
-  careQualityRating   Int @default(0) @map("care_quality_rating")
+  communicationRating Int @default(0)
+  punctualityRating   Int @default(0)
+  careQualityRating   Int @default(0)
   comment     String?
-  isPublished Boolean @default(true) @map("is_published")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isPublished Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
   booking   Booking   @relation(fields: [bookingId], references: [id])
   family    User      @relation(fields: [familyId], references: [id])
   caregiver Caregiver @relation(fields: [caregiverId], references: [id])
-
-  @@index([caregiverId])
-  @@index([rating])
-  @@map("reviews")
 }
 
 // ============================================================
@@ -386,30 +359,25 @@ model Review {
 // ============================================================
 
 model Complaint {
-  id          String          @id @default(cuid())
-  bookingId   String?         @map("booking_id")
-  familyId    String          @map("family_id")
-  caregiverId String          @map("caregiver_id")
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId   String?         @db.ObjectId
+  familyId    String          @db.ObjectId
+  caregiverId String          @db.ObjectId
   subject     String
   description String
   status      ComplaintStatus @default(OPEN)
   priority    String          @default("medium") // low, medium, high, urgent
-  assignedTo  String?         @map("assigned_to") // admin user ID
+  assignedTo  String?         @db.ObjectId // admin user ID
   resolution  String?
-  resolvedAt  DateTime?       @map("resolved_at")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  resolvedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   // Relations
   booking   Booking?  @relation(fields: [bookingId], references: [id])
   family    User      @relation(fields: [familyId], references: [id])
   caregiver Caregiver  @relation(fields: [caregiverId], references: [id])
   assignee  User?     @relation("ComplaintAssignee", fields: [assignedTo], references: [id])
-
-  @@index([familyId])
-  @@index([caregiverId])
-  @@index([status])
-  @@map("complaints")
 }
 
 // ============================================================
@@ -417,61 +385,44 @@ model Complaint {
 // ============================================================
 
 model Notification {
-  id         String          @id @default(cuid())
-  userId     String          @map("user_id")
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String          @db.ObjectId
   type       NotificationType
   title      String
   message    String
   data       String?         // JSON: additional metadata
-  isRead     Boolean         @default(false) @map("is_read")
-  createdAt  DateTime        @default(now()) @map("created_at")
+  isRead     Boolean         @default(false)
+  createdAt  DateTime        @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([isRead])
-  @@map("notifications")
 }
 
 // ============================================================
 // WITHDRAWALS (caregiver payout requests)
 // ============================================================
 
-enum WithdrawalStatus {
-  PENDING
-  APPROVED
-  PROCESSING
-  COMPLETED
-  REJECTED
-}
-
 model Withdrawal {
-  id              String            @id @default(cuid())
-  caregiverId     String            @map("caregiver_id")
-  userId          String            @map("user_id")
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  caregiverId     String            @db.ObjectId
+  userId          String            @db.ObjectId
   amount          Int               // in paise
   method          String            @default("bank_transfer") // "bank_transfer", "upi"
-  upiId           String?           @map("upi_id")
-  bankName        String?          @map("bank_name")
-  accountNumber   String?           @map("account_number")
-  ifscCode        String?           @map("ifsc_code")
-  accountHolder   String?           @map("account_holder")
+  upiId           String?
+  bankName        String?
+  accountNumber   String?
+  ifscCode        String?
+  accountHolder   String?
   status          WithdrawalStatus  @default(PENDING)
-  processedAt     DateTime?         @map("processed_at")
-  rejectionReason String?           @map("rejection_reason")
-  approvedBy      String?           @map("approved_by")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  processedAt     DateTime?
+  rejectionReason String?
+  approvedBy      String?           @db.ObjectId
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   // Relations
   caregiver Caregiver @relation(fields: [caregiverId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
-
-  @@index([caregiverId])
-  @@index([userId])
-  @@index([status])
-  @@map("withdrawals")
 }
 
 // ============================================================
@@ -479,17 +430,16 @@ model Withdrawal {
 // ============================================================
 
 model SystemConfig {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   section   String   // e.g., "GOOGLE_OAUTH", "RAZORPAY", "SMTP", "SMS", "PLATFORM"
   key       String   // e.g., "CLIENT_ID", "API_KEY", "SECRET"
   value     String   // The actual credential value
   label     String   // Display name, e.g., "Google Client ID"
-  isSecret  Boolean  @default(true) @map("is_secret") // Hide value in UI
-  updatedAt DateTime @updatedAt @map("updated_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  isSecret  Boolean  @default(true) // Hide value in UI
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 
   @@unique([section, key])
-  @@map("system_configs")
 }
 
 // ============================================================
@@ -497,16 +447,12 @@ model SystemConfig {
 // ============================================================
 
 model OAuthState {
-  id          String   @id @default(cuid())
-  stateToken  String   @unique @map("state_token") // UUID passed to Google as state param
-  role        String   @default("")             // CAREGIVER, FAMILY, or empty
-  redirectUrl String   @map("redirect_url")      // Full origin URL for post-auth redirect
-  createdAt   DateTime @default(now()) @map("created_at")
-  expiresAt   DateTime @map("expires_at")         // 10 minutes from creation
-
-  @@index([stateToken])
-  @@index([expiresAt])
-  @@map("oauth_states")
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  stateToken  String   @unique // UUID passed to Google as state param
+  role        String   @default("") // CAREGIVER, FAMILY, or empty
+  redirectUrl String   // Full origin URL for post-auth redirect
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // 10 minutes from creation
 }
 
 // ============================================================
@@ -514,15 +460,13 @@ model OAuthState {
 // ============================================================
 
 model EmailLog {
-  id          String   @id @default(cuid())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   to          String
   subject     String
   body        String
   status      String   @default("sent") // sent, failed
-  userId      String?  @map("user_id")
+  userId      String?  @db.ObjectId
   type        String?  // booking_confirmation, care_report, etc.
-  externalId  String?  @map("external_id") // Resend message ID
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  @@map("email_logs")
+  externalId  String?  // Resend message ID
+  createdAt   DateTime @default(now())
 }
