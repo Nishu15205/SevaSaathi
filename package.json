@@ -11,6 +11,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
+    "db:use-mysql": "sed -i 's/provider = \"sqlite\"/provider = \"mysql\"/' prisma/schema.prisma",
+    "db:use-sqlite": "sed -i 's/provider = \"mysql\"/provider = \"sqlite\"/' prisma/schema.prisma",
     "seed": "bun run prisma/seed.ts"
   },
   "dependencies": {

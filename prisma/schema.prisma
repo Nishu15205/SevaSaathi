@@ -1,12 +1,12 @@
 // SevaSaathi - Verified Home Care & Elder Support Platform
-// Database Schema — MySQL (Production)
+// Database Schema — SQLite (Dev) / MySQL (Production)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

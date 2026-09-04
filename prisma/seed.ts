@@ -1,17 +1,7 @@
 import { PrismaClient, UserRole, VerificationType, VerificationStatus, BookingStatus, ShiftType, ComplaintStatus, NotificationType, SubscriptionPlan, PaymentStatus, CareActivityType } from '@prisma/client'
-import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import bcrypt from 'bcryptjs'
 
-function createDb() {
-  const tursoUrl = process.env.TURSO_DATABASE_URL
-  if (tursoUrl) {
-    const adapter = new PrismaLibSQL({ url: tursoUrl, authToken: process.env.TURSO_AUTH_TOKEN || '' })
-    return new PrismaClient({ adapter })
-  }
-  return new PrismaClient()
-}
-
-const db = createDb()
+const db = new PrismaClient()
 
 const SALT_ROUNDS = 10
 const PASSWORD = 'password123'
@@ -23,7 +13,7 @@ async function hashPassword(): Promise<string> {
 async function main() {
   console.log('🌱 Seeding SevaSaathi database...')
 
-  // Clean existing data
+  // Clean existing data (order matters for foreign key constraints)
   await db.notification.deleteMany()
   await db.complaint.deleteMany()
   await db.review.deleteMany()
@@ -31,30 +21,9 @@ async function main() {
   await db.payment.deleteMany()
   await db.booking.deleteMany()
   await db.verification.deleteMany()
-  await db.patient.deleteMany()
-  await db.caregiver.deleteMany()
-  await db.user.deleteMany()
-
-  const passwordHash = await hashPassword()
-
-const SALT_ROUNDS = 10
-const PASSWORD = 'password123'
-
-async function hashPassword(): Promise<string> {
-  return bcrypt.hash(PASSWORD, SALT_ROUNDS)
-}
-
-async function main() {
-  console.log('🌱 Seeding SevaSaathi database...')
-
-  // Clean existing data
-  await db.notification.deleteMany()
-  await db.complaint.deleteMany()
-  await db.review.deleteMany()
-  await db.careReport.deleteMany()
-  await db.payment.deleteMany()
-  await db.booking.deleteMany()
-  await db.verification.deleteMany()
+  await db.withdrawal.deleteMany()
+  await db.emailLog.deleteMany()
+  await db.oAuthState.deleteMany()
   await db.patient.deleteMany()
   await db.caregiver.deleteMany()
   await db.user.deleteMany()
@@ -778,5 +747,3 @@ main()
   .finally(async () => {
     await db.$disconnect()
   })
-
-}
