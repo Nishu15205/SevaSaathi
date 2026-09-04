@@ -1,0 +1,49 @@
+# ============================================
+# SevaSaathi — Render.com Blueprint
+# This creates both the MySQL database and the web service
+# ============================================
+
+databases:
+  - name: sevasaathi-db
+    plan: free
+    databaseName: sevasaathi
+
+services:
+  - type: web
+    name: sevasaathi-byon
+    runtime: docker
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sevasaathi-db
+          property: connectionString
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        value: https://sevasaathi-byon.onrender.com
+      - key: NODE_ENV
+        value: production
+      # Uncomment and fill in these as needed:
+      # - key: GOOGLE_CLIENT_ID
+      #   value: your-google-client-id
+      # - key: GOOGLE_CLIENT_SECRET
+      #   value: your-google-client-secret
+      # - key: RAZORPAY_KEY_ID
+      #   value: your-razorpay-key-id
+      # - key: RAZORPAY_KEY_SECRET
+      #   value: your-razorpay-key-secret
+      # - key: BREVO_API_KEY
+      #   value: your-brevo-api-key
+      # - key: BREVO_SENDER_EMAIL
+      #   value: your-verified-sender@email.com
+      # - key: FIREBASE_API_KEY
+      #   value: your-firebase-api-key
+      # - key: FIREBASE_AUTH_DOMAIN
+      #   value: your-project.firebaseapp.com
+      # - key: FIREBASE_PROJECT_ID
+      #   value: your-project-id
+      # - key: FIREBASE_CLIENT_EMAIL
+      #   value: firebase-adminsdk@your-project.iam.gserviceaccount.com
+      # - key: FIREBASE_PRIVATE_KEY
+      #   value: your-firebase-private-key
