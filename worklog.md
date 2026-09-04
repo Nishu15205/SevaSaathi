@@ -89,3 +89,29 @@ Stage Summary:
 - Credentials: ✅ API returns data, Sync from .env works
 - Responsive: ✅ Mobile layout works
 - The app is fully functional for local development
+
+---
+Task ID: 5
+Agent: main
+Task: Debug and fix admin dashboard not loading on Render deployment
+
+Work Log:
+- Tested deployed Render app at https://sevasaathi-byon.onrender.com/
+- Landing page loads fine (HTTP 200)
+- Auth APIs work (csrf, session, providers)
+- Healthz endpoint works: {"status":"ok"}
+- Admin dashboard API returns 500: "Internal server error"
+- Admin configs API reveals root cause: DATABASE_URL not set correctly
+- Error: "the URL must start with the protocol `mysql://`" — Prisma can't connect
+- Login fails silently because database is unreachable
+- Created render.yaml blueprint with MySQL database + web service
+- Created start.sh startup script that auto-runs prisma db push + seed
+- Updated Dockerfile to use start.sh instead of direct node server.js
+- Pushed all changes to GitHub (Render will auto-rebuild)
+
+Stage Summary:
+- ROOT CAUSE: DATABASE_URL environment variable not set on Render
+- Fix requires: Create MySQL database on Render → Set DATABASE_URL
+- render.yaml blueprint created for one-click deploy with DB
+- After setting DATABASE_URL, the app will auto-migrate and seed on startup
+- Landing page works, but all DB-dependent features (login, dashboard) fail
