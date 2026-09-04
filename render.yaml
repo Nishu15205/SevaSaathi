@@ -1,9 +1,6 @@
 # ============================================
 # SevaSaathi — Render.com Blueprint
-# This creates the web service with MongoDB (external)
-# ============================================
-# For MongoDB, use MongoDB Atlas (free tier) or any external MongoDB provider.
-# Set DATABASE_URL in the Render dashboard or below.
+# MongoDB Atlas (external) + web service
 # ============================================
 
 services:
@@ -13,9 +10,7 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        # Set this to your MongoDB connection string, e.g.:
-        # mongodb+srv://user:password@cluster0.xxxxx.mongodb.net/sevasaathi?retryWrites=true&w=majority
-        sync: false
+        value: mongodb+srv://nishu_db_user:KpascAxZo5EAwD2n@cluster0.yxxfjpo.mongodb.net/sevasaathi?retryWrites=true&w=majority&appName=Cluster0
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_URL
